@@ -122,6 +122,7 @@ pub const SCHEMAS: &[(&str, &str)] = &[
         "space-threads",
         include_str!("../../contract/space-threads.json"),
     ),
+    ("whoami", include_str!("../../contract/whoami.json")),
 ];
 
 /// Errors from decoding, compiling, or validating against the contract.

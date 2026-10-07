@@ -6,6 +6,13 @@
     "name": {
       "$ref": "https://zriz.io/contract/project-name.json"
     },
+    "org": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "not": {
+        "pattern": "(zk|zrt)_[A-Za-z0-9_-]{20,}"
+      }
+    },
     "default-env": {
       "type": "string"
     }

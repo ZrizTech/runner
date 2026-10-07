@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/whoami.json",
+  "type": "object",
+  "properties": {
+    "org-id": {"type": "string", "minLength": 1},
+    "org-name": {"type": "string"},
+    "email": {"type": ["string", "null"]},
+    "role": {"enum": ["admin", "member", "viewer"]},
+    "key-kind": {"type": "string", "minLength": 1}
+  },
+  "required": ["org-id", "org-name", "email", "role", "key-kind"],
+  "additionalProperties": false
+}

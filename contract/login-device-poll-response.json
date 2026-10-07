@@ -6,7 +6,9 @@
     "status": {"enum": ["pending", "approved", "expired"]},
     "api-key": {"type": "string", "minLength": 1},
     "org-id": {"type": "string", "minLength": 1},
-    "api-url": {"type": "string", "minLength": 1}
+    "api-url": {"type": "string", "minLength": 1},
+    "org-name": {"type": "string"},
+    "email": {"type": "string"}
   },
   "required": ["status"],
   "if": {
@@ -19,7 +21,9 @@
       "anyOf": [
         {"required": ["api-key"]},
         {"required": ["org-id"]},
-        {"required": ["api-url"]}
+        {"required": ["api-url"]},
+        {"required": ["org-name"]},
+        {"required": ["email"]}
       ]
     }
   },

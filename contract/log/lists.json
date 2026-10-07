@@ -60,7 +60,12 @@
    "auth_method",
    "provider",
    "browser",
+   "email",
+   "email_len",
    "ip",
+   "fill_ms",
+   "block",
+   "age_days",
    "op",
    "table",
    "rows",
@@ -118,7 +123,12 @@
    "auth_method",
    "provider",
    "browser",
+   "email",
+   "email_len",
    "ip",
+   "fill_ms",
+   "block",
+   "age_days",
    "op",
    "table",
    "rows",
@@ -630,7 +640,89 @@
      "org_id",
      "account_id",
      "auth_method",
+     "email",
      "ip"
+    ]
+   },
+   "signup refused": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "reason",
+     "email",
+     "email_len",
+     "ip",
+     "fill_ms",
+     "block"
+    ],
+    "reasons": [
+     "origin",
+     "rate-ip",
+     "too-large",
+     "honeypot",
+     "token-bad",
+     "token-expired",
+     "too-fast",
+     "token-used",
+     "email-invalid",
+     "password-weak",
+     "email-taken",
+     "block-limit",
+     "busy",
+     "server-error"
+    ]
+   },
+   "confirm email sent": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id",
+     "email"
+    ]
+   },
+   "email confirmed": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id",
+     "email",
+     "ip"
+    ]
+   },
+   "confirm refused": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "reason",
+     "org_id",
+     "account_id",
+     "email",
+     "ip"
+    ],
+    "reasons": [
+     "not-found",
+     "expired",
+     "used",
+     "origin",
+     "rate-ip",
+     "resend-limit"
+    ]
+   },
+   "unverified account removed": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id",
+     "email",
+     "age_days"
     ]
    },
    "account retired": {
@@ -838,6 +930,18 @@
     "reasons": [
      "not-recoverable",
      "runner-down"
+    ]
+   },
+   "run refused": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "org_id",
+     "reason"
+    ],
+    "reasons": [
+     "org-mismatch"
     ]
    },
    "wake refused": {
