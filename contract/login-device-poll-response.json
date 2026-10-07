@@ -7,7 +7,7 @@
     "api-key": {"type": "string", "minLength": 1},
     "org-id": {"type": "string", "minLength": 1},
     "api-url": {"type": "string", "minLength": 1},
-    "org-name": {"type": "string"},
+    "org-name": {"type": "string", "minLength": 1},
     "email": {"type": "string"}
   },
   "required": ["status"],
@@ -15,7 +15,7 @@
     "properties": {"status": {"const": "approved"}},
     "required": ["status"]
   },
-  "then": {"required": ["api-key", "org-id", "api-url"]},
+  "then": {"required": ["api-key", "org-id", "api-url", "org-name"]},
   "else": {
     "not": {
       "anyOf": [

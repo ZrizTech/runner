@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "org-id": {"type": "string", "minLength": 1},
-    "org-name": {"type": "string"},
+    "org-name": {"type": "string", "minLength": 1},
     "email": {"type": ["string", "null"]},
     "role": {"enum": ["admin", "member", "viewer"]},
     "key-kind": {"type": "string", "minLength": 1}

@@ -1,0 +1,39 @@
+{
+  "env": "local",
+  "org": "zk_abcdefghijklmnopqrst",
+  "pipeline-id": "02-auth-flow",
+  "pipeline": {
+    "steps": [
+      {
+        "log": "hi"
+      }
+    ]
+  },
+  "resources": {
+    "myshop-api": {
+      "type": "http",
+      "actions": {
+        "health": {
+          "method": "GET",
+          "path": "/health"
+        }
+      }
+    },
+    "myshop-mysql": {
+      "type": "sql",
+      "actions": {
+        "get-user": {
+          "query": "SELECT 1"
+        }
+      }
+    }
+  },
+  "environment": {
+    "values": {
+      "API_URL": "http://api.test"
+    }
+  },
+  "local": {
+    "runner-id": "local/1"
+  }
+}
