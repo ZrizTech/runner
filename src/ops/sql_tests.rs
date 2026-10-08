@@ -755,3 +755,14 @@ async fn rows_are_capped_at_max_sql_rows_in_result_and_evidence() {
     let n = entry.body.as_array().map(|a| a.len()).unwrap_or(usize::MAX);
     assert!(n <= 1000, "evidence holds {n} rows");
 }
+
+/// Called when a real-database test cannot reach its database. Locally the
+/// test skips with a note; with `ZRIZ_TEST_DB_REQUIRED=1` (set in CI) it fails,
+/// so a test that guards a claim can never silently skip there.
+pub(crate) fn database_unreachable(name: &str, env_var: &str) {
+    assert!(
+        std::env::var("ZRIZ_TEST_DB_REQUIRED").as_deref() != Ok("1"),
+        "{name} not reachable at ${env_var} and ZRIZ_TEST_DB_REQUIRED=1: the test may not skip"
+    );
+    eprintln!("note: {name} not reachable, test skipped");
+}

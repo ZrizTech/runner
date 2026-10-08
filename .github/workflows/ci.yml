@@ -3,6 +3,7 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -10,12 +11,45 @@ permissions:
 jobs:
   rust:
     runs-on: ubuntu-latest
+    env:
+      # The read-only tests need a real database: unreachable means fail, not skip.
+      ZRIZ_TEST_DB_REQUIRED: "1"
+      ZRIZ_TEST_PG: postgres://zriz:zriz@localhost:5432/zriz?sslmode=disable
+      ZRIZ_TEST_MYSQL: zriz:zriz@tcp(127.0.0.1:3306)/zriz
+    services:
+      postgres:
+        image: postgres:16@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
+        env:
+          POSTGRES_USER: zriz
+          POSTGRES_PASSWORD: zriz
+          POSTGRES_DB: zriz
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zriz"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      mysql:
+        image: mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
+        env:
+          MYSQL_ROOT_PASSWORD: zriz
+          MYSQL_USER: zriz
+          MYSQL_PASSWORD: zriz
+          MYSQL_DATABASE: zriz
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uzriz -pzriz --silent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test --locked
@@ -26,8 +60,8 @@ jobs:
       run:
         working-directory: worker
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm

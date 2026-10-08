@@ -1,6 +1,6 @@
 //! Tests against a real Postgres (`ZRIZ_TEST_PG`, default the local
 //! `zriz-rs-pg` container). If it is not reachable, a test prints a note and
-//! passes. Each test makes its own scratch schema and drops it.
+//! passes, unless `ZRIZ_TEST_DB_REQUIRED=1` (CI), then it fails. Each test makes its own scratch schema and drops it.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use super::*;
@@ -22,7 +22,7 @@ async fn setup() -> Option<(PgConn, String)> {
     {
         Ok(_) => Some((conn, schema)),
         Err(_) => {
-            eprintln!("note: postgres not reachable, test skipped");
+            crate::ops::sql::tests::database_unreachable("postgres", "ZRIZ_TEST_PG");
             None
         }
     }

@@ -17,7 +17,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The same checks as CI, on this commit. Images are built only after they pass.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   image:
+    needs: ci
     name: image ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -40,6 +45,18 @@ jobs:
       PUSH: ${{ github.event_name == 'push' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # All tags and main: needed for the order checks below.
+          fetch-depth: 0
+
+      - name: Tagged commit must be on main
+        if: github.event_name == 'push'
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME is not on main"
+            exit 1
+          fi
 
       - name: Tag must equal the Cargo.toml version
         if: github.event_name == 'push'
@@ -51,7 +68,19 @@ jobs:
             exit 1
           fi
 
-      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - name: Build id is the first 12 chars of the commit
+        id: sha
+        run: |
+          short=$(printf '%.12s' "$GITHUB_SHA")
+          if ! [[ "$short" =~ ^[0-9a-f]{12}$ ]]; then
+            echo "::error::bad build id: $short"
+            exit 1
+          fi
+          echo "short=$short" >> "$GITHUB_OUTPUT"
+
+      # Only the worker needs QEMU: it has no compile step. The runner cross-compiles.
+      - if: matrix.name == 'worker'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to ghcr.io
@@ -62,20 +91,42 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Version must be new, and is it the highest?
+        id: order
+        if: env.PUSH == 'true'
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if docker buildx imagetools inspect "${IMAGE}:${version}" > /dev/null 2>&1; then
+            echo "::error::${IMAGE}:${version} already exists"
+            exit 1
+          fi
+          # 1.2 and latest move only for the highest stable version. A pre-release leaves that to the metadata action.
+          highest=true
+          case "$version" in
+            *-*) ;;
+            *)
+              top=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -v -- '-' | sort -V | tail -n1)
+              [ "$top" = "$GITHUB_REF_NAME" ] || highest=false
+              ;;
+          esac
+          echo "highest=${highest}" >> "$GITHUB_OUTPUT"
+
       - name: Tags and labels
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ matrix.image }}
-          # latest only for a release that is not a pre-release.
-          flavor: latest=auto
+          # latest only for a release that is not a pre-release, and only the highest.
+          flavor: latest=${{ steps.order.outputs.highest == 'false' && 'false' || 'auto' }}
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.order.outputs.highest != 'false' }}
             type=raw,value=dry-run,enable=${{ github.event_name == 'workflow_dispatch' }}
           labels: |
             org.opencontainers.image.title=zriz-${{ matrix.name }}
-            org.opencontainers.image.licenses=Apache-2.0
+            ${{ matrix.name == 'runner' && 'org.opencontainers.image.licenses=Apache-2.0' || '' }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
 
@@ -89,12 +140,10 @@ jobs:
           push: ${{ env.PUSH == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            ZRIZ_BUILD_SHA=${{ github.sha }}
+          # Only the runner has a build id. The worker takes no build arg.
+          build-args: ${{ matrix.name == 'runner' && format('ZRIZ_BUILD_SHA={0}', steps.sha.outputs.short) || '' }}
           provenance: mode=max
           sbom: true
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
       - name: Install cosign
         if: env.PUSH == 'true'

@@ -505,3 +505,7 @@ fn is_all_digits(s: &str) -> bool {
 #[cfg(test)]
 #[path = "sql_tests.rs"]
 pub(crate) mod tests;
+
+#[cfg(test)]
+#[path = "sql_mysql_tests.rs"]
+mod mysql_tests;

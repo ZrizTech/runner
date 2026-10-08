@@ -8,12 +8,83 @@
 
 The runner polls the zriz cloud for ops (http, sql, browser, cli), runs them against your systems, and sends back the results.
 
-- It only makes outbound connections. Nothing listens on a port.
+- It only makes outbound connections. The runner opens no port. (The worker listens on a unix socket only.)
 - It runs only inside its allowlist: every URL is checked against the resource's origin (redirects too), SQL is read-only where you declare it, op arguments have closed key sets, and `${NAME}` placeholders work only in the allowed slots.
-- Secrets live in the runner's environment. The cloud never sees a secret, a connection string or a database driver.
-- Results are cut down to the fields the checks need, then every value named in any resource's `secrets` list, and every value the run captured, is scrubbed from every result before it leaves. The cloud redacts again on write.
+- Secrets live in the runner's environment. The runner sends the cloud no secret, no connection string and no database driver.
+- Results are cut down to the fields the op asks for. Then every value named in any resource's `secrets` list, and every value the run captured, is scrubbed from the result before it leaves. The cloud redacts again on write.
 
-Browser and cli ops run in a separate Node sidecar, the worker (`worker/`). It holds no runner secret.
+Browser and cli ops run in a separate Node sidecar, the worker (`worker/`). It keeps no secret: it has no runner environment and no config. It sees a secret value only inside the op that uses it, and the runner scrubs the result.
+
+## Trust model
+
+Where things sit:
+
+```
+       YOUR NETWORK                          |        ZRIZ CLOUD
+                                             |
+ +-------------+  calls  +---------------+   |
+ | HTTP API    |<--------|    runner     |---+--> results: projected,
+ | database    |         |  every secret |   |    scrubbed
+ +-------------+         |  (its env)    |<--+--- ops: ${NAME} slots,
+                         +-------+-------+   |    never values
+                                 | unix      |
+                                 | socket    |    The cloud holds no
+ +-------------+  calls  +-------+-------+   |    secret, no driver,
+ | browser site|<--------|    worker     |   |    no connection string.
+ | cli tools   |         | no secret kept|   |
+ +-------------+         +---------------+   |
+                                             |
+ Only link out: runner -> cloud, HTTPS long-poll. No port is open.
+```
+
+The path of one op through the runner. A failed check ends the op with an error. Nothing later runs.
+
+```
+ op from the cloud
+   |
+   v
+ 1 closed arg keys     a key not in the kind's list: unknown-arg
+ 2 placeholder slots   ${NAME} only in allowed slots, only listed names
+ 3 check by kind       http: origin check, again on every redirect hop
+                       sql:  read-only pre-check, if the resource says so
+                       cli:  command and argument shape
+                       browser: the worker blocks off-origin requests
+ 4 execute             read-only sql runs in a read-only transaction
+ 5 project             keep only the fields the op asks for
+ 6 mask and scrub      captured values to [captured]; secrets scrubbed
+   |
+   v
+ result to the cloud
+```
+
+How to check each claim. Paths are in this repository. `cargo test` and `cd worker && npm test` run the tests.
+
+| Claim | Enforced in | Pinned by |
+| --- | --- | --- |
+| The runner only connects out; it opens no port | `src/exchange/mod.rs` (client only; `src/` has no listener) | `tests/no_listener_test.rs` `the_runner_only_connects_out_and_opens_no_port`, `cargo_toml_has_no_server_crate` |
+| Every URL stays on the resource origin, redirects too | `src/origin.rs`, `src/ops/http.rs` (own redirect loop; the client is built with `redirect::Policy::none()`) | `src/origin.rs` `check_origin_table`; `src/ops/http_tests.rs` `host_not_allowed`, `redirect_different_host_refused` |
+| A browser page cannot reach another origin | `worker/src/browser.js` (route filter) | `worker/test/policy.test.js` `off-origin fetch is blocked and counted`, `main-frame redirect off-origin fails with host-not-allowed` |
+| Read-only SQL is checked, then run in a read-only transaction | `src/readonly.rs`; `src/ops/sql.rs`, `src/ops/sql_pg.rs` | `src/readonly.rs` `check_table`; `src/ops/sql_tests.rs` `read_only_refuses_write_before_reaching_conn`; `write_on_read_only_is_refused_and_nothing_written` in `src/ops/sql_pg_tests.rs` (Postgres) and `src/ops/sql_mysql_tests.rs` (MySQL). They need a real database. CI runs both and does not let them skip. |
+| Op arguments have closed key sets | `src/ops/mod.rs` `closed_arg_keys` | `src/ops/ops_tests.rs` `dispatch_unknowns`; `src/ops/cli_tests.rs` `unknown_command_and_closed_keys`; `src/ops/browser_tests.rs` `closed_arg_keys` |
+| `${NAME}` works only in allowed slots, and only for listed names | `src/placeholder.rs`, `src/ops/subst.rs` | `src/placeholder.rs` `disallowed_slot`; `src/ops/http_tests.rs` `placeholder_in_disallowed_slot`, `secrets_list_allows_only_listed_names`; `src/ops/sql_tests.rs` `sql_takes_no_placeholders_even_when_listed`; `src/ops/cli_tests.rs` `placeholders_only_in_env_for_allowed_names` |
+| Results hold only the projected fields | `src/project.rs` | `src/ops/http_tests.rs` `status_only_projection_nulls_body`, `response_header_projected_only_when_asked`; `src/ops/sql_tests.rs` `empty_projection_yields_no_rows` |
+| Secrets are scrubbed, also in URL- and base64-encoded forms | `src/scrub.rs`, `src/ops/mod.rs` `scrub_payload` | `src/scrub.rs` `scrub_table`; `src/ops/http_tests.rs` `auth_register_scrubs_secret`; `src/ops/listed_secrets_tests.rs` `sql_row_holding_listed_http_secret_is_scrubbed` |
+| Captured values stay in the runner and show as `[captured]` | `src/ops/capture.rs`, `src/ops/vault.rs` | `src/ops/http_capture_tests.rs` `capture_masks_stores_and_scrubs_later`, `other_run_cannot_resolve` |
+| The token env name cannot be listed in `secrets` or used as `${NAME}` | `src/config.rs`, `src/ops/subst.rs` | `src/config_tests.rs` `secrets_listing_the_token_env_is_refused`; `src/ops/http_tests.rs` `runner_token_name_is_never_substitutable` |
+| `cloud.url` must be https (http only for loopback or the test switch) | `src/config.rs` `check_cloud_scheme` | `src/config_tests.rs` `cloud_url_scheme_rules` |
+| Logs carry no payloads | `src/logfmt/`, `src/ops/log.rs` (closed key list) | `tests/log_sub_test.rs` `op_failed_is_an_error_line_without_payload`; `tests/log_format_test.rs` `every_tracing_macro_in_src_is_on_the_lists`; `worker/test/server.test.js` `secret in args or in bad fields never reaches the log` |
+| A cli command runs without a shell, with a cleared env, and only with a declared argument shape | `worker/src/cli.js`; `src/argshape.rs`, `src/ops/cli.rs` | `worker/test/cli.test.js` `run: argv passed exactly, no shell expansion`, `env is cleared; only given env, fixed PATH/HOME, cwd is the run dir`; `src/argshape.rs` `classes_accept_and_refuse`, `shapes_match_exactly`; `src/ops/cli_tests.rs` `argv_shape_refusals` |
+| The worker holds no runner secret | `ops/docker-compose.yml` (the worker has no `env_file`); `worker/src/` reads no secret | `worker/test/no-runner-secret.test.js` `the worker reads only the closed set of environment names and never passes its env on`, `compose gives the worker service no env_file and only ZRIZ_WORKER_SOCKET` |
+| No `unsafe` code in the runner | `Cargo.toml` `unsafe_code = "forbid"` | the compiler, in every build; no separate test |
+
+What the runner does not protect against:
+
+- The cloud chooses the ops. Inside the allowlist it can read whatever your resources return to a query it picks, minus the scrubbed secrets. A secret listed on a resource can be sent to any path of that resource's origin.
+- Scrubbing is by value. It finds a secret as is, URL-encoded and base64-encoded, and in no other form (hex, for example). A short or common secret also hides matching text that is not the secret. Use long random secrets.
+- Data that is not a listed or captured secret (a row, a name, an email) is not scrubbed. If an op projects it, it goes to the cloud.
+- A resource not marked `read-only: true` gets no SQL check. For one that is marked, the database account is still your first guard: give it read rights only.
+- A secret you pass to the worker (a `fill` value, a cli `env` value) is visible to that worker process and to the cli command you allowed.
+- The runner trusts the config you write. A wide `base-url`, a loose cli `shapes` list, or a binary that does more than you think, widens what the cloud can do.
 
 ## Container image
 
@@ -23,11 +94,10 @@ The images exist from the first release tag on. Before that, build from source (
 
 Both images are built for `linux/amd64` and `linux/arm64`. Tags:
 
-- `1.2.3` never changes. Pin this one.
-- `1.2` moves to the newest patch of that minor version.
-- `latest` is the newest release that is not a pre-release. Do not use it in a guide or a Compose file.
+- `1.2.3` never changes. The release workflow refuses to publish a version twice. Pin this one.
+- `1.2` and `latest` move only when the new release is the highest stable version so far. A pre-release (`1.3.0-rc1`) gets its own tag only. Do not use `latest` in a guide or a Compose file.
 
-Write the token and the passwords in a file with an editor (one `NAME=value` per line), so they stay out of your shell history:
+Write the token and the passwords in a file named `runner.env`, with an editor (one `NAME=value` per line), so they stay out of your shell history:
 
     ZRIZ_RUNNER_TOKEN=zrt_...
     SHOP_DB_PASSWORD=...
@@ -45,7 +115,7 @@ Do not write `-e ZRIZ_RUNNER_TOKEN=value` on the command line. The shell keeps i
 
 ### Verify the image
 
-Each release image is signed without a key (Sigstore keyless) and has a build record and an SBOM. Replace `<version>` with the version you use, for example `0.1.0`.
+A release runs only after CI passes, and only from a commit on `main`. Each release image is signed without a key (Sigstore keyless) and has a build record (provenance) and an SBOM. The runner binary is built with `cargo-auditable`, so the SBOM lists its Rust crates. Replace `<version>` with the version you use, for example `0.1.0`.
 
 Check the signature. It must come from the release workflow of this repository, on a `v` tag:
 
@@ -59,6 +129,8 @@ Check the GitHub build attestation:
 
 To pin the exact image, take the digest from the output and run `ghcr.io/zriztech/runner@sha256:<digest>`. The same two commands work for `ghcr.io/zriztech/worker`.
 
+The runner logs its build id at start as `build=<version>+<12-char commit>`. A local build shows `+dev`.
+
 ## Quick start (build from source)
 
 Build the images from this folder:
@@ -66,12 +138,12 @@ Build the images from this folder:
     docker build -t zriz-runner .
     docker build -f worker/Dockerfile -t zriz-worker .
 
-Copy `examples/config.json`, edit it, and run:
+Copy `examples/config.json`, edit it, and write `runner.env` as in the section above (the token and every password the config uses). Then:
 
+    chmod 600 runner.env
     docker run --rm \
+      --env-file runner.env \
       -e ZRIZ_RUNNER_CONFIG=/config/config.json \
-      -e ZRIZ_RUNNER_TOKEN=<token> \
-      -e SHOP_DB_PASSWORD=<password> \
       -v "$PWD/config.json:/config/config.json:ro" \
       zriz-runner
 
@@ -110,7 +182,7 @@ Every resource has `type`: `http`, `sql`, `browser` or `cli`. An unknown type is
 | `connection` | MySQL: `user:pass@tcp(host:3306)/db`. Postgres: a `postgres://` or `postgresql://` URL. Put the password in `${NAME}`. |
 | `read-only` | `true`: statements are checked for writes, and run in a read-only transaction. Default `false`. |
 
-At most 2 connections per resource. At most 1000 rows per query.
+At most 2 connections per resource. A query reads at most 1000 rows (`row-count` is the number read). A projection returns at most 100 rows.
 
 **browser** (needs `worker.socket`)
 
@@ -185,7 +257,12 @@ You need Rust (see `rust-version` in `Cargo.toml`) and, for the worker, Node 22 
 
 The browser tests need Chromium: `npx playwright install chromium` in `worker/`.
 
-Run the binary: `ZRIZ_RUNNER_CONFIG=config.json ZRIZ_RUNNER_TOKEN=<token> cargo run --release`.
+Run the binary. Read the token without echo, so it stays out of your shell history, then start it:
+
+    read -rs ZRIZ_RUNNER_TOKEN && export ZRIZ_RUNNER_TOKEN
+    ZRIZ_RUNNER_CONFIG=config.json cargo run --release
+
+Set every other `${NAME}` the config uses in the same way.
 
 ## More
 
@@ -196,4 +273,6 @@ Run the binary: `ZRIZ_RUNNER_CONFIG=config.json ZRIZ_RUNNER_TOKEN=<token> cargo 
 
 ## License
 
-Apache License 2.0. See `LICENSE`. Copyright ZrizTech.
+The runner source in this repository, the runner image and the worker source are Apache License 2.0. See `LICENSE`. Copyright ZrizTech.
+
+The worker image holds more than that. It also holds Chromium, Node.js and Debian packages, each under its own license. The worker image is therefore not all Apache-2.0.
