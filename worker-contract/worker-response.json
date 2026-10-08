@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/worker-contract/worker-response.json",
+  "title": "worker to runner response (one JSON line)",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "v",
+        "kind",
+        "ok"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "kind": {
+          "const": "ping"
+        },
+        "ok": {
+          "const": true
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "v",
+        "op-id",
+        "ok",
+        "out"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "op-id": {
+          "$ref": "#/$defs/id"
+        },
+        "ok": {
+          "const": true
+        },
+        "out": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "v",
+        "ok",
+        "reason",
+        "message"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "op-id": {
+          "$ref": "#/$defs/id"
+        },
+        "ok": {
+          "const": false
+        },
+        "reason": {
+          "enum": [
+            "bad-json",
+            "bad-version",
+            "unknown-kind",
+            "bad-request",
+            "request-too-large",
+            "not-implemented",
+            "at-capacity",
+            "handle-busy",
+            "no-handle",
+            "too-many-handles",
+            "spawn-failed",
+            "internal"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]{1,64}$"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/frame.json",
+  "type": "object",
+  "properties": {
+    "v": {"const": 1},
+    "t": {"enum": ["op", "result", "error"]},
+    "id": {"type": "string"},
+    "re": {"type": ["string", "null"]},
+    "ts": {"type": "integer"},
+    "d": {"type": "object"}
+  },
+  "required": ["v", "t", "id", "re", "ts", "d"],
+  "additionalProperties": true
+}

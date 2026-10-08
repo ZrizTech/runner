@@ -1,0 +1,50 @@
+{
+  "type": "cli",
+  "description": "zz binary",
+  "actions": {
+    "version": {
+      "command": "zz",
+      "args": [
+        "version"
+      ]
+    },
+    "login-start": {
+      "command": "zz",
+      "args": [
+        "login",
+        "--no-browser"
+      ],
+      "mode": "start",
+      "handle": "login"
+    },
+    "login-code": {
+      "mode": "read",
+      "handle": "login",
+      "until": {
+        "stream": "stderr",
+        "after": " and enter "
+      },
+      "extract": {
+        "user-code": {
+          "stream": "stderr",
+          "after": " and enter "
+        }
+      }
+    },
+    "login-wait": {
+      "mode": "wait",
+      "handle": "login"
+    },
+    "run": {
+      "command": "zz",
+      "args": [
+        "run",
+        "{file}",
+        "--local",
+        "--json"
+      ],
+      "stdout": "json",
+      "timeout-ms": 60000
+    }
+  }
+}

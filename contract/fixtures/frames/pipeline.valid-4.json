@@ -1,0 +1,16 @@
+{
+  "steps": [
+    {
+      "call": "myshop-api/create-key",
+      "capture": {"API_KEY": "body.api-key", "SESSION": "headers.set-cookie[0]"},
+      "expect": [["status", "==", 201]]
+    },
+    {
+      "call": "myshop-api/me",
+      "headers": {"Authorization": "Bearer ${API_KEY}", "Cookie": "${SESSION}"},
+      "body": {"key": "${API_KEY}", "nested": ["x-${API_KEY}"], "who": "${ctx.name}"},
+      "query-params": {"k": "${API_KEY}"},
+      "expect": [["status", "==", 200]]
+    }
+  ]
+}

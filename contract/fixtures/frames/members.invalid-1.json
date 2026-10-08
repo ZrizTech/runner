@@ -1,0 +1,11 @@
+{
+  "members": [
+    {
+      "account-id": "a-1",
+      "name": "Anna",
+      "email": "anna@example.com",
+      "role": "owner"
+    }
+  ],
+  "invites": []
+}

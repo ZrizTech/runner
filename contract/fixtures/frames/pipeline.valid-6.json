@@ -1,0 +1,19 @@
+{
+  "description": "poll with with",
+  "steps": [
+    {
+      "poll": "shop-zz/login-code",
+      "with": {
+        "n": 3
+      },
+      "until": [
+        "running",
+        "==",
+        true
+      ],
+      "capture": {
+        "USER_CODE": "extract.user-code"
+      }
+    }
+  ]
+}

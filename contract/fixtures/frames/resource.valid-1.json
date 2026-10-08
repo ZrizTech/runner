@@ -1,0 +1,19 @@
+{
+  "type": "http",
+  "description": "an api",
+  "base-url": "http://localhost:9080",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "timeout-ms": 5000,
+  "actions": {
+    "health": {
+      "method": "GET",
+      "path": "/health"
+    },
+    "register": {
+      "method": "POST",
+      "path": "/auth/register"
+    }
+  }
+}

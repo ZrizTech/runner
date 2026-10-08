@@ -1,0 +1,15 @@
+{
+  "op-id": "op-1",
+  "status": "pass",
+  "payload": {
+    "status": 200,
+    "body": {
+      "ok": true
+    },
+    "headers": {}
+  },
+  "scrubbed": 0,
+  "timing": {
+    "exec-ms": 10
+  }
+}

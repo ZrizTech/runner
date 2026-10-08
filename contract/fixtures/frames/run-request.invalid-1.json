@@ -1,0 +1,27 @@
+{
+  "env": "local",
+  "pipeline": {
+    "steps": [
+      {
+        "log": "hi"
+      }
+    ]
+  },
+  "resources": {
+    "myshop-api": {
+      "type": "http",
+      "base-url": "http://localhost:9080",
+      "actions": {
+        "health": {
+          "method": "GET",
+          "path": "/health"
+        }
+      }
+    }
+  },
+  "environment": {
+    "values": {
+      "API_URL": "http://api.test"
+    }
+  }
+}

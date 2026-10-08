@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/invite-request.json",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 254,
+      "pattern": "^[^@\\s]+@[^@\\s]+$"
+    },
+    "role": {
+      "enum": [
+        "admin",
+        "member",
+        "viewer"
+      ]
+    }
+  },
+  "required": [
+    "email"
+  ],
+  "additionalProperties": false
+}

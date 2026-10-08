@@ -1,0 +1,37 @@
+{
+  "op-id": "op-23",
+  "run-id": "run-1",
+  "step-index": 0,
+  "kind": "cli.exec",
+  "resource": "shop-zz",
+  "timeout-ms": 10000,
+  "args": {
+    "mode": "read",
+    "handle": "login",
+    "until": {
+      "stream": "stderr",
+      "after": " and enter "
+    },
+    "extract": {
+      "user-code": {
+        "stream": "stderr",
+        "after": " and enter "
+      }
+    },
+    "capture": {
+      "USER_CODE": [
+        "extract",
+        "user-code"
+      ]
+    }
+  },
+  "project": [
+    [
+      "ok"
+    ],
+    [
+      "reads",
+      "org"
+    ]
+  ]
+}

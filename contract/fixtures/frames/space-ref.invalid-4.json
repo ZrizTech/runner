@@ -1,0 +1,6 @@
+{
+  "type": "contract",
+  "project": "-ms",
+  "name": "orders-api",
+  "version": 3
+}

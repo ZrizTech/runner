@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "runner": {
+    "runner-id": "local/3",
+    "version": "1.0.0",
+    "ops": [],
+    "resources": [],
+    "max-inflight": 1
+  },
+  "inflight": 0,
+  "frames": {}
+}

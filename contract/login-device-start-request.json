@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/login-device-start-request.json",
+  "type": "object",
+  "properties": {
+    "host": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$"}
+  },
+  "required": ["host"],
+  "additionalProperties": false
+}

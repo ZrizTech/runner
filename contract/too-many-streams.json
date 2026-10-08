@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/too-many-streams.json",
+  "type": "object",
+  "properties": {
+    "error": {"const": "too-many-streams"},
+    "scope": {"type": "string"},
+    "retry-after-ms": {"type": "integer", "minimum": 0}
+  },
+  "required": ["error", "scope", "retry-after-ms"],
+  "additionalProperties": false
+}

@@ -1,0 +1,12 @@
+{
+  "type": "cli",
+  "actions": {
+    "x": {
+      "command": "zz",
+      "args": [
+        "version"
+      ],
+      "path": "/opt/zriz-worker/bin/zz"
+    }
+  }
+}

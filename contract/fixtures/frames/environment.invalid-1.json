@@ -1,0 +1,6 @@
+{
+  "values": {
+    "API_URL": "http://api.test"
+  },
+  "sensitive": "API_URL"
+}

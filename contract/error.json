@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/error.json",
+  "type": "object",
+  "properties": {
+    "op-id": {"type": "string"},
+    "reason": {
+      "enum": [
+        "unknown-arg",
+        "unknown-kind",
+        "unknown-resource",
+        "host-not-allowed",
+        "read-only",
+        "placeholder-in-disallowed-slot",
+        "evidence-disabled",
+        "evidence-expired",
+        "timeout",
+        "runner-at-capacity",
+        "runner-error",
+        "worker-unavailable",
+        "command-not-allowed",
+        "arg-not-allowed"
+      ]
+    },
+    "message": {"type": "string"}
+  },
+  "required": ["op-id", "reason", "message"],
+  "additionalProperties": true
+}

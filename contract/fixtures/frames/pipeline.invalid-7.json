@@ -1,0 +1,8 @@
+{
+  "steps": [
+    {
+      "call": "shop-web/sign-in",
+      "with": "nope"
+    }
+  ]
+}

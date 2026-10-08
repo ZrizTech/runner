@@ -1,0 +1,22 @@
+{
+  "op-id": "op-40",
+  "run-id": "run-1",
+  "step-index": 0,
+  "kind": "browser.page",
+  "resource": "shop-web",
+  "timeout-ms": 30000,
+  "args": {
+    "commands": [
+      {
+        "do": "goto",
+        "path": "/"
+      }
+    ],
+    "command-timeout-ms": 10000
+  },
+  "project": [
+    [
+      "ok"
+    ]
+  ]
+}

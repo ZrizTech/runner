@@ -1,0 +1,16 @@
+{
+  "description": "pipeline with invalid redirect",
+  "steps": [
+    {
+      "call": "auth/login",
+      "redirect": "sometimes",
+      "expect": [
+        [
+          "status",
+          "==",
+          200
+        ]
+      ]
+    }
+  ]
+}

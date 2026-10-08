@@ -1,0 +1,114 @@
+{
+  "description": "exercises every step type",
+  "tags": [
+    "smoke"
+  ],
+  "env": "local",
+  "settings": {
+    "fail-fast": true,
+    "timeout-ms": 30000
+  },
+  "defaults": {
+    "headers": {
+      "X-Trace": "1",
+      "X-Disabled": null
+    }
+  },
+  "steps": [
+    {
+      "set": {
+        "token": "tok-1",
+        "count": 3
+      }
+    },
+    {
+      "call": "api/register",
+      "body": {
+        "email": "a@test.com"
+      },
+      "headers": {
+        "Authorization": "Bearer ${ctx.token}"
+      },
+      "query-params": {
+        "verbose": "true"
+      },
+      "timeout-ms": 5000,
+      "expect": [
+        [
+          "status",
+          "==",
+          201
+        ],
+        [
+          "body.token",
+          "not-empty"
+        ]
+      ],
+      "save": {
+        "user-id": "body.user_id"
+      }
+    },
+    {
+      "poll": "api/job-status",
+      "until": [
+        "body.state",
+        "==",
+        "done"
+      ],
+      "interval-ms": 100,
+      "max-attempts": 5,
+      "expect": [
+        [
+          "status",
+          "==",
+          200
+        ]
+      ],
+      "save": {
+        "result": "body.result"
+      }
+    },
+    {
+      "for": {
+        "each": "sku",
+        "in": "${ctx.skus}"
+      },
+      "steps": [
+        {
+          "call": "api/get-stock",
+          "body": {
+            "sku": "${ctx.sku}"
+          },
+          "expect": [
+            [
+              "status",
+              "==",
+              200
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "sleep": 10
+    },
+    {
+      "log": "value is ${gen.int(1, 100)}"
+    },
+    {
+      "assert": [
+        [
+          "ctx.count",
+          ">",
+          1
+        ]
+      ]
+    },
+    {
+      "skip": "not needed"
+    },
+    {
+      "fail": "unexpected state"
+    }
+  ]
+}

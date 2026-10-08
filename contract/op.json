@@ -1,0 +1,597 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/op.json",
+  "type": "object",
+  "properties": {
+    "op-id": {"type": "string"},
+    "run-id": {"type": "string"},
+    "step-index": {"type": "integer"},
+    "trace-id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "kind": {"enum": ["http.request", "sql.query", "evidence.fetch", "browser.page", "cli.exec"]},
+    "resource": {"type": "string"},
+    "timeout-ms": {"type": "integer", "minimum": 1, "maximum": 600000},
+    "args": {"type": "object"},
+    "project": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {"type": "string"}
+      }
+    }
+  },
+  "$defs": {
+    "target": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "css": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(?![\\s\\S]*>>)"
+        },
+        "test-id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exact": {
+          "type": "boolean"
+        },
+        "nth": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "role"
+          ]
+        },
+        {
+          "required": [
+            "label"
+          ]
+        },
+        {
+          "required": [
+            "text"
+          ]
+        },
+        {
+          "required": [
+            "css"
+          ]
+        },
+        {
+          "required": [
+            "test-id"
+          ]
+        }
+      ],
+      "additionalProperties": false,
+      "description": "closed locator; exactly one of role, label, text, css, test-id; css must not contain >>"
+    },
+    "command": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "goto"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^/"
+            }
+          },
+          "required": [
+            "do",
+            "path"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "click"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            }
+          },
+          "required": [
+            "do",
+            "target"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "fill"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "do",
+            "target",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "press-seq"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "do",
+            "target",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "select"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "do",
+            "target",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "check"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            }
+          },
+          "required": [
+            "do",
+            "target"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "uncheck"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            }
+          },
+          "required": [
+            "do",
+            "target"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "press"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "key": {
+              "enum": [
+                "Enter",
+                "Tab",
+                "Escape",
+                "ArrowUp",
+                "ArrowDown",
+                "ArrowLeft",
+                "ArrowRight"
+              ]
+            }
+          },
+          "required": [
+            "do",
+            "target",
+            "key"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "wait-for"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "state": {
+              "enum": [
+                "visible",
+                "hidden",
+                "attached"
+              ]
+            }
+          },
+          "required": [
+            "do",
+            "target",
+            "state"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "wait-for"
+            },
+            "url": {
+              "type": "string",
+              "pattern": "^/"
+            }
+          },
+          "required": [
+            "do",
+            "url"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "read"
+            },
+            "as": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+            },
+            "what": {
+              "type": "string",
+              "pattern": "^(text|value|count|visible|url|title|overflow-x|attr:[A-Za-z][A-Za-z0-9_-]*)$"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            }
+          },
+          "required": [
+            "do",
+            "as",
+            "what"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "const": "viewport"
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 200,
+              "maximum": 4000
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 200,
+              "maximum": 4000
+            }
+          },
+          "required": [
+            "do",
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "command-list": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "$ref": "#/$defs/command"
+      }
+    }
+  },
+  "required": ["op-id", "run-id", "step-index", "kind", "resource", "timeout-ms", "args", "project"],
+  "additionalProperties": true,
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {"const": "http.request"},
+        "args": {
+          "type": "object",
+          "properties": {
+            "method": {"enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]},
+            "path": {"type": "string", "pattern": "^/"},
+            "redirect": {"enum": ["follow", "none"], "description": "follow HTTP redirects; default follow"},
+            "headers": {"type": "object", "additionalProperties": {"type": "string"}},
+            "query-params": {"type": "object", "additionalProperties": {"type": "string"}},
+            "body": {},
+            "capture": {"type": "object", "maxProperties": 16, "propertyNames": {"pattern": "^[A-Z][A-Z0-9_]{0,63}$"}, "additionalProperties": {"type": "array", "items": {"type": "string"}}}
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["kind", "args"]
+    },
+    {
+      "properties": {
+        "kind": {"const": "sql.query"},
+        "args": {
+          "type": "object",
+          "properties": {
+            "query": {"type": "string", "minLength": 1},
+            "params": {"type": "array"},
+            "capture": {"type": "object", "maxProperties": 16, "propertyNames": {"pattern": "^[A-Z][A-Z0-9_]{0,63}$"}, "additionalProperties": {"type": "array", "items": {"type": "string"}}}
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["kind", "args"]
+    },
+    {
+      "properties": {
+        "kind": {"const": "evidence.fetch"},
+        "args": {
+          "type": "object",
+          "properties": {
+            "op-id": {"type": "string"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["kind", "args"]
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "browser.page"
+        },
+        "args": {
+          "type": "object",
+          "properties": {
+            "commands": {
+              "$ref": "#/$defs/command-list"
+            },
+            "capture": {
+              "type": "object",
+              "maxProperties": 16,
+              "propertyNames": {
+                "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+              },
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "command-timeout-ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 120000
+            }
+          },
+          "required": [
+            "commands"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "kind",
+        "args"
+      ]
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "cli.exec"
+        },
+        "args": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$"
+            },
+            "args": {
+              "type": "array",
+              "maxItems": 32,
+              "items": {
+                "type": "string"
+              }
+            },
+            "mode": {
+              "enum": [
+                "run",
+                "start",
+                "read",
+                "wait",
+                "stop"
+              ]
+            },
+            "handle": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,32}$"
+            },
+            "until": {
+              "type": "object",
+              "properties": {
+                "stream": {
+                  "enum": [
+                    "stdout",
+                    "stderr"
+                  ]
+                },
+                "after": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "stream",
+                "after"
+              ],
+              "additionalProperties": false
+            },
+            "extract": {
+              "type": "object",
+              "maxProperties": 8,
+              "propertyNames": {
+                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "stream": {
+                    "enum": [
+                      "stdout",
+                      "stderr"
+                    ]
+                  },
+                  "after": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "stream",
+                  "after"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "stdout": {
+              "enum": [
+                "json"
+              ]
+            },
+            "env": {
+              "type": "object",
+              "maxProperties": 16,
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "capture": {
+              "type": "object",
+              "maxProperties": 16,
+              "propertyNames": {
+                "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+              },
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "run",
+                      "start"
+                    ]
+                  }
+                },
+                "required": [
+                  "mode"
+                ]
+              },
+              "then": {
+                "required": [
+                  "command"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "start",
+                      "read",
+                      "wait",
+                      "stop"
+                    ]
+                  }
+                },
+                "required": [
+                  "mode"
+                ]
+              },
+              "then": {
+                "required": [
+                  "handle"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "args"
+      ]
+    }
+  ]
+}

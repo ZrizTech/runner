@@ -1,0 +1,10 @@
+{
+  "steps": [
+    {
+      "call": "shop-web/sign-in",
+      "with": {
+        "password": "${bad name}"
+      }
+    }
+  ]
+}

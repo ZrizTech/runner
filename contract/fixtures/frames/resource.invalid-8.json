@@ -1,0 +1,16 @@
+{
+  "type": "cli",
+  "actions": {
+    "run": {
+      "command": "zz",
+      "args": [
+        "run"
+      ],
+      "env": [
+        "zz_api_key",
+        "ZZ_API_KEY",
+        "ZZ_API_KEY"
+      ]
+    }
+  }
+}

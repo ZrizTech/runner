@@ -1,0 +1,14 @@
+{
+  "kind": "note",
+  "subject": "Hello",
+  "body": "Deploy done",
+  "project": "ms-a",
+  "refs": [
+    {
+      "type": "contract",
+      "project": "ms-a",
+      "name": "orders-api",
+      "version": 1
+    }
+  ]
+}

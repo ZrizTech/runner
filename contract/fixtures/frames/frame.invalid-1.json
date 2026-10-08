@@ -1,0 +1,34 @@
+{
+  "v": 1,
+  "t": "op",
+  "id": "33333333-3333-3333-3333-333333333333",
+  "re": null,
+  "d": {
+    "op-id": "op-1",
+    "run-id": "run-1",
+    "step-index": 0,
+    "kind": "http.request",
+    "resource": "myshop-api",
+    "timeout-ms": 5000,
+    "args": {
+      "method": "GET",
+      "path": "/health",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "query-params": {
+        "verbose": "true"
+      },
+      "body": null
+    },
+    "project": [
+      [
+        "status"
+      ],
+      [
+        "body",
+        "token"
+      ]
+    ]
+  }
+}

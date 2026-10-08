@@ -1,0 +1,54 @@
+{
+  "cloud": {
+    "url": "https://zriz.io",
+    "token-env": "ZRIZ_RUNNER_TOKEN"
+  },
+  "evidence": "redacted",
+  "worker": {
+    "socket": "/run/zriz/worker.sock"
+  },
+  "resources": {
+    "shop-api": {
+      "type": "http",
+      "base-url": "https://api.example.com",
+      "cookies": false,
+      "secrets": ["SHOP_API_KEY"]
+    },
+    "shop-db": {
+      "type": "sql",
+      "connection": "postgres://zriz_ro:${SHOP_DB_PASSWORD}@db.example.com:5432/shop",
+      "read-only": true
+    },
+    "shop-web": {
+      "type": "browser",
+      "base-url": "https://app.example.com",
+      "origins": ["https://static.example.com"],
+      "secrets": ["SHOP_QA_PASSWORD"],
+      "max-contexts": 3,
+      "idle-ms": 600000,
+      "viewport": {"width": 1280, "height": 800}
+    },
+    "shop-cli": {
+      "type": "cli",
+      "secrets": ["SHOP_API_KEY"],
+      "max-handles": 2,
+      "idle-ms": 600000,
+      "commands": {
+        "shopctl": {
+          "path": "/usr/local/bin/shopctl",
+          "argv-prefix": ["--json"],
+          "shapes": [
+            ["status"],
+            ["order", "show", "{id:int}"],
+            ["export", "{name:slug}", "{file:relpath}"]
+          ],
+          "env": {"SHOPCTL_URL": "https://api.example.com"},
+          "env-allow": ["SHOPCTL_TOKEN"],
+          "timeout-ms": 60000,
+          "max-life-ms": 300000,
+          "max-output-bytes": 65536
+        }
+      }
+    }
+  }
+}

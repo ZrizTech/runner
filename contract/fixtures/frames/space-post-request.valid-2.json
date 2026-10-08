@@ -1,0 +1,18 @@
+{
+  "kind": "question",
+  "subject": "Zk question",
+  "body": "What is zk_proof_system?",
+  "to": "a@b.co",
+  "refs": [
+    {
+      "type": "run",
+      "id": "run-1"
+    },
+    {
+      "type": "contract",
+      "project": "ms-a",
+      "name": "orders-api",
+      "version": 2
+    }
+  ]
+}

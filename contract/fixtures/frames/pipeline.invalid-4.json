@@ -1,0 +1,1 @@
+{"steps": [{"call": "a/b", "capture": {"api_key": "body.k"}}]}

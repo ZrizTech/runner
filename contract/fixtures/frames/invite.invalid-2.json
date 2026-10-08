@@ -1,0 +1,8 @@
+{
+  "id": "i-1",
+  "email": "bo@example.com",
+  "role": "boss",
+  "expires-at": "x",
+  "emailed": false,
+  "link": "l"
+}

@@ -1,0 +1,1 @@
+{"v":1,"op-id":"op-2","run":"r-abc","kind":"cli.exec","policy":{"resource":"r","path":"/bin/shopctl"},"args":{"mode":"run","args":[]},"deadline-ms":1000}

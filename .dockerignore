@@ -1,0 +1,5 @@
+target
+.git
+.gitignore
+worker/node_modules
+worker/test

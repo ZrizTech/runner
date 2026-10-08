@@ -1,0 +1,9 @@
+{
+  "type": "http",
+  "actions": {
+    "health": {
+      "method": "GET",
+      "path": "/health"
+    }
+  }
+}

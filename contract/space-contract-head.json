@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/space-contract-head.json",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "project": {
+      "$ref": "https://zriz.io/contract/project-name.json"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "format": {
+      "enum": [
+        "openapi",
+        "asyncapi",
+        "json-schema",
+        "graphql",
+        "protobuf",
+        "text"
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "by": {
+      "$ref": "https://zriz.io/contract/space-person.json"
+    },
+    "at": {
+      "type": "string"
+    },
+    "created": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "name",
+    "project",
+    "version",
+    "format",
+    "sha256",
+    "summary",
+    "size",
+    "by",
+    "at"
+  ],
+  "additionalProperties": false
+}

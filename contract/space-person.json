@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/space-person.json",
+  "type": "object",
+  "properties": {
+    "account-id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "account-id",
+    "name",
+    "email"
+  ],
+  "additionalProperties": false
+}

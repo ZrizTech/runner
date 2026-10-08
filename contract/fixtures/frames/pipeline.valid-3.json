@@ -1,0 +1,35 @@
+{
+  "description": "pipeline with redirect options",
+  "steps": [
+    {
+      "call": "auth/login",
+      "redirect": "none",
+      "body": {
+        "email": "test@example.com"
+      },
+      "expect": [
+        [
+          "status",
+          "==",
+          303
+        ]
+      ]
+    },
+    {
+      "poll": "api/status",
+      "redirect": "follow",
+      "until": [
+        "body.ready",
+        "==",
+        true
+      ],
+      "expect": [
+        [
+          "status",
+          "==",
+          200
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+# Optional overlay. zrunner adds it (-f) only when ZRIZ_RUNNER_DB_NETWORK is set in .env,
+# e.g. ZRIZ_RUNNER_DB_NETWORK=zriz-cloud_db. The runner then also joins that external
+# network (it must already exist), so it can reach a database on it. Outbound only.
+services:
+  runner:
+    networks:
+      - default
+      - db
+
+networks:
+  db:
+    external: true
+    name: ${ZRIZ_RUNNER_DB_NETWORK:?}

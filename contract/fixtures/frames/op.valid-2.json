@@ -1,0 +1,17 @@
+{
+  "op-id": "op-2",
+  "run-id": "run-1",
+  "step-index": 1,
+  "kind": "sql.query",
+  "resource": "myshop-mysql",
+  "timeout-ms": 3000,
+  "args": {
+    "query": "SELECT 1",
+    "params": []
+  },
+  "project": [
+    [
+      "rows"
+    ]
+  ]
+}

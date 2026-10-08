@@ -1,0 +1,338 @@
+#!/usr/bin/env bash
+# Ops CLI for zriz-runner. Runs on your workstation, drives your server
+# over SSH. The runner only makes outbound connections; nothing listens.
+# shellcheck disable=SC2029 # $DIR/$NAME expand client-side on purpose: they are never secret.
+set -euo pipefail
+
+HOST="${ZRUNNER_HOST:-}"
+DIR="${ZRUNNER_DIR:-/opt/zriz-runner}"
+PLATFORM="${ZRUNNER_PLATFORM:-linux/amd64}"
+CONFIG="${ZRUNNER_CONFIG:-}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+require_host() {
+	: "${HOST:?ZRUNNER_HOST is required (e.g. root@1.2.3.4)}"
+}
+
+# Shell code that runs on the server and sets $files: the base compose file, plus the
+# db overlay when ZRIZ_RUNNER_DB_NETWORK is set (non-empty) in .env.
+remote_files() {
+	echo "files='-f $DIR/docker-compose.yml'; if grep -Eq '^ZRIZ_RUNNER_DB_NETWORK=.+' $DIR/.env 2>/dev/null; then files=\"\$files -f $DIR/docker-compose.db.yml\"; fi;"
+}
+
+compose_remote() {
+	require_host
+	# shellcheck disable=SC2029
+	ssh "$HOST" "$(remote_files) cd $DIR && docker compose \$files --env-file $DIR/.env $*"
+}
+
+# ---- build ----------------------------------------------------------------
+
+image_tag() {
+	local sha
+	sha="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD)"
+	echo "zriz-runner:rs-$sha"
+}
+
+worker_tag() {
+	local sha
+	sha="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD)"
+	echo "zriz-worker:rs-$sha"
+}
+
+cmd_build() {
+	if [ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]; then
+		echo "refusing to build: working tree not clean" >&2
+		exit 1
+	fi
+	local tag wtag sha
+	tag="$(image_tag)"
+	wtag="$(worker_tag)"
+	sha="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD)"
+	echo "building $tag for $PLATFORM" >&2
+	docker buildx build --platform "$PLATFORM" --build-arg "ZRIZ_BUILD_SHA=$sha" -t "$tag" --load "$REPO_ROOT" >&2
+	echo "building $wtag for $PLATFORM" >&2
+	docker buildx build --platform "$PLATFORM" -t "$wtag" -f "$REPO_ROOT/worker/Dockerfile" --load "$REPO_ROOT" >&2
+	echo "$tag"
+	echo "$wtag"
+}
+
+# ---- deploy -----------------------------------------------------------------
+
+# Waits up to 60s for the INFO line `runner connected` (runner.exchange), which
+# the runner logs once, on its first good poll (log format v3). If it never
+# appears, falls back to: the container has been running 10s with no restart.
+wait_connected() {
+	echo "waiting for the runner's first successful exchange (up to 60s)"
+	for _ in $(seq 1 60); do
+		if compose_remote "logs --no-color runner" 2>/dev/null | grep -Fq ' runner.exchange runner connected'; then
+			echo "runner connected"
+			return 0
+		fi
+		sleep 1
+	done
+	echo "no successful exchange logged within 60s; falling back to a stay-up check" >&2
+	for _ in $(seq 1 10); do
+		local restarts
+		restarts="$(ssh "$HOST" "$(remote_files) docker inspect -f '{{.RestartCount}}' \$(cd $DIR && docker compose \$files --env-file $DIR/.env ps -q runner)" 2>/dev/null || echo "?")"
+		if [ "$restarts" != "0" ]; then
+			echo "runner restarted ($restarts); deploy may have failed" >&2
+			return 1
+		fi
+		sleep 1
+	done
+	echo "runner has stayed up for 10s with no restart" >&2
+}
+
+prune_images() {
+	ssh "$HOST" "
+		set -euo pipefail
+		keep=\$(grep -E '^ZRIZ_RUNNER_IMAGE=' $DIR/.env | cut -d= -f2-)
+		keep_prev=\$(grep -E '^ZRIZ_RUNNER_IMAGE_PREV=' $DIR/.env | cut -d= -f2- || true)
+		wkeep=\$(grep -E '^ZRIZ_WORKER_IMAGE=' $DIR/.env | cut -d= -f2- || true)
+		wkeep_prev=\$(grep -E '^ZRIZ_WORKER_IMAGE_PREV=' $DIR/.env | cut -d= -f2- || true)
+		for repo in zriz-runner zriz-worker; do
+			docker images \"\$repo\" --format '{{.Repository}}:{{.Tag}}' | while read -r img; do
+				if [ \"\$img\" != \"\$keep\" ] && [ \"\$img\" != \"\$keep_prev\" ] && [ \"\$img\" != \"\$wkeep\" ] && [ \"\$img\" != \"\$wkeep_prev\" ]; then
+					docker rmi \"\$img\" || true
+				fi
+			done
+		done
+	"
+}
+
+cmd_deploy() {
+	require_host
+	: "${CONFIG:?ZRUNNER_CONFIG is required for deploy (path to a config json)}"
+	if [ ! -f "$CONFIG" ]; then
+		echo "config file not found: $CONFIG" >&2
+		exit 1
+	fi
+
+	local built tag wtag
+	built="$(cmd_build)"
+	tag="$(echo "$built" | sed -n 1p)"
+	wtag="$(echo "$built" | sed -n 2p)"
+	proj="$(basename "$DIR")"
+
+	echo "shipping images $tag $wtag to $HOST"
+	docker save "$tag" "$wtag" | gzip | ssh "$HOST" 'gunzip | docker load'
+
+	echo "syncing ops files to $HOST:$DIR"
+	ssh "$HOST" "mkdir -p -m 700 $DIR"
+	scp -q "$SCRIPT_DIR/docker-compose.yml" "$HOST:$DIR/docker-compose.yml"
+	scp -q "$SCRIPT_DIR/docker-compose.db.yml" "$HOST:$DIR/docker-compose.db.yml"
+	scp -q "$CONFIG" "$HOST:$DIR/config.json"
+	ssh "$HOST" "chmod 644 $DIR/docker-compose.yml $DIR/docker-compose.db.yml $DIR/config.json"
+
+	echo "updating $DIR/.env"
+	ssh "$HOST" "
+		set -euo pipefail
+		touch $DIR/.env
+		chmod 600 $DIR/.env
+		if ! grep -q '^ZRIZ_RUNNER_TOKEN=' $DIR/.env; then
+			echo 'refusing: $DIR/.env has no ZRIZ_RUNNER_TOKEN= — run set-secret ZRIZ_RUNNER_TOKEN first' >&2
+			exit 1
+		fi
+		for pair in 'ZRIZ_RUNNER_IMAGE=$tag' 'ZRIZ_WORKER_IMAGE=$wtag' 'COMPOSE_PROJECT_NAME=$proj'; do
+			key=\${pair%%=*}
+			new=\${pair#*=}
+			cur=\$(grep -E \"^\$key=\" $DIR/.env | cut -d= -f2- || true)
+			if [ -n \"\$cur\" ] && [ \"\$cur\" != \"\$new\" ]; then
+				if grep -q \"^\${key}_PREV=\" $DIR/.env; then
+					sed -i \"s|^\${key}_PREV=.*|\${key}_PREV=\$cur|\" $DIR/.env
+				else
+					echo \"\${key}_PREV=\$cur\" >> $DIR/.env
+				fi
+			fi
+			if grep -q \"^\$key=\" $DIR/.env; then
+				sed -i \"s|^\$key=.*|\$key=\$new|\" $DIR/.env
+			else
+				echo \"\$key=\$new\" >> $DIR/.env
+			fi
+		done
+		chmod 600 $DIR/.env
+	"
+
+	echo "starting stack"
+	compose_remote up -d
+
+	wait_connected || true
+
+	echo "pruning old images"
+	prune_images
+
+	echo "deploy of $tag complete"
+}
+
+# ---- set-secret -------------------------------------------------------------
+
+# The core of set-secret, factored out so it can run either over ssh (via
+# cmd_set_secret) or directly against a local temp dir in a test: reads NAME
+# and DIR from its environment, the secret value from stdin, and writes
+# NAME=value into $DIR/.env (replacing an existing line or appending),
+# without ever printing the value. Pure bash (no awk/sed) so the value is
+# never re-interpreted for escapes.
+set_secret_script() {
+	cat <<'SCRIPT'
+set -euo pipefail
+umask 077
+: "${DIR:?}" "${NAME:?}"
+mkdir -p -m 700 "$DIR"
+touch "$DIR/.env"
+chmod 600 "$DIR/.env"
+val="$(cat -)"
+tmp="$(mktemp "$DIR/.env.XXXXXX")"
+found=0
+while IFS= read -r line || [ -n "$line" ]; do
+	case "$line" in
+	"$NAME="*)
+		printf '%s=%s\n' "$NAME" "$val" >>"$tmp"
+		found=1
+		;;
+	*)
+		printf '%s\n' "$line" >>"$tmp"
+		;;
+	esac
+done <"$DIR/.env"
+if [ "$found" -eq 0 ]; then
+	printf '%s=%s\n' "$NAME" "$val" >>"$tmp"
+fi
+mv "$tmp" "$DIR/.env"
+chmod 600 "$DIR/.env"
+SCRIPT
+}
+
+cmd_set_secret() {
+	require_host
+	local name="${1:?usage: zrunner set-secret NAME FILE}"
+	local file="${2:?usage: zrunner set-secret NAME FILE}"
+	if ! [[ "$name" =~ ^[A-Z][A-Z0-9_]*$ ]]; then
+		echo "NAME must match ^[A-Z][A-Z0-9_]*\$, got: $name" >&2
+		exit 1
+	fi
+	if [ ! -f "$file" ]; then
+		echo "file not found: $file" >&2
+		exit 1
+	fi
+
+	# A file normally ends in one newline: drop it. Any other newline or CR
+	# would add extra lines to .env, so refuse.
+	local val
+	val="$(
+		cat "$file"
+		printf x
+	)"
+	val="${val%x}"
+	val="${val%$'\n'}"
+	if [[ "$val" == *$'\n'* || "$val" == *$'\r'* ]]; then
+		echo "value in $file contains a newline or carriage return; refusing" >&2
+		exit 1
+	fi
+
+	local script_b64
+	script_b64="$(set_secret_script | base64 | tr -d '\n')"
+	local remote_cmd
+	remote_cmd="DIR=$(printf '%q' "$DIR") NAME=$(printf '%q' "$name") bash -c \"\$(base64 -d <<<'$script_b64')\""
+	ssh "$HOST" "$remote_cmd" <"$file"
+	echo "set $name in $DIR/.env"
+}
+
+# ---- rollback / logs / ps / restart ----------------------------------------
+
+cmd_rollback() {
+	require_host
+	echo "rolling back"
+	ssh "$HOST" "
+		set -euo pipefail
+		cur=\$(grep -E '^ZRIZ_RUNNER_IMAGE=' $DIR/.env | cut -d= -f2-)
+		prev=\$(grep -E '^ZRIZ_RUNNER_IMAGE_PREV=' $DIR/.env | cut -d= -f2- || true)
+		if [ -z \"\$prev\" ]; then
+			echo 'no ZRIZ_RUNNER_IMAGE_PREV to roll back to' >&2
+			exit 1
+		fi
+		sed -i \"s|^ZRIZ_RUNNER_IMAGE=.*|ZRIZ_RUNNER_IMAGE=\$prev|\" $DIR/.env
+		sed -i \"s|^ZRIZ_RUNNER_IMAGE_PREV=.*|ZRIZ_RUNNER_IMAGE_PREV=\$cur|\" $DIR/.env
+		wcur=\$(grep -E '^ZRIZ_WORKER_IMAGE=' $DIR/.env | cut -d= -f2- || true)
+		wprev=\$(grep -E '^ZRIZ_WORKER_IMAGE_PREV=' $DIR/.env | cut -d= -f2- || true)
+		if [ -n \"\$wprev\" ]; then
+			sed -i \"s|^ZRIZ_WORKER_IMAGE=.*|ZRIZ_WORKER_IMAGE=\$wprev|\" $DIR/.env
+			sed -i \"s|^ZRIZ_WORKER_IMAGE_PREV=.*|ZRIZ_WORKER_IMAGE_PREV=\$wcur|\" $DIR/.env
+		fi
+	"
+	compose_remote up -d
+	wait_connected || true
+}
+
+cmd_logs() {
+	local follow="" lines=100
+	while [ $# -gt 0 ]; do
+		case "$1" in
+		-f) follow="-f" ;;
+		-n)
+			shift
+			lines="${1:-}"
+			if ! [[ "$lines" =~ ^[0-9]+$ ]]; then
+				echo "usage: zrunner logs [-f] [-n LINES]  (LINES must be digits only)" >&2
+				exit 1
+			fi
+			;;
+		esac
+		shift || true
+	done
+	compose_remote "logs $follow --tail=$lines runner"
+}
+
+cmd_ps() {
+	compose_remote ps
+}
+
+cmd_restart() {
+	compose_remote restart runner
+}
+
+cmd_help() {
+	cat <<'EOF'
+zrunner <command> [args]
+
+env:
+  ZRUNNER_HOST      required, e.g. root@1.2.3.4
+  ZRUNNER_DIR       default /opt/zriz-runner
+  ZRUNNER_PLATFORM  default linux/amd64
+  ZRUNNER_CONFIG    path to a config json, required for deploy
+
+commands:
+  build                 refuse on dirty tree, build runner + worker images (--load)
+  deploy                build, ship both images, sync compose+config, up -d, wait, prune
+  set-secret NAME FILE  set NAME in $DIR/.env from a local file, never on argv
+  rollback              swap *_IMAGE/*_IMAGE_PREV (runner and worker), up -d
+  logs [-f] [-n N]      docker compose logs for the runner service
+  ps                    docker compose ps
+  restart               docker compose restart runner
+  help                  this message
+EOF
+}
+
+main() {
+	local cmd="${1:-help}"
+	shift || true
+	case "$cmd" in
+	build) cmd_build ;;
+	deploy) cmd_deploy ;;
+	set-secret) cmd_set_secret "$@" ;;
+	rollback) cmd_rollback ;;
+	logs) cmd_logs "$@" ;;
+	ps) cmd_ps ;;
+	restart) cmd_restart ;;
+	help | -h | --help) cmd_help ;;
+	*)
+		echo "unknown command: $cmd" >&2
+		cmd_help >&2
+		exit 1
+		;;
+	esac
+}
+
+main "$@"

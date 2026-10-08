@@ -1,0 +1,9 @@
+{
+  "type": "cli",
+  "actions": {
+    "go": {
+      "mode": "start",
+      "command": "zz"
+    }
+  }
+}

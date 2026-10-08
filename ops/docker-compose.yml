@@ -1,0 +1,65 @@
+name: zriz-runner
+
+services:
+  runner:
+    image: ${ZRIZ_RUNNER_IMAGE:?}
+    hostname: ${ZRIZ_RUNNER_NAME:-runner}
+    env_file:
+      - .env
+    environment:
+      ZRIZ_RUNNER_CONFIG: /etc/zriz-runner/config.json
+    user: "65532:65532"
+    volumes:
+      - ./config.json:/etc/zriz-runner/config.json:ro
+      - zriz-sock:/run/zriz
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    mem_limit: 256m
+    pids_limit: 128
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Browser and cli sidecar. Holds no runner secret (no env_file). Listens only on the unix
+  # socket in zriz-sock. Default network only: it needs egress to the target, never the db overlay.
+  worker:
+    image: ${ZRIZ_WORKER_IMAGE:?}
+    user: "65532:65532"
+    environment:
+      ZRIZ_WORKER_SOCKET: /run/zriz/worker.sock
+    volumes:
+      - zriz-sock:/run/zriz
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,uid=65532,gid=65532,mode=0700
+    shm_size: 256m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    mem_limit: 1g
+    pids_limit: 256
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  zriz-sock:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: uid=65532,gid=65532,mode=0770,size=1m

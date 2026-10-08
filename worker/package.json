@@ -1,0 +1,20 @@
+{
+  "name": "zriz-worker",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "zriz worker sidecar: unix-socket JSON server for browser and cli ops",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "ajv": "8.17.1",
+    "playwright": "1.63.0"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "op-id": "op-1",
+  "run-id": "run-1",
+  "step-index": 0,
+  "kind": "http.request",
+  "resource": "auth-api",
+  "timeout-ms": 5000,
+  "args": {
+    "method": "POST",
+    "path": "/login",
+    "redirect": "none"
+  },
+  "project": [
+    [
+      "status"
+    ],
+    [
+      "headers",
+      "location"
+    ]
+  ]
+}

@@ -1,0 +1,1627 @@
+{
+ "_note": "Adding a key, event or component: add it in the zriz contract repo first. Reason enums are closed per event; extend when a call site needs it.",
+ "components": {
+  "cloud": [
+   "cloud.main",
+   "cloud.http",
+   "cloud.auth",
+   "cloud.runs",
+   "cloud.db",
+   "cloud.lib",
+   "cloud.notify"
+  ],
+  "runner": [
+   "runner.main",
+   "runner.exchange",
+   "runner.ops",
+   "runner.db",
+   "runner.lib"
+  ],
+  "worker": [
+   "worker.main",
+   "worker.browser",
+   "worker.cli"
+  ],
+  "zz": [
+   "zz.main",
+   "zz.http",
+   "zz.run"
+  ]
+ },
+ "keys": {
+  "order": [
+   "org_id",
+   "account_id",
+   "run_id",
+   "notice_id",
+   "delivery_id",
+   "step",
+   "op_id",
+   "pipeline_id",
+   "token_id",
+   "runner",
+   "listener",
+   "port",
+   "method",
+   "route",
+   "path",
+   "http_status",
+   "env",
+   "step_type",
+   "kind",
+   "channel",
+   "resource",
+   "cmd",
+   "mode",
+   "exit_code",
+   "frame",
+   "status",
+   "reason",
+   "auth_method",
+   "provider",
+   "browser",
+   "ip",
+   "op",
+   "table",
+   "rows",
+   "sent",
+   "skipped",
+   "received",
+   "count",
+   "dropped",
+   "refused",
+   "attempts",
+   "writes",
+   "timeout_ms",
+   "location",
+   "client",
+   "client_trace_id",
+   "cloud",
+   "build",
+   "requests",
+   "runs",
+   "avg_ms",
+   "window_s",
+   "error",
+   "elapsed_ms"
+  ],
+  "ids": [
+   "org_id",
+   "account_id",
+   "run_id",
+   "notice_id",
+   "delivery_id",
+   "step",
+   "op_id",
+   "pipeline_id",
+   "token_id",
+   "runner"
+  ],
+  "facts": [
+   "listener",
+   "port",
+   "method",
+   "route",
+   "path",
+   "http_status",
+   "env",
+   "step_type",
+   "kind",
+   "channel",
+   "resource",
+   "cmd",
+   "mode",
+   "exit_code",
+   "frame",
+   "status",
+   "reason",
+   "auth_method",
+   "provider",
+   "browser",
+   "ip",
+   "op",
+   "table",
+   "rows",
+   "sent",
+   "skipped",
+   "received",
+   "count",
+   "dropped",
+   "refused",
+   "attempts",
+   "writes",
+   "timeout_ms",
+   "location",
+   "client",
+   "client_trace_id",
+   "cloud",
+   "build",
+   "requests",
+   "runs",
+   "avg_ms",
+   "window_s"
+  ],
+  "last": [
+   "error",
+   "elapsed_ms"
+  ],
+  "micros": [
+   "avg_ms",
+   "elapsed_ms"
+  ]
+ },
+ "events": {
+  "cloud.main": {
+   "started": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "runner",
+     "listener",
+     "port",
+     "env",
+     "cloud",
+     "build"
+    ]
+   },
+   "stopped": {
+    "levels": [
+     "ERROR",
+     "INFO"
+    ],
+    "keys": [
+     "listener",
+     "error"
+    ]
+   },
+   "panic": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "location",
+     "error"
+    ]
+   },
+   "config warning": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "reason",
+     "error"
+    ],
+    "reasons": [
+     "missing",
+     "invalid",
+     "deprecated"
+    ]
+   },
+   "idle summary": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "requests",
+     "runs",
+     "window_s"
+    ]
+   },
+   "shutdown done": {
+    "levels": [
+     "INFO",
+     "WARN",
+     "ERROR"
+    ],
+    "keys": [
+     "status",
+     "dropped",
+     "refused",
+     "timeout_ms"
+    ]
+   }
+  },
+  "runner.main": {
+   "started": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "runner",
+     "listener",
+     "port",
+     "env",
+     "cloud",
+     "build"
+    ]
+   },
+   "stopped": {
+    "levels": [
+     "ERROR",
+     "INFO"
+    ],
+    "keys": [
+     "listener",
+     "error"
+    ]
+   },
+   "panic": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "location",
+     "error"
+    ]
+   },
+   "config warning": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "reason",
+     "error"
+    ],
+    "reasons": [
+     "missing",
+     "invalid",
+     "deprecated"
+    ]
+   },
+   "idle summary": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "requests",
+     "runs",
+     "window_s"
+    ]
+   },
+   "shutdown done": {
+    "levels": [
+     "INFO",
+     "WARN",
+     "ERROR"
+    ],
+    "keys": [
+     "status",
+     "dropped",
+     "refused",
+     "timeout_ms"
+    ]
+   }
+  },
+  "zz.main": {
+   "started": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "runner",
+     "listener",
+     "port",
+     "env",
+     "cloud",
+     "build"
+    ]
+   },
+   "stopped": {
+    "levels": [
+     "ERROR",
+     "INFO"
+    ],
+    "keys": [
+     "listener",
+     "error"
+    ]
+   },
+   "panic": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "location",
+     "error"
+    ]
+   },
+   "config warning": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "reason",
+     "error"
+    ],
+    "reasons": [
+     "missing",
+     "invalid",
+     "deprecated"
+    ]
+   },
+   "idle summary": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "requests",
+     "runs",
+     "window_s"
+    ]
+   },
+   "shutdown done": {
+    "levels": [
+     "INFO",
+     "WARN",
+     "ERROR"
+    ],
+    "keys": [
+     "status",
+     "dropped",
+     "refused",
+     "timeout_ms"
+    ]
+   }
+  },
+  "worker.main": {
+   "started": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "listener",
+     "port"
+    ]
+   },
+   "stopped": {
+    "levels": [
+     "ERROR",
+     "INFO"
+    ],
+    "keys": [
+     "listener",
+     "error"
+    ]
+   },
+   "panic": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "location",
+     "error"
+    ]
+   },
+   "config warning": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "reason",
+     "error"
+    ],
+    "reasons": [
+     "missing",
+     "invalid",
+     "deprecated"
+    ]
+   },
+   "idle summary": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "requests",
+     "runs",
+     "window_s"
+    ]
+   },
+   "shutdown done": {
+    "levels": [
+     "INFO",
+     "WARN",
+     "ERROR"
+    ],
+    "keys": [
+     "status",
+     "dropped",
+     "refused",
+     "timeout_ms"
+    ]
+   },
+   "ping done": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "elapsed_ms"
+    ]
+   },
+   "op failed": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "reason",
+     "error",
+     "elapsed_ms"
+    ],
+    "reasons": [
+     "bad-json",
+     "bad-version",
+     "unknown-kind",
+     "bad-request",
+     "request-too-large",
+     "not-implemented",
+     "at-capacity",
+     "handle-busy",
+     "no-handle",
+     "too-many-handles",
+     "spawn-failed",
+     "internal",
+     "timeout"
+    ]
+   }
+  },
+  "cloud.http": {
+   "request done": {
+    "levels": [
+     "INFO",
+     "DEBUG"
+    ],
+    "keys": [
+     "org_id",
+     "method",
+     "route",
+     "http_status",
+     "client",
+     "client_trace_id",
+     "elapsed_ms"
+    ]
+   },
+   "request slow": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "org_id",
+     "method",
+     "route",
+     "http_status",
+     "client",
+     "client_trace_id",
+     "elapsed_ms"
+    ]
+   },
+   "request failed": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "org_id",
+     "method",
+     "route",
+     "http_status",
+     "reason",
+     "client",
+     "client_trace_id",
+     "error",
+     "elapsed_ms"
+    ],
+    "reasons": [
+     "db",
+     "io",
+     "internal",
+     "timeout"
+    ]
+   },
+   "page view": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "browser"
+    ]
+   },
+   "stream closed": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "org_id",
+     "run_id"
+    ]
+   },
+   "proxy mismatch": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": []
+   }
+  },
+  "cloud.auth": {
+   "login started": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "auth_method",
+     "ip"
+    ]
+   },
+   "login done": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "auth_method",
+     "ip"
+    ]
+   },
+   "login failed": {
+    "levels": [
+     "WARN",
+     "ERROR"
+    ],
+    "keys": [
+     "route",
+     "reason",
+     "auth_method",
+     "ip",
+     "error"
+    ],
+    "reasons": [
+     "limited",
+     "expired",
+     "bad-request",
+     "key-mint",
+     "internal",
+     "db",
+     "email",
+     "org-id-clash",
+     "hash",
+     "hash-task",
+     "verify-task",
+     "identity",
+     "org-missing",
+     "changed",
+     "link-race",
+     "render"
+    ]
+   },
+   "login approved": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id",
+     "ip"
+    ]
+   },
+   "login denied": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id",
+     "ip"
+    ]
+   },
+   "signed in": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id",
+     "auth_method",
+     "ip"
+    ]
+   },
+   "account created": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id",
+     "auth_method",
+     "ip"
+    ]
+   },
+   "account retired": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id"
+    ]
+   },
+   "invite created": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id"
+    ]
+   },
+   "member joined": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id",
+     "ip"
+    ]
+   },
+   "member removed": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id"
+    ]
+   },
+   "member changed": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id"
+    ]
+   },
+   "identity linked": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id",
+     "provider",
+     "ip"
+    ]
+   },
+   "oauth failed": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "reason",
+     "provider"
+    ],
+    "reasons": [
+     "provider-call"
+    ]
+   },
+   "token created": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "token_id"
+    ]
+   },
+   "token revoked": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "token_id"
+    ]
+   },
+   "reload failed": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "error"
+    ]
+   },
+   "check failed": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "reason"
+    ],
+    "reasons": [
+     "db"
+    ]
+   },
+   "org created": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "reason"
+    ],
+    "reasons": [
+     "bootstrap"
+    ]
+   }
+  },
+  "cloud.runs": {
+   "run started": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "run_id",
+     "pipeline_id",
+     "env"
+    ]
+   },
+   "step done": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "org_id",
+     "run_id",
+     "step",
+     "step_type",
+     "kind",
+     "status"
+    ]
+   },
+   "step failed": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "run_id",
+     "step",
+     "step_type",
+     "kind",
+     "status",
+     "reason"
+    ],
+    "reasons": [
+     "assertion",
+     "timeout",
+     "not-allowed",
+     "runner-error",
+     "explicit-fail",
+     "interp-error"
+    ]
+   },
+   "run ended": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "run_id",
+     "status",
+     "reason",
+     "elapsed_ms"
+    ],
+    "reasons": [
+     "assertion",
+     "timeout",
+     "not-allowed",
+     "runner-error",
+     "explicit-fail",
+     "interp-error"
+    ]
+   },
+   "runs recovered": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "count"
+    ]
+   },
+   "run lost": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "org_id",
+     "run_id",
+     "reason"
+    ],
+    "reasons": [
+     "not-recoverable",
+     "runner-down"
+    ]
+   },
+   "wake refused": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "reason"
+    ],
+    "reasons": [
+     "closed",
+     "full",
+     "shutting-down"
+    ]
+   },
+   "wake skipped": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "reason"
+    ],
+    "reasons": [
+     "panic"
+    ]
+   },
+   "event skipped": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "reason"
+    ],
+    "reasons": [
+     "panic"
+    ]
+   },
+   "engine failed": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "op",
+     "error"
+    ]
+   },
+   "engine refused": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "reason"
+    ],
+    "reasons": [
+     "closed",
+     "full",
+     "shutting-down"
+    ]
+   },
+   "batch failed": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "error"
+    ]
+   },
+   "write failed": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "run_id",
+     "op",
+     "attempts",
+     "writes",
+     "error"
+    ]
+   },
+   "reply missed": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "op"
+    ]
+   },
+   "wiring bug": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": []
+   },
+   "flow error": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "location",
+     "error"
+    ]
+   },
+   "runner connected": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "token_id",
+     "env",
+     "client"
+    ]
+   }
+  },
+  "cloud.db": {
+   "query done": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "op",
+     "table",
+     "rows",
+     "elapsed_ms"
+    ]
+   },
+   "query slow": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "op",
+     "table",
+     "rows",
+     "elapsed_ms"
+    ]
+   },
+   "pool closed": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "resource",
+     "status"
+    ]
+   }
+  },
+  "runner.db": {
+   "query done": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "op",
+     "table",
+     "rows",
+     "elapsed_ms"
+    ]
+   },
+   "query slow": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "op",
+     "table",
+     "rows",
+     "elapsed_ms"
+    ]
+   },
+   "pool closed": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "resource",
+     "status"
+    ]
+   }
+  },
+  "cloud.lib": {
+   "lib event": {
+    "levels": [
+     "ERROR",
+     "WARN",
+     "INFO",
+     "DEBUG",
+     "TRACE"
+    ],
+    "keys": [
+     "location",
+     "error"
+    ]
+   }
+  },
+  "runner.lib": {
+   "lib event": {
+    "levels": [
+     "ERROR",
+     "WARN",
+     "INFO",
+     "DEBUG",
+     "TRACE"
+    ],
+    "keys": [
+     "location",
+     "error"
+    ]
+   }
+  },
+  "runner.exchange": {
+   "runner connected": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "runner",
+     "env",
+     "cloud"
+    ]
+   },
+   "poll done": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "http_status",
+     "sent",
+     "received",
+     "elapsed_ms"
+    ]
+   },
+   "poll failed": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "http_status",
+     "error",
+     "elapsed_ms"
+    ]
+   },
+   "poll refused": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "http_status"
+    ]
+   },
+   "refresh failed": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "error"
+    ]
+   },
+   "frame skipped": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "frame"
+    ]
+   },
+   "frame failed": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "frame",
+     "error"
+    ]
+   }
+  },
+  "runner.ops": {
+   "op done": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "run_id",
+     "step",
+     "op_id",
+     "kind",
+     "resource",
+     "status",
+     "elapsed_ms"
+    ]
+   },
+   "op failed": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "run_id",
+     "step",
+     "op_id",
+     "kind",
+     "resource",
+     "status",
+     "reason",
+     "error",
+     "elapsed_ms"
+    ],
+    "reasons": [
+     "timeout",
+     "runner-at-capacity",
+     "runner-error",
+     "worker-unavailable"
+    ]
+   },
+   "op refused": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "run_id",
+     "step",
+     "op_id",
+     "kind",
+     "resource",
+     "status",
+     "reason",
+     "elapsed_ms"
+    ],
+    "reasons": [
+     "unknown-arg",
+     "unknown-kind",
+     "unknown-resource",
+     "host-not-allowed",
+     "read-only",
+     "placeholder-in-disallowed-slot",
+     "evidence-disabled",
+     "evidence-expired",
+     "command-not-allowed",
+     "arg-not-allowed"
+    ]
+   },
+   "no allowlist": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "resource"
+    ]
+   },
+   "worker up": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": []
+   },
+   "worker down": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": []
+   },
+   "worker lost": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": []
+   }
+  },
+  "worker.browser": {
+   "op done": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "run_id",
+     "op_id",
+     "kind",
+     "cmd",
+     "mode",
+     "exit_code",
+     "status",
+     "elapsed_ms"
+    ]
+   },
+   "op failed": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "run_id",
+     "op_id",
+     "kind",
+     "cmd",
+     "mode",
+     "exit_code",
+     "status",
+     "reason",
+     "elapsed_ms"
+    ],
+    "reasons": [
+     "bad-json",
+     "bad-version",
+     "unknown-kind",
+     "bad-request",
+     "request-too-large",
+     "not-implemented",
+     "at-capacity",
+     "handle-busy",
+     "no-handle",
+     "too-many-handles",
+     "spawn-failed",
+     "internal",
+     "timeout"
+    ]
+   },
+   "ping done": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "elapsed_ms"
+    ]
+   }
+  },
+  "worker.cli": {
+   "op done": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "run_id",
+     "op_id",
+     "kind",
+     "cmd",
+     "mode",
+     "exit_code",
+     "status",
+     "elapsed_ms"
+    ]
+   },
+   "op failed": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "run_id",
+     "op_id",
+     "kind",
+     "cmd",
+     "mode",
+     "exit_code",
+     "status",
+     "reason",
+     "elapsed_ms"
+    ],
+    "reasons": [
+     "bad-json",
+     "bad-version",
+     "unknown-kind",
+     "bad-request",
+     "request-too-large",
+     "not-implemented",
+     "at-capacity",
+     "handle-busy",
+     "no-handle",
+     "too-many-handles",
+     "spawn-failed",
+     "internal",
+     "timeout"
+    ]
+   },
+   "ping done": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "elapsed_ms"
+    ]
+   }
+  },
+  "zz.http": {
+   "request done": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "method",
+     "path",
+     "http_status",
+     "client_trace_id",
+     "error",
+     "elapsed_ms"
+    ]
+   },
+   "request failed": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "method",
+     "path",
+     "http_status",
+     "client_trace_id",
+     "error",
+     "elapsed_ms"
+    ]
+   }
+  },
+  "zz.run": {
+   "request done": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "method",
+     "path",
+     "http_status",
+     "client_trace_id",
+     "error",
+     "elapsed_ms"
+    ]
+   },
+   "request failed": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "method",
+     "path",
+     "http_status",
+     "client_trace_id",
+     "error",
+     "elapsed_ms"
+    ]
+   }
+  },
+  "cloud.notify": {
+   "worker started": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "mode",
+     "provider"
+    ]
+   },
+   "notice submitted": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "notice_id",
+     "kind"
+    ]
+   },
+   "notice planned": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "notice_id",
+     "kind",
+     "count",
+     "skipped"
+    ]
+   },
+   "plan failed": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "reason",
+     "count"
+    ],
+    "reasons": [
+     "db",
+     "directory",
+     "catalog"
+    ]
+   },
+   "delivery sent": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "notice_id",
+     "delivery_id",
+     "channel",
+     "provider",
+     "attempts",
+     "elapsed_ms"
+    ]
+   },
+   "delivery retry": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "notice_id",
+     "delivery_id",
+     "channel",
+     "provider",
+     "reason",
+     "attempts",
+     "elapsed_ms"
+    ],
+    "reasons": [
+     "timeout",
+     "rate-limit",
+     "rejected",
+     "auth",
+     "provider-down"
+    ]
+   },
+   "delivery failed": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "org_id",
+     "notice_id",
+     "delivery_id",
+     "channel",
+     "provider",
+     "reason",
+     "attempts",
+     "elapsed_ms"
+    ],
+    "reasons": [
+     "timeout",
+     "rate-limit",
+     "rejected",
+     "auth",
+     "provider-down",
+     "bad-address",
+     "no-answer",
+     "panic"
+    ]
+   },
+   "worker cleaned": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "count",
+     "skipped",
+     "rows"
+    ]
+   },
+   "worker failed": {
+    "levels": [
+     "ERROR",
+     "WARN"
+    ],
+    "keys": [
+     "op",
+     "reason",
+     "error"
+    ],
+    "reasons": [
+     "db",
+     "closed",
+     "full",
+     "shutting-down"
+    ]
+   },
+   "run notice dropped": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "org_id",
+     "run_id",
+     "reason"
+    ],
+    "reasons": [
+     "catalog"
+    ]
+   }
+  }
+ },
+ "login_outcome_map": {
+  "started": "login started",
+  "minted": "login done",
+  "limited": "login failed",
+  "expired": "login failed",
+  "bad-request": "login failed",
+  "pending": "no line at all"
+ },
+ "ip_rule": {
+  "key": "ip",
+  "only_component": "cloud.auth",
+  "other_components": "drop the key and count it"
+ },
+ "client_rule": {
+  "key": "client",
+  "header": "User-Agent",
+  "regex": "^(zz|runner)/[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}\\+([0-9a-f]{12}|dev)$",
+  "dialect": "POSIX ERE",
+  "max_len": 37,
+  "match": "print the header as is",
+  "no_match": "leave the key out (also when the header is missing); never log or store the raw header",
+  "_note": "A new kind of entry: a closed value by pattern, not by enum. The cloud checks the header once at the edge. zz and the runner test their own constant against this regex. Cases: client_cases in cases.json."
+ },
+ "build_rule": {
+  "key": "build",
+  "regex": "^[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}\\+([0-9a-f]{12}|dev)$",
+  "_note": "A build id: semver + git sha (12 hex), or +dev for a local build. Only on a product's own `started` line. client = <product>/<build id>."
+ },
+ "levels": [
+  "ERROR",
+  "WARN",
+  "INFO",
+  "DEBUG",
+  "TRACE"
+ ],
+ "library": {
+  "_note": "Targets we do not own. Input carries product; sqlx::query input fields are the classifier output (op, table, rows, elapsed_ms) plus raw lib fields, which are dropped. Every other crate: event `lib event`, location=<first path segment of the target>, keys location and error only; error = the lib message, kept only at WARN and above. Lib events are exempt from the dropped-key count.",
+  "cloud": {
+   "sqlx::query": {
+    "component": "cloud.db",
+    "events": [
+     "query done",
+     "query slow"
+    ],
+    "keys": [
+     "op",
+     "table",
+     "rows",
+     "elapsed_ms"
+    ]
+   },
+   "other": {
+    "component": "cloud.lib",
+    "event": "lib event",
+    "keys": [
+     "location",
+     "error"
+    ],
+    "error_min_level": "WARN"
+   }
+  },
+  "runner": {
+   "sqlx::query": {
+    "component": "runner.db",
+    "events": [
+     "query done",
+     "query slow"
+    ],
+    "keys": [
+     "op",
+     "table",
+     "rows",
+     "elapsed_ms"
+    ]
+   },
+   "other": {
+    "component": "runner.lib",
+    "event": "lib event",
+    "keys": [
+     "location",
+     "error"
+    ],
+    "error_min_level": "WARN"
+   }
+  }
+ },
+ "filter": {
+  "env": {
+   "cloud": "ZRIZ_LOG",
+   "runner": "ZRIZ_LOG",
+   "worker": "ZRIZ_LOG",
+   "zz": "ZZ_LOG"
+  },
+  "grammar": "<level> or <level>,<target>=<level>,... ; target = component name for own lines, the library real target for library lines (sqlx::query=debug); an override matches only its own target string (cloud.db=debug does not affect sqlx::query); levels lower-case error warn info debug trace",
+  "default_filter": {
+   "cloud": "warn,cloud=info",
+   "runner": "warn,runner=info",
+   "worker": "warn,worker=info",
+   "zz": "warn,zz=info"
+  },
+  "default_note": "Used when no env var is set. zz: when ZZ_LOG is set it is used as is; unset, zz prints nothing."
+ }
+}

@@ -1,0 +1,24 @@
+{
+  "members": [
+    {
+      "account-id": "a-1",
+      "name": "Anna",
+      "email": "anna@example.com",
+      "role": "admin"
+    },
+    {
+      "account-id": "a-2",
+      "name": "Bo",
+      "email": "bo@example.com",
+      "role": "viewer"
+    }
+  ],
+  "invites": [
+    {
+      "id": "i-1",
+      "email": "cy@example.com",
+      "role": "member",
+      "expires-at": "2026-10-11T10:00:00Z"
+    }
+  ]
+}

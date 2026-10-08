@@ -1,0 +1,5 @@
+{
+  "kind": "note",
+  "subject": "Links",
+  "body": "see http://localhost:8080/path and https://example.com/a?x=1:2@3 or mailto:bo@example.com"
+}

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/space-post.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "thread": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "kind": {
+      "enum": [
+        "note",
+        "question",
+        "answer"
+      ]
+    },
+    "from": {
+      "$ref": "https://zriz.io/contract/space-person.json"
+    },
+    "to": {
+      "$ref": "https://zriz.io/contract/space-person.json"
+    },
+    "subject": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "refs": {
+      "type": "array",
+      "items": {
+        "$ref": "https://zriz.io/contract/space-ref.json"
+      }
+    },
+    "at": {
+      "type": "string"
+    },
+    "project": {
+      "oneOf": [
+        {
+          "$ref": "https://zriz.io/contract/project-name.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "thread",
+    "kind",
+    "from",
+    "project",
+    "body",
+    "refs",
+    "at"
+  ],
+  "additionalProperties": false
+}

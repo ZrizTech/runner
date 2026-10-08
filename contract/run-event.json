@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/run-event.json",
+  "type": "object",
+  "properties": {
+    "v": {"const": 1},
+    "kind": {"enum": ["started", "step-done", "finished", "runner-down"]},
+    "run-id": {"type": "string"},
+    "trace-id": {"type": "string"},
+    "at": {"type": "integer"},
+    "step-index": {"type": "integer", "minimum": 0},
+    "step-type": {
+      "enum": ["set", "call", "poll", "for", "sleep", "log", "assert", "skip", "fail"]
+    },
+    "status": {"enum": ["pass", "fail", "skip", "error"]},
+    "reason": {"type": "string"}
+  },
+  "required": ["v", "kind", "run-id", "trace-id", "at"],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "started"}}, "required": ["kind"]},
+      "then": {
+        "not": {
+          "anyOf": [
+            {"required": ["step-index"]},
+            {"required": ["step-type"]},
+            {"required": ["status"]},
+            {"required": ["reason"]}
+          ]
+        }
+      }
+    },
+    {
+      "if": {"properties": {"kind": {"const": "step-done"}}, "required": ["kind"]},
+      "then": {
+        "required": ["step-index", "step-type", "status"],
+        "not": {"required": ["reason"]}
+      }
+    },
+    {
+      "if": {"properties": {"kind": {"const": "finished"}}, "required": ["kind"]},
+      "then": {
+        "required": ["status"],
+        "not": {
+          "anyOf": [
+            {"required": ["step-index"]},
+            {"required": ["step-type"]}
+          ]
+        },
+        "if": {"properties": {"status": {"const": "error"}}, "required": ["status"]},
+        "then": true,
+        "else": {"not": {"required": ["reason"]}}
+      }
+    },
+    {
+      "if": {"properties": {"kind": {"const": "runner-down"}}, "required": ["kind"]},
+      "then": {
+        "required": ["reason"],
+        "not": {
+          "anyOf": [
+            {"required": ["step-index"]},
+            {"required": ["step-type"]},
+            {"required": ["status"]}
+          ]
+        }
+      }
+    }
+  ]
+}

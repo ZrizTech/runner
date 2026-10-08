@@ -1,0 +1,5 @@
+{
+  "format": "text",
+  "body": "http://localhost:8080/path https://example.com/a?x=1:2@3 mailto:bo@example.com",
+  "summary": "x"
+}

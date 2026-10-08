@@ -1,0 +1,512 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/pipeline.json",
+  "$defs": {
+    "text": {
+      "type": "string",
+      "pattern": "^(?:[^$]|\\$\\$\\{|\\$\\{(?:ctx|env|gen)\\.[A-Za-z0-9_.\\-\\[\\]\"()., ]+\\}|\\$(?:[^{]|$))*$"
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*(\\.[A-Za-z_][A-Za-z0-9_-]*|\\[[0-9]+\\])*$"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/text"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/value"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/value"
+          }
+        }
+      ]
+    },
+    "assertion": {
+      "type": "array",
+      "oneOf": [
+        {
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/path"
+            },
+            {
+              "enum": [
+                "exists",
+                "not-exists",
+                "empty",
+                "not-empty"
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        {
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/path"
+            },
+            {
+              "enum": [
+                "==",
+                "!=",
+                ">",
+                ">=",
+                "<",
+                "<=",
+                "contains",
+                "not-contains",
+                "starts-with",
+                "ends-with",
+                "matches",
+                "count==",
+                "count>",
+                "count>=",
+                "count<",
+                "count<="
+              ]
+            },
+            {
+              "$ref": "#/$defs/value"
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        }
+      ]
+    },
+    "step-set": {
+      "type": "object",
+      "properties": {
+        "set": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/value"
+          }
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "set"
+      ],
+      "additionalProperties": false
+    },
+    "step-call": {
+      "type": "object",
+      "properties": {
+        "call": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$"
+        },
+        "redirect": {
+          "enum": [
+            "follow",
+            "none"
+          ],
+          "description": "follow HTTP redirects; default follow"
+        },
+        "body": {
+          "$ref": "#/$defs/value-cap"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/text-cap"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "query-params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/text-cap"
+          }
+        },
+        "timeout-ms": {
+          "type": "integer"
+        },
+        "expect": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assertion"
+          }
+        },
+        "save": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/path"
+          }
+        },
+        "description": {
+          "type": "string"
+        },
+        "capture": {
+          "$ref": "#/$defs/capture"
+        },
+        "with": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/value-cap"
+          },
+          "description": "values for browser/cli action slots; ${NAME} runner secrets allowed"
+        }
+      },
+      "required": [
+        "call"
+      ],
+      "additionalProperties": false
+    },
+    "step-poll": {
+      "type": "object",
+      "properties": {
+        "poll": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$"
+        },
+        "redirect": {
+          "enum": [
+            "follow",
+            "none"
+          ],
+          "description": "follow HTTP redirects; default follow"
+        },
+        "until": {
+          "$ref": "#/$defs/assertion"
+        },
+        "interval-ms": {
+          "type": "integer"
+        },
+        "max-attempts": {
+          "type": "integer"
+        },
+        "body": {
+          "$ref": "#/$defs/value-cap"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/text-cap"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "query-params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/text-cap"
+          }
+        },
+        "timeout-ms": {
+          "type": "integer"
+        },
+        "expect": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assertion"
+          }
+        },
+        "save": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/path"
+          }
+        },
+        "description": {
+          "type": "string"
+        },
+        "capture": {
+          "$ref": "#/$defs/capture"
+        },
+        "with": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/value-cap"
+          },
+          "description": "values for browser/cli action slots; ${NAME} runner secrets allowed"
+        }
+      },
+      "required": [
+        "poll",
+        "until"
+      ],
+      "additionalProperties": false
+    },
+    "step-for": {
+      "type": "object",
+      "properties": {
+        "for": {
+          "type": "object",
+          "properties": {
+            "each": {
+              "type": "string"
+            },
+            "in": {
+              "$ref": "#/$defs/value"
+            }
+          },
+          "required": [
+            "each",
+            "in"
+          ],
+          "additionalProperties": false
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "for",
+        "steps"
+      ],
+      "additionalProperties": false
+    },
+    "step-sleep": {
+      "type": "object",
+      "properties": {
+        "sleep": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sleep"
+      ],
+      "additionalProperties": false
+    },
+    "step-log": {
+      "type": "object",
+      "properties": {
+        "log": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "log"
+      ],
+      "additionalProperties": false
+    },
+    "step-assert": {
+      "type": "object",
+      "properties": {
+        "assert": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assertion"
+          },
+          "minItems": 1
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "assert"
+      ],
+      "additionalProperties": false
+    },
+    "step-skip": {
+      "type": "object",
+      "properties": {
+        "skip": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "skip"
+      ],
+      "additionalProperties": false
+    },
+    "step-fail": {
+      "type": "object",
+      "properties": {
+        "fail": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "fail"
+      ],
+      "additionalProperties": false
+    },
+    "step": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/step-set"
+        },
+        {
+          "$ref": "#/$defs/step-call"
+        },
+        {
+          "$ref": "#/$defs/step-poll"
+        },
+        {
+          "$ref": "#/$defs/step-for"
+        },
+        {
+          "$ref": "#/$defs/step-sleep"
+        },
+        {
+          "$ref": "#/$defs/step-log"
+        },
+        {
+          "$ref": "#/$defs/step-assert"
+        },
+        {
+          "$ref": "#/$defs/step-skip"
+        },
+        {
+          "$ref": "#/$defs/step-fail"
+        }
+      ]
+    },
+    "text-cap": {
+      "type": "string",
+      "pattern": "^(?:[^$]|\\$\\$\\{|\\$\\{(?:ctx|env|gen)\\.[A-Za-z0-9_.\\-\\[\\]\"()., ]+\\}|\\$\\{[A-Z][A-Z0-9_]{0,63}\\}|\\$(?:[^{]|$))*$",
+      "description": "text that may also hold a bare ${NAME} runner-resolved capture reference"
+    },
+    "value-cap": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/text-cap"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/value-cap"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/value-cap"
+          }
+        }
+      ]
+    },
+    "capture": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/path"
+      },
+      "description": "NAME -> response path; runner keeps the value for the run, cloud never sees it"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "env": {
+      "type": "string"
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "fail-fast": {
+          "type": "boolean"
+        },
+        "timeout-ms": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/text"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    }
+  },
+  "required": [
+    "steps"
+  ],
+  "additionalProperties": false
+}

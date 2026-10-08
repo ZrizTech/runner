@@ -1,0 +1,31 @@
+{
+  "op-id": "op-22",
+  "run-id": "run-1",
+  "step-index": 0,
+  "kind": "cli.exec",
+  "resource": "shop-zz",
+  "timeout-ms": 10000,
+  "args": {
+    "mode": "run",
+    "command": "zz",
+    "args": [
+      "run",
+      "qa/zriz/pipelines/hello.json",
+      "--local",
+      "--json"
+    ],
+    "stdout": "json",
+    "env": {
+      "ZZ_API_KEY": "${KEY}"
+    }
+  },
+  "project": [
+    [
+      "ok"
+    ],
+    [
+      "reads",
+      "org"
+    ]
+  ]
+}

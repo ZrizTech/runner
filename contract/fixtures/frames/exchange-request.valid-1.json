@@ -1,0 +1,39 @@
+{
+  "v": 1,
+  "runner": {
+    "runner-id": "local/1",
+    "version": "1.0.0",
+    "ops": [
+      "http.request",
+      "sql.query"
+    ],
+    "resources": [
+      "myshop-api"
+    ],
+    "max-inflight": 4,
+    "env": "local"
+  },
+  "inflight": 0,
+  "frames": [
+    {
+      "v": 1,
+      "t": "result",
+      "id": "55555555-5555-5555-5555-555555555555",
+      "re": "11111111-1111-1111-1111-111111111111",
+      "ts": 1700000000003,
+      "d": {
+        "op-id": "op-1",
+        "status": "pass",
+        "payload": {
+          "status": 200,
+          "body": {},
+          "headers": {}
+        },
+        "scrubbed": 0,
+        "timing": {
+          "exec-ms": 12
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "op-id": "op-4",
+  "run-id": "run-1",
+  "step-index": 3,
+  "kind": "shell.exec",
+  "resource": "myshop-api",
+  "timeout-ms": 5000,
+  "args": {},
+  "project": []
+}

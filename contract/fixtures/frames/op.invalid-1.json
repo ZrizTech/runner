@@ -1,0 +1,14 @@
+{
+  "op-id": "op-3",
+  "run-id": "run-1",
+  "step-index": 2,
+  "kind": "http.request",
+  "resource": "myshop-api",
+  "timeout-ms": 5000,
+  "args": {
+    "method": "GET",
+    "path": "/health",
+    "foo": "bar"
+  },
+  "project": []
+}

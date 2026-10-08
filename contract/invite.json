@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/invite.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "admin",
+        "member",
+        "viewer"
+      ]
+    },
+    "expires-at": {
+      "type": "string"
+    },
+    "emailed": {
+      "type": "boolean"
+    },
+    "link": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "email",
+    "role",
+    "expires-at",
+    "emailed"
+  ],
+  "if": {
+    "properties": {"emailed": {"const": true}},
+    "required": ["emailed"]
+  },
+  "then": {"not": {"required": ["link"]}},
+  "else": {"required": ["link"]},
+  "additionalProperties": false
+}

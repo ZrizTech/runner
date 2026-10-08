@@ -1,0 +1,19 @@
+{
+  "status": "pass",
+  "step-results": [
+    {
+      "step-type": "set",
+      "status": "pass",
+      "step-index": 0
+    },
+    {
+      "step-type": "call",
+      "status": "pass",
+      "step-index": 1
+    }
+  ],
+  "errors": [],
+  "final-context": {
+    "email": "a@test.com"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/login-device-start-response.json",
+  "type": "object",
+  "properties": {
+    "device-code": {"type": "string", "minLength": 1, "maxLength": 128},
+    "user-code": {"type": "string", "pattern": "^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}$"},
+    "verify-url": {"type": "string", "minLength": 1},
+    "interval-s": {"type": "integer", "minimum": 1},
+    "expires-in-s": {"type": "integer", "minimum": 1}
+  },
+  "required": ["device-code", "user-code", "verify-url", "interval-s", "expires-in-s"],
+  "additionalProperties": false
+}

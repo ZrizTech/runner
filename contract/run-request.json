@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/run-request.json",
+  "$defs": {
+    "request-resource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "http"
+            },
+            "description": {
+              "type": "string"
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "timeout-ms": {
+              "type": "integer"
+            },
+            "actions": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "resource.json#/$defs/http-action"
+              }
+            }
+          },
+          "required": [
+            "type",
+            "actions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "sql"
+            },
+            "description": {
+              "type": "string"
+            },
+            "read-only": {
+              "type": "boolean"
+            },
+            "actions": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "resource.json#/$defs/sql-action"
+              }
+            }
+          },
+          "required": [
+            "type",
+            "actions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "browser"
+            },
+            "description": {
+              "type": "string"
+            },
+            "timeout-ms": {
+              "type": "integer"
+            },
+            "viewport": {
+              "type": "object",
+              "properties": {
+                "width": {
+                  "type": "integer",
+                  "minimum": 200,
+                  "maximum": 4000
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 200,
+                  "maximum": 4000
+                }
+              },
+              "required": [
+                "width",
+                "height"
+              ],
+              "additionalProperties": false
+            },
+            "actions": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "resource.json#/$defs/browser-action"
+              }
+            }
+          },
+          "required": [
+            "type",
+            "actions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "cli"
+            },
+            "description": {
+              "type": "string"
+            },
+            "actions": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "resource.json#/$defs/cli-action"
+              }
+            }
+          },
+          "required": [
+            "type",
+            "actions"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "env": {
+      "type": "string"
+    },
+    "project": {
+      "$ref": "https://zriz.io/contract/project-name.json"
+    },
+    "pipeline-id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "pipeline": {
+      "$ref": "pipeline.json"
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/request-resource"
+      }
+    },
+    "environment": {
+      "$ref": "environment.json"
+    },
+    "local": {
+      "type": "object",
+      "properties": {
+        "runner-id": {
+          "type": "string",
+          "pattern": "^local/"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "runner-id"
+      ]
+    }
+  },
+  "required": [
+    "env",
+    "pipeline",
+    "resources",
+    "environment"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/run-result.json",
+  "$defs": {
+    "step-result": {
+      "type": "object",
+      "properties": {
+        "step-type": {
+          "enum": [
+            "set",
+            "call",
+            "poll",
+            "for",
+            "sleep",
+            "log",
+            "assert",
+            "skip",
+            "fail",
+            "pipeline-timeout",
+            "unknown"
+          ]
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "skip",
+            "error"
+          ]
+        }
+      },
+      "required": [
+        "step-type",
+        "status"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "type": "object",
+  "properties": {
+    "status": {
+      "enum": [
+        "pass",
+        "fail",
+        "skip",
+        "error"
+      ]
+    },
+    "step-results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step-result"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step-result"
+      }
+    },
+    "final-context": {
+      "type": "object"
+    },
+    "duration-ms": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "status",
+    "step-results",
+    "errors",
+    "final-context"
+  ],
+  "additionalProperties": true
+}

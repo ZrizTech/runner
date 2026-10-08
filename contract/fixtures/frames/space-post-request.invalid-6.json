@@ -1,0 +1,5 @@
+{
+  "kind": "note",
+  "subject": "Db",
+  "body": "use postgres://app:s3cret@db.example.com:5432/shop"
+}

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/project-name.json",
+  "type": "string",
+  "pattern": "^[A-Za-z0-9_][A-Za-z0-9_-]{0,63}$",
+  "not": {
+    "pattern": "(zk|zrt)_[A-Za-z0-9_-]{20,}"
+  }
+}

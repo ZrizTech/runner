@@ -1,0 +1,5 @@
+{
+  "format": "text",
+  "body": "cache redis://:pw@cache.example.com",
+  "summary": "x"
+}

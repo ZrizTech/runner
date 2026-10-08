@@ -1,0 +1,25 @@
+{
+  "op-id": "op-27",
+  "run-id": "run-1",
+  "step-index": 0,
+  "kind": "cli.exec",
+  "resource": "shop-zz",
+  "timeout-ms": 10000,
+  "args": {
+    "mode": "run",
+    "command": "zz",
+    "args": [
+      "version"
+    ],
+    "path": "/bin/zz"
+  },
+  "project": [
+    [
+      "ok"
+    ],
+    [
+      "reads",
+      "org"
+    ]
+  ]
+}

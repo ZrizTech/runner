@@ -1,0 +1,7 @@
+{
+  "type": "browser",
+  "origins": [
+    "https://a.test"
+  ],
+  "actions": {}
+}

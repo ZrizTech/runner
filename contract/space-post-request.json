@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/space-post-request.json",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "enum": [
+        "note",
+        "question"
+      ]
+    },
+    "subject": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "not": {
+        "pattern": "(zk|zrt)_[A-Za-z0-9_-]{20,}|[A-Za-z][A-Za-z0-9+.-]*://[^\\s/:@]*:[^\\s/@]+@"
+      }
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16000,
+      "not": {
+        "pattern": "(zk|zrt)_[A-Za-z0-9_-]{20,}|[A-Za-z][A-Za-z0-9+.-]*://[^\\s/:@]*:[^\\s/@]+@"
+      }
+    },
+    "to": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 254,
+      "pattern": "^[^@\\s]+@[^@\\s]+$"
+    },
+    "refs": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "https://zriz.io/contract/space-ref.json"
+      }
+    },
+    "project": {
+      "$ref": "https://zriz.io/contract/project-name.json"
+    }
+  },
+  "required": [
+    "kind",
+    "subject",
+    "body"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,24 @@
+{
+  "description": "browser call with with",
+  "steps": [
+    {
+      "call": "shop-web/sign-in",
+      "with": {
+        "email": "${ctx.email}",
+        "password": "${SHOP_QA_PASSWORD}"
+      },
+      "expect": [
+        [
+          "ok",
+          "==",
+          true
+        ],
+        [
+          "reads.org",
+          "starts-with",
+          "o-"
+        ]
+      ]
+    }
+  ]
+}

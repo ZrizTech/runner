@@ -1,0 +1,27 @@
+{
+  "op-id": "op-25",
+  "run-id": "run-1",
+  "step-index": 0,
+  "kind": "browser.page",
+  "resource": "shop-web",
+  "timeout-ms": 10000,
+  "args": {
+    "commands": [
+      {
+        "do": "click",
+        "target": {
+          "css": "div >> text=x"
+        }
+      }
+    ]
+  },
+  "project": [
+    [
+      "ok"
+    ],
+    [
+      "reads",
+      "org"
+    ]
+  ]
+}

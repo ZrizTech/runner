@@ -1,0 +1,67 @@
+{
+  "type": "browser",
+  "description": "web app",
+  "timeout-ms": 10000,
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "actions": {
+    "sign-in": {
+      "commands": [
+        {
+          "do": "goto",
+          "path": "/login"
+        },
+        {
+          "do": "fill",
+          "target": {
+            "label": "Email"
+          },
+          "value": "{email}"
+        },
+        {
+          "do": "fill",
+          "target": {
+            "label": "Password"
+          },
+          "value": "{password}"
+        },
+        {
+          "do": "click",
+          "target": {
+            "role": "button",
+            "name": "Sign in"
+          }
+        },
+        {
+          "do": "wait-for",
+          "url": "/welcome"
+        },
+        {
+          "do": "read",
+          "as": "org",
+          "what": "text",
+          "target": {
+            "css": "[data-org-id]"
+          }
+        }
+      ]
+    },
+    "title": {
+      "commands": [
+        {
+          "do": "goto",
+          "path": "/"
+        },
+        {
+          "do": "read",
+          "as": "title",
+          "what": "title"
+        }
+      ],
+      "timeout-ms": 5000
+    }
+  },
+  "base-url": "https://app.example.com"
+}

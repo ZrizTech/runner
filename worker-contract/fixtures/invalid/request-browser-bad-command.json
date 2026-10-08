@@ -1,0 +1,1 @@
+{"v":1,"op-id":"op-1","run":"r-abc","kind":"browser.page","policy":{"resource":"b","base-url":"https://a.example.com","origins":["https://a.example.com"]},"args":{"commands":[{"do":"evaluate","script":"1"}]},"deadline-ms":1000}

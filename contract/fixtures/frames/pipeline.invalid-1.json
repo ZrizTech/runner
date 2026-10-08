@@ -1,0 +1,10 @@
+{
+  "steps": [
+    {
+      "call": "api/register",
+      "set": {
+        "x": 1
+      }
+    }
+  ]
+}

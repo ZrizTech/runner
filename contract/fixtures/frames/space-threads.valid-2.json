@@ -1,0 +1,59 @@
+{
+  "threads": [
+    {
+      "root": {
+        "id": 2,
+        "thread": 2,
+        "kind": "question",
+        "from": {
+          "account-id": "a-2",
+          "name": "Bo",
+          "email": "bo@example.com"
+        },
+        "to": {
+          "account-id": "a-1",
+          "name": "Anna",
+          "email": "anna@example.com"
+        },
+        "project": "ms-a",
+        "subject": "Orders",
+        "body": "Why 500?",
+        "refs": [
+          {
+            "type": "run",
+            "id": "r-123"
+          },
+          {
+            "type": "contract",
+            "project": "ms-a",
+            "name": "orders-api",
+            "version": 1
+          }
+        ],
+        "at": "2026-10-04T11:00:00Z"
+      },
+      "state": "open",
+      "replies": 0,
+      "last-id": 2
+    },
+    {
+      "root": {
+        "id": 1,
+        "thread": 1,
+        "kind": "note",
+        "from": {
+          "account-id": "a-1",
+          "name": "Anna",
+          "email": "anna@example.com"
+        },
+        "project": "ms-a",
+        "body": "Hello",
+        "refs": [],
+        "at": "2026-10-04T10:00:00Z"
+      },
+      "state": "note",
+      "replies": 3,
+      "last-id": 7
+    }
+  ]
+}

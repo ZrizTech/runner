@@ -1,0 +1,5 @@
+{
+  "error": "too-many-streams",
+  "scope": "org-1",
+  "retry-after-ms": 5000
+}

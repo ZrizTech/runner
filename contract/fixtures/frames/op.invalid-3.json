@@ -1,0 +1,17 @@
+{
+  "op-id": "op-6",
+  "run-id": "run-1",
+  "step-index": 0,
+  "kind": "http.request",
+  "resource": "myshop-api",
+  "timeout-ms": 5000,
+  "args": {
+    "method": "TRACE",
+    "path": "/orders/1"
+  },
+  "project": [
+    [
+      "status"
+    ]
+  ]
+}

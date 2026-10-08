@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/space-cursor-request.json",
+  "type": "object",
+  "properties": {
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "seq"
+  ],
+  "additionalProperties": false
+}

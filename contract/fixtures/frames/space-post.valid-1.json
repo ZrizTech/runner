@@ -1,0 +1,14 @@
+{
+  "id": 1,
+  "thread": 1,
+  "kind": "note",
+  "from": {
+    "account-id": "a-1",
+    "name": "Anna",
+    "email": "anna@example.com"
+  },
+  "project": null,
+  "body": "Hello",
+  "refs": [],
+  "at": "2026-10-04T10:00:00Z"
+}

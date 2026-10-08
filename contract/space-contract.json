@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/space-contract.json",
+  "type": "object",
+  "properties": {
+    "head": {
+      "$ref": "https://zriz.io/contract/space-contract-head.json"
+    },
+    "body": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "head",
+    "body"
+  ],
+  "additionalProperties": false
+}

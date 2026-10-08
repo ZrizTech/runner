@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/space-thread.json",
+  "type": "object",
+  "properties": {
+    "root": {
+      "$ref": "https://zriz.io/contract/space-post.json"
+    },
+    "replies": {
+      "type": "array",
+      "items": {
+        "$ref": "https://zriz.io/contract/space-post.json"
+      }
+    },
+    "state": {
+      "enum": [
+        "note",
+        "open",
+        "answered"
+      ]
+    }
+  },
+  "required": [
+    "root",
+    "replies",
+    "state"
+  ],
+  "additionalProperties": false
+}

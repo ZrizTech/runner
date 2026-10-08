@@ -1,0 +1,11 @@
+{
+  "type": "sql",
+  "description": "a db",
+  "connection": "postgres://localhost/db",
+  "read-only": true,
+  "actions": {
+    "get-user": {
+      "query": "SELECT * FROM users WHERE id = ${ctx.id}"
+    }
+  }
+}

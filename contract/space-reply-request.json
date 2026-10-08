@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/space-reply-request.json",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "enum": [
+        "note",
+        "answer"
+      ]
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16000,
+      "not": {
+        "pattern": "(zk|zrt)_[A-Za-z0-9_-]{20,}|[A-Za-z][A-Za-z0-9+.-]*://[^\\s/:@]*:[^\\s/@]+@"
+      }
+    },
+    "refs": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "https://zriz.io/contract/space-ref.json"
+      }
+    },
+    "project": {
+      "$ref": "https://zriz.io/contract/project-name.json"
+    }
+  },
+  "required": [
+    "kind",
+    "body"
+  ],
+  "additionalProperties": false
+}

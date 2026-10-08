@@ -1,0 +1,5 @@
+{
+  "format": "openapi",
+  "body": "openapi: 3.0.0",
+  "summary": "Orders API"
+}

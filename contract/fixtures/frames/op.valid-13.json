@@ -1,0 +1,56 @@
+{
+  "op-id": "op-21",
+  "run-id": "run-1",
+  "step-index": 0,
+  "kind": "browser.page",
+  "resource": "shop-web",
+  "timeout-ms": 10000,
+  "args": {
+    "commands": [
+      {
+        "do": "viewport",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "do": "goto",
+        "path": "/"
+      },
+      {
+        "do": "read",
+        "as": "wide",
+        "what": "overflow-x"
+      },
+      {
+        "do": "read",
+        "as": "btn",
+        "what": "visible",
+        "target": {
+          "test-id": "cta"
+        }
+      },
+      {
+        "do": "press",
+        "target": {
+          "text": "Search"
+        },
+        "key": "Enter"
+      }
+    ],
+    "capture": {
+      "CODE": [
+        "reads",
+        "code"
+      ]
+    }
+  },
+  "project": [
+    [
+      "ok"
+    ],
+    [
+      "reads",
+      "org"
+    ]
+  ]
+}

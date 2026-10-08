@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "kind": "step-done",
+  "run-id": "run-1",
+  "trace-id": "trace-1",
+  "at": 1730000002000,
+  "step-index": 0,
+  "step-type": "call",
+  "status": "pass"
+}

@@ -1,0 +1,22 @@
+{
+  "status": "fail",
+  "step-results": [
+    {
+      "step-type": "call",
+      "status": "fail",
+      "step-index": 0
+    }
+  ],
+  "errors": [
+    {
+      "step-type": "call",
+      "status": "fail",
+      "step-index": 0
+    }
+  ],
+  "final-context": {},
+  "id": "run-1",
+  "local": true,
+  "started-at": 1700000000000,
+  "ended-at": 1700000001000
+}

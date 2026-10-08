@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "runner": {
+    "runner-id": "local/2",
+    "version": "1.0.0",
+    "ops": [
+      "http.request"
+    ],
+    "resources": [
+      "myshop-api"
+    ],
+    "max-inflight": 2
+  },
+  "inflight": 0,
+  "frames": []
+}

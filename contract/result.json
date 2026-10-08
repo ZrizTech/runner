@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/result.json",
+  "type": "object",
+  "properties": {
+    "op-id": {"type": "string"},
+    "status": {"enum": ["pass", "fail"]},
+    "payload": {"type": "object"},
+    "scrubbed": {"type": "integer"},
+    "timing": {
+      "type": "object",
+      "properties": {
+        "exec-ms": {"type": "integer"}
+      },
+      "required": ["exec-ms"],
+      "additionalProperties": true
+    }
+  },
+  "required": ["op-id", "status", "payload", "scrubbed", "timing"],
+  "additionalProperties": true
+}

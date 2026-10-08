@@ -1,0 +1,12 @@
+{
+  "op-id": "op-2",
+  "status": "fail",
+  "payload": {
+    "rows": [],
+    "row-count": 0
+  },
+  "scrubbed": 1,
+  "timing": {
+    "exec-ms": 5
+  }
+}

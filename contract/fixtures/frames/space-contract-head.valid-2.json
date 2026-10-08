@@ -1,0 +1,16 @@
+{
+  "name": "orders-api",
+  "project": "ms-a",
+  "version": 2,
+  "format": "protobuf",
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "summary": "First",
+  "size": 120,
+  "by": {
+    "account-id": "a-1",
+    "name": "Anna",
+    "email": "anna@example.com"
+  },
+  "at": "2026-10-04T10:00:00Z",
+  "created": true
+}

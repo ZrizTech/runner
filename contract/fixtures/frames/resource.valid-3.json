@@ -1,0 +1,12 @@
+{
+  "type": "http",
+  "description": "api with no redirects",
+  "base-url": "http://localhost:9080",
+  "actions": {
+    "login": {
+      "method": "POST",
+      "path": "/auth/login",
+      "redirect": "none"
+    }
+  }
+}
