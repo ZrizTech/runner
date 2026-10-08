@@ -1,8 +1,8 @@
 # zriz runner
 
-**Code is cheap. Correctness is not.**
+**Your product keeps working, no matter who, or what, writes the code.**
 
-Agents now write code faster than anyone can read it. [zriz](https://zriz.io) proves your product still works, end to end, before your customers find out. The runner is the part that lives in your network: it makes the calls and holds every secret, so none of them reach the cloud. Docs: [zriz.io/docs/runner](https://zriz.io/docs/runner).
+[zriz](https://zriz.io) tests your real app, end to end, before your customers do. The runner is the part that lives in your network: it makes the calls and holds every secret, so none of them reach the cloud. Docs: [zriz.io/docs/runner](https://zriz.io/docs/runner).
 
 ## What it is, and what it trusts
 
@@ -15,7 +15,51 @@ The runner polls the zriz cloud for ops (http, sql, browser, cli), runs them aga
 
 Browser and cli ops run in a separate Node sidecar, the worker (`worker/`). It holds no runner secret.
 
-## Quick start (Docker)
+## Container image
+
+The image is `ghcr.io/zriztech/runner`. It is public. You do not need to log in to pull it. The worker image, for `browser` and `cli` resources, is `ghcr.io/zriztech/worker`.
+
+The images exist from the first release tag on. Before that, build from source (next section).
+
+Both images are built for `linux/amd64` and `linux/arm64`. Tags:
+
+- `1.2.3` never changes. Pin this one.
+- `1.2` moves to the newest patch of that minor version.
+- `latest` is the newest release that is not a pre-release. Do not use it in a guide or a Compose file.
+
+Write the token and the passwords in a file with an editor (one `NAME=value` per line), so they stay out of your shell history:
+
+    ZRIZ_RUNNER_TOKEN=zrt_...
+    SHOP_DB_PASSWORD=...
+
+Then:
+
+    chmod 600 runner.env
+    docker run -d --restart unless-stopped --name zriz-runner \
+      --env-file runner.env \
+      -e ZRIZ_RUNNER_CONFIG=/config/config.json \
+      -v "$PWD/config.json:/config/config.json:ro" \
+      ghcr.io/zriztech/runner:<version>
+
+Do not write `-e ZRIZ_RUNNER_TOKEN=value` on the command line. The shell keeps it in its history.
+
+### Verify the image
+
+Each release image is signed without a key (Sigstore keyless) and has a build record and an SBOM. Replace `<version>` with the version you use, for example `0.1.0`.
+
+Check the signature. It must come from the release workflow of this repository, on a `v` tag:
+
+    cosign verify ghcr.io/zriztech/runner:<version> \
+      --certificate-identity-regexp '^https://github\.com/ZrizTech/runner/\.github/workflows/release\.yml@refs/tags/v' \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+Check the GitHub build attestation:
+
+    gh attestation verify oci://ghcr.io/zriztech/runner:<version> --owner ZrizTech
+
+To pin the exact image, take the digest from the output and run `ghcr.io/zriztech/runner@sha256:<digest>`. The same two commands work for `ghcr.io/zriztech/worker`.
+
+## Quick start (build from source)
 
 Build the images from this folder:
 

@@ -2,6 +2,10 @@
 Runs inside the customer's environment, executes ops the cloud sends, holds
 every secret. Public, Apache 2 (LICENSE). Never imports from the cloud.
 
+## Dictionary
+
+`../../zriz-cloud/DICTIONARY.md` (in the repository `zriz-cloud`) is the single source of truth for the meaning of each zriz term (org, env, resource, run, op, result, API key, token, service contract, and so on). Read it before you name or define something. Use its words in code, help text, messages and documents. If the code and the dictionary do not agree, tell the owner. Do not make a second definition here.
+
 ## Modules (crate `zriz-runner`, lib + bin `zriz-runner`, no internal/)
 - `main` (`src/main.rs`) — bin: config from
   `ZRIZ_RUNNER_CONFIG`; `run()` takes ctx (`CancellationToken`)/lookup/stderr as inputs, all exit

@@ -21,3 +21,5 @@ Anything that lets the zriz cloud, or a pipeline it runs, do one of these:
 ## Supported versions
 
 The latest release only.
+
+Release images (`ghcr.io/zriztech/runner` and `ghcr.io/zriztech/worker`) are signed and have a build record. The verify steps are in the README, section "Verify the image".
