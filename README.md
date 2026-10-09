@@ -1,8 +1,8 @@
 # zriz runner
 
-**Your product keeps working, no matter who, or what, writes the code.**
+**Code is cheap. Correctness is not.**
 
-[zriz](https://zriz.io) tests your real app, end to end, before your customers do. The runner is the part that lives in your network: it makes the calls and holds every secret, so none of them reach the cloud. Docs: [zriz.io/docs/runner](https://zriz.io/docs/runner).
+Agents now write code faster than anyone can read it. [zriz](https://zriz.io) proves your product still works, end to end, before your customers find out. The runner is the part that lives in your network: it makes the calls and holds every secret, so none of them reach the cloud. Docs: [zriz.io/docs/runner](https://zriz.io/docs/runner).
 
 ## What it is, and what it trusts
 
