@@ -1214,6 +1214,17 @@
      "runs"
     ]
    },
+   "runner stale": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "org_id",
+     "runner",
+     "env",
+     "count"
+    ]
+   },
    "runner health": {
     "levels": [
      "INFO",
