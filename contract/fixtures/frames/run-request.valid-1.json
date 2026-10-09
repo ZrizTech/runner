@@ -31,8 +31,5 @@
     "values": {
       "API_URL": "http://api.test"
     }
-  },
-  "local": {
-    "runner-id": "local/1"
   }
 }

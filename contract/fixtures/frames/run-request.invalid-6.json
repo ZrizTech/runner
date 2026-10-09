@@ -32,8 +32,5 @@
       "API_URL": "http://api.test"
     }
   },
-  "local": {
-    "runner-id": "local/1"
-  },
   "project": "zk_aaaaaaaaaaaaaaaaaaaaaaaa"
 }

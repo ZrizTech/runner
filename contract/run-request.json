@@ -160,19 +160,6 @@
     },
     "environment": {
       "$ref": "environment.json"
-    },
-    "local": {
-      "type": "object",
-      "properties": {
-        "runner-id": {
-          "type": "string",
-          "pattern": "^local/"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "runner-id"
-      ]
     }
   },
   "required": [

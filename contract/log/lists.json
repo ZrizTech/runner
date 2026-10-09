@@ -1043,6 +1043,14 @@
      "count"
     ]
    },
+   "log lines dropped": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "count"
+    ]
+   },
    "run lost": {
     "levels": [
      "WARN"

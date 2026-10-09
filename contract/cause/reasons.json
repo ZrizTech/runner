@@ -29,7 +29,7 @@
       "path": "The first item of the detail expression.",
       "unit": "From limit-name: see unit-of.",
       "scope": "From limit-name: see scope-of.",
-      "lost": "One of the lost texts. The detail lost names it.",
+      "lost": "One of the lost texts. A maker names it with the key (capture, context, state); the detail lost of the cause holds the text.",
       "why": "One of the why texts. The detail why names it.",
       "where": "One fixed word. The detail where holds it.",
       "worker-reason": "One of the worker-reasons. The detail worker-reason holds it."
