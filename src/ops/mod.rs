@@ -62,7 +62,9 @@ pub type OpenSql = Arc<
 
 const HTTP_INFLIGHT: i64 = 4;
 const SQL_INFLIGHT: i64 = 2;
-const BROWSER_INFLIGHT: i64 = 1;
+/// Places of a browser resource when its config sets no `max-contexts` (the
+/// worker's default).
+const DEFAULT_BROWSER_PLACES: i64 = 3;
 const CLI_INFLIGHT: i64 = 2;
 
 /// Errors opening a sql resource's connection.
@@ -216,8 +218,10 @@ impl Handler {
         }
     }
 
-    /// The pool size the exchange loop should use: 4 per http resource plus
-    /// 2 per sql resource.
+    /// The pool size the exchange loop should use (and announces as
+    /// `max-inflight`): 4 per http resource, 2 per sql or cli resource, and
+    /// the `max-contexts` of each browser resource, so the pool is never the
+    /// limit of browser ops before the worker's own limit is.
     pub fn max_inflight(&self) -> i64 {
         self.cfg
             .resources
@@ -225,7 +229,7 @@ impl Handler {
             .map(|r| match r.r#type.as_str() {
                 "http" => HTTP_INFLIGHT,
                 "sql" => SQL_INFLIGHT,
-                "browser" => BROWSER_INFLIGHT,
+                "browser" => r.max_contexts.map_or(DEFAULT_BROWSER_PLACES, i64::from),
                 "cli" => CLI_INFLIGHT,
                 _ => 0,
             })

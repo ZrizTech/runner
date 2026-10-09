@@ -267,3 +267,17 @@ fn handle_names_have_no_idle_limit_and_the_1001st_drops_the_oldest_with_one_line
         "{out}"
     );
 }
+
+#[tokio::test]
+async fn the_op_pool_is_not_smaller_than_the_browser_places() {
+    let sock = "/nonexistent/w.sock";
+    let mut cfg = worker_config(sock);
+    cfg.resources.get_mut("web").unwrap().max_contexts = Some(8);
+    let h = Handler::new(cfg, Options::default()).await.unwrap();
+    // 8 places of the browser resource, 2 for the cli resource.
+    assert_eq!(h.max_inflight(), 10);
+    let mut cfg = worker_config(sock);
+    cfg.resources.get_mut("web").unwrap().max_contexts = None;
+    let h = Handler::new(cfg, Options::default()).await.unwrap();
+    assert_eq!(h.max_inflight(), 3 + 2, "default 3 places");
+}

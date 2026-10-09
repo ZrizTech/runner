@@ -31,6 +31,7 @@ pub const USER_AGENT: &str = concat!("runner/", env!("ZRIZ_BUILD"));
 const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(40);
 const DEFAULT_BACKOFF: Duration = Duration::from_secs(1);
 const DEFAULT_MAX_BACKOFF: Duration = Duration::from_secs(10);
+const DEFAULT_HEALTH_EVERY: Duration = Duration::from_secs(1);
 
 /// A boxed, `Send` future, the shape a few of [`Config`]'s optional hooks
 /// need since Rust has no dyn-safe `async fn` in traits yet.
@@ -143,6 +144,9 @@ pub struct Config {
     /// The `User-Agent` sent on exchange requests; `None` means
     /// [`USER_AGENT`]. A caller that embeds this library may set its own value.
     pub user_agent: Option<String>,
+    /// How often the loop looks for a changed health (and so the least time
+    /// between two "health changed" requests). Default one second.
+    pub health_every: Duration,
 }
 
 impl Config {
@@ -169,6 +173,7 @@ impl Config {
             on_connected: None,
             token_source: None,
             user_agent: None,
+            health_every: DEFAULT_HEALTH_EVERY,
         }
     }
 }
@@ -200,6 +205,9 @@ fn apply_defaults(cfg: &mut Config) {
     }
     if cfg.max_backoff.is_zero() {
         cfg.max_backoff = DEFAULT_MAX_BACKOFF;
+    }
+    if cfg.health_every.is_zero() {
+        cfg.health_every = DEFAULT_HEALTH_EVERY;
     }
     if cfg.sleep.is_none() {
         cfg.sleep = Some(default_sleep());
@@ -253,6 +261,10 @@ struct Inner {
     errors: AtomicU64,
     /// How often the cloud refused each queued frame (by frame id).
     refusals: Mutex<batch::Refusals>,
+    /// The health of the request sent last.
+    last_sent: Mutex<Option<contract::Health>>,
+    /// When the last "health changed" request was started.
+    health_trigger: Mutex<Option<std::time::Instant>>,
 }
 
 impl Inner {
@@ -277,6 +289,8 @@ impl Inner {
             refused: AtomicU64::new(0),
             errors: AtomicU64::new(0),
             refusals: Mutex::new(batch::Refusals::default()),
+            last_sent: Mutex::new(None),
+            health_trigger: Mutex::new(None),
             cfg,
             cancel,
         }
@@ -350,6 +364,7 @@ pub async fn run(
 ) -> std::result::Result<(), ExchangeError> {
     apply_defaults(&mut cfg);
     let inner = Arc::new(Inner::new(cfg, cancel.clone()));
+    inner.spawn_health_watch();
 
     loop {
         if cancel.is_cancelled() {

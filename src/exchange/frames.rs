@@ -69,13 +69,23 @@ impl Inner {
         q.push(frame);
     }
 
+    /// The snapshot for a request: takes the counts (they start over at 0).
     fn snapshot(&self) -> Snapshot {
+        self.snapshot_with(|c| c.swap(0, Ordering::SeqCst))
+    }
+
+    /// The same, with the counts left in place.
+    fn peek_snapshot(&self) -> Snapshot {
+        self.snapshot_with(|c| c.load(Ordering::SeqCst))
+    }
+
+    fn snapshot_with(&self, count: impl Fn(&std::sync::atomic::AtomicU64) -> u64) -> Snapshot {
         Snapshot {
             inflight: (self.capacity - self.semaphore.available_permits()) as i64,
             max_inflight: self.declared_max_inflight,
             worker: self.cfg.handler.worker_health(),
-            refused: self.refused.swap(0, Ordering::SeqCst),
-            errors: self.errors.swap(0, Ordering::SeqCst),
+            refused: count(&self.refused),
+            errors: count(&self.errors),
         }
     }
 
@@ -152,6 +162,7 @@ impl Inner {
         let sent = self.drain_queue();
         let snap = self.snapshot();
         let req = self.build_request(sent.clone(), &snap);
+        *self.last_sent.lock().unwrap_or_else(|e| e.into_inner()) = Some(req.health.clone());
 
         let t0 = Instant::now();
         let post_result = tokio::select! {
@@ -291,6 +302,49 @@ impl Inner {
         Ok(())
     }
 
+    /// Starts one exchange when the health now differs from the health of the
+    /// request sent last, and none was started for it less than `health_every`
+    /// ago. The extra request runs next to the parked poll of the loop, as the
+    /// one an op completion sends: the cloud answers it at once, and takes the
+    /// health from it.
+    pub(super) fn check_health(self: &Arc<Self>, now: Instant) {
+        let current = health::health(&self.boot_id, &self.peek_snapshot());
+        let changed = {
+            let last = self.last_sent.lock().unwrap_or_else(|e| e.into_inner());
+            health::changed(last.as_ref(), &current)
+        };
+        if !changed {
+            return;
+        }
+        {
+            let mut t = self
+                .health_trigger
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            if t.is_some_and(|x| now.duration_since(x) < self.cfg.health_every) {
+                return;
+            }
+            *t = Some(now);
+        }
+        self.trigger_exchange();
+    }
+
+    /// Looks for a changed health every `health_every` until cancelled; the
+    /// ping of the worker runs first, so its new numbers count.
+    pub(super) fn spawn_health_watch(self: &Arc<Self>) {
+        let inner = Arc::clone(self);
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    () = tokio::time::sleep(inner.cfg.health_every) => {}
+                    () = inner.cancel.cancelled() => return,
+                }
+                inner.cfg.handler.refresh().await;
+                inner.check_health(Instant::now());
+            }
+        });
+    }
+
     /// One id of a run-end notice: one DEBUG line with the trace of the
     /// notice, then the handler frees the resources off the loop.
     fn run_ended(self: &Arc<Self>, run: contract::EndedRun) {
@@ -307,6 +361,7 @@ impl Inner {
                 .handler
                 .run_ended(&run.run_id, &run.trace_id)
                 .await;
+            inner.check_health(Instant::now());
         });
     }
 

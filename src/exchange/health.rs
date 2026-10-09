@@ -49,6 +49,12 @@ pub fn is_runner_fault(reason: &str, place: Option<&str>) -> bool {
     }
 }
 
+/// True when `now` differs from the health last sent. With nothing sent yet
+/// it is false: the loop sends its first request anyway.
+pub fn changed(last_sent: Option<&Health>, now: &Health) -> bool {
+    last_sent.is_some_and(|l| l != now)
+}
+
 fn full(busy: u64, limit: u64) -> bool {
     limit > 0 && busy >= limit
 }
@@ -191,5 +197,36 @@ mod fault_tests {
         for (reason, place, want) in cases {
             assert_eq!(is_runner_fault(reason, place), want, "{reason} {place:?}");
         }
+    }
+}
+
+#[cfg(test)]
+mod changed_tests {
+    use super::*;
+
+    fn h(busy: u64) -> Health {
+        let s = Snapshot {
+            worker: WorkerHealth {
+                needed: true,
+                up: true,
+                browser: vec![BrowserLoad {
+                    resource: "web".into(),
+                    busy,
+                    limit: 8,
+                }],
+                cli: None,
+            },
+            max_inflight: 4,
+            ..Default::default()
+        };
+        health("b-1", &s)
+    }
+
+    #[test]
+    fn changed_is_a_plain_comparison() {
+        assert!(!changed(None, &h(8)), "nothing sent yet: the loop sends");
+        assert!(!changed(Some(&h(8)), &h(8)));
+        assert!(changed(Some(&h(8)), &h(0)));
+        assert!(changed(Some(&h(0)), &h(1)));
     }
 }

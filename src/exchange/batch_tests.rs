@@ -6,6 +6,7 @@
 use super::test_support::*;
 use super::*;
 use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 fn frame(id: &str, pad: usize) -> contract::Frame {
     contract::Frame {
@@ -136,4 +137,63 @@ async fn health_counts_come_back_after_a_5xx() {
     let second = rx.recv().await.unwrap();
     assert_eq!(second.req.health.refused, 2, "put back");
     assert_eq!(second.req.health.state, "degraded");
+}
+
+/// A handler whose busy number is set by the test.
+struct Busy(std::sync::atomic::AtomicU64);
+impl Handler for Busy {
+    fn handle(
+        &self,
+        _op: contract::Op,
+    ) -> BoxFuture<'_, (Option<ResultFrame>, Option<ErrorFrame>)> {
+        Box::pin(async { (None, None) })
+    }
+    fn max_inflight(&self) -> i64 {
+        4
+    }
+    fn worker_health(&self) -> WorkerHealth {
+        WorkerHealth {
+            needed: true,
+            up: true,
+            browser: vec![contract::BrowserLoad {
+                resource: "web".into(),
+                busy: self.0.load(Ordering::SeqCst),
+                limit: 8,
+            }],
+            cli: None,
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_changed_health_sends_one_request_and_an_unchanged_one_none() {
+    let cloud = ImmediateCloud::new(|_, _| (204, None)).await;
+    let mut rx = cloud.take_receiver();
+    let busy = Arc::new(Busy(std::sync::atomic::AtomicU64::new(8)));
+    let h: Arc<dyn Handler> = busy.clone();
+    let mut cfg = Config::new(&cloud.base_url, TEST_TOKEN, "runner-1", h);
+    cfg.health_every = Duration::from_secs(1);
+    let i = Arc::new(Inner::new(cfg, CancellationToken::new()));
+    let t0 = Instant::now();
+    let _ = i.exchange().await;
+    let first = rx.recv().await.unwrap();
+    assert_eq!(first.req.health.state, "busy");
+    // 100 checks with the same numbers: no request.
+    for k in 0..100 {
+        i.check_health(t0 + Duration::from_millis(k * 20));
+    }
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    assert!(rx.try_recv().is_err(), "no extra request");
+    // The last busy place is freed: one request, says ok.
+    busy.0.store(0, Ordering::SeqCst);
+    i.check_health(t0 + Duration::from_secs(3));
+    i.check_health(t0 + Duration::from_millis(3100));
+    let second = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(second.req.health.state, "ok");
+    assert_eq!(second.req.health.browser.as_ref().unwrap()[0].busy, 0);
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    assert!(rx.try_recv().is_err(), "one request, not two");
 }
