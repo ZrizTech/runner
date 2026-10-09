@@ -9,7 +9,10 @@
       "required": [
         "v",
         "kind",
-        "ok"
+        "ok",
+        "browser",
+        "cli",
+        "boot-id"
       ],
       "properties": {
         "v": {
@@ -20,6 +23,76 @@
         },
         "ok": {
           "const": true
+        },
+        "browser": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resource",
+              "busy"
+            ],
+            "properties": {
+              "resource": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "busy": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "cli": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "busy",
+            "limit"
+          ],
+          "properties": {
+            "busy": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "boot-id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "v",
+        "kind",
+        "ok",
+        "closed"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "kind": {
+          "const": "run.close"
+        },
+        "ok": {
+          "const": true
+        },
+        "closed": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -98,6 +171,11 @@
         "waited-ms": {
           "type": "integer",
           "minimum": 0
+        },
+        "why": {
+          "enum": [
+            "idle"
+          ]
         }
       }
     }

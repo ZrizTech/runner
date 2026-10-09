@@ -24,6 +24,30 @@
       "additionalProperties": false,
       "required": [
         "v",
+        "kind",
+        "run",
+        "trace-id"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "kind": {
+          "const": "run.close"
+        },
+        "run": {
+          "$ref": "#/$defs/id"
+        },
+        "trace-id": {
+          "$ref": "#/$defs/trace-id"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "v",
         "op-id",
         "run",
         "kind",

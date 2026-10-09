@@ -1,1 +1,1 @@
-{"v":1,"kind":"ping","ok":true}
+{"v":1,"kind":"ping","ok":true,"browser":[{"resource":"shop-browser","busy":2}],"cli":{"busy":0,"limit":16},"boot-id":"b-7f3a9c1e2d4b"}
