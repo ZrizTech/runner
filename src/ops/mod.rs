@@ -130,6 +130,7 @@ pub struct Handler {
     vault: vault::Vault,
     handles: handles::Handles,
     contexts: contexts::Contexts,
+    ended_runs: ended::EndedRuns,
     worker_up: AtomicBool,
     last_ping: Mutex<Option<Instant>>,
     /// The last good ping response of the worker; `None` while it is down.
@@ -190,6 +191,7 @@ impl Handler {
             vault: vault::Vault::default(),
             handles: handles::Handles::default(),
             contexts: contexts::Contexts::default(),
+            ended_runs: ended::EndedRuns::default(),
         })
     }
 
@@ -231,6 +233,15 @@ impl Handler {
     /// any outstanding HTTP or sql work) and a "timeout" error is returned.
     pub async fn handle(&self, op: contract::Op) -> (Option<ResultFrame>, Option<ErrorFrame>) {
         let start = (self.now)();
+        if self.ended_runs.contains(&op.run_id) {
+            let e = new_error(
+                &op.op_id,
+                "context-lost",
+                json!({"resource": op.resource, "why": "run-closed"}),
+            );
+            log::handled(&op, (self.now)(), start, &None, &Some(e.clone()));
+            return (None, Some(e));
+        }
         let millis = clamp_timeout_ms(op.timeout_ms);
         let (result, err) =
             match tokio::time::timeout(Duration::from_millis(millis), self.dispatch(&op)).await {
@@ -244,6 +255,10 @@ impl Handler {
                     )),
                 ),
             };
+        // The run ended while this op ran: nothing it stored stays.
+        if self.ended_runs.contains(&op.run_id) {
+            self.free_run(&op.run_id);
+        }
         let err = err.map(|e| with_resource(e, &op.resource));
         log::handled(&op, (self.now)(), start, &result, &err);
         (result, err)
@@ -367,6 +382,10 @@ fn default_now() -> NowFn {
 #[cfg(test)]
 #[path = "ops_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "ended_tests.rs"]
+mod ended_tests;
 
 #[cfg(test)]
 #[path = "state_tests.rs"]

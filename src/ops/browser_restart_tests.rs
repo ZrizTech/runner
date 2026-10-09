@@ -111,9 +111,10 @@ async fn context_lost_once_after_a_new_boot_id() {
     assert!(page(&h, "run1", "x").await.0.is_some());
     assert!(page(&h, "run2", "x").await.0.is_some());
     *boot.lock().expect("lock") = "boot-2".to_string();
-    // run2 got its notice: it is not lost.
+    // run2 got its notice: it is ended, not "worker-restarted".
     h.run_ended("run2", "").await;
-    assert!(page(&h, "run2", "x").await.0.is_some());
+    let e = failed(page(&h, "run2", "x").await);
+    assert_eq!(e.details["why"], "run-closed");
     let e = failed(page(&h, "run1", "x").await);
     assert_eq!(e.reason, "context-lost");
     assert_eq!(
