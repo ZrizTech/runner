@@ -141,3 +141,34 @@ fn example_config_loads() {
     );
     assert!(cfg.resources["shop-db"].read_only);
 }
+
+#[test]
+fn browser_limits_follow_the_worker_ranges() {
+    // (extra keys, ok)
+    let cases = [
+        (r#""max-contexts": 1"#, true),
+        (r#""max-contexts": 16"#, true),
+        (r#""max-contexts": 0"#, false),
+        (r#""max-contexts": 17"#, false),
+        (r#""idle-ms": 1000"#, true),
+        (r#""idle-ms": 3600000"#, true),
+        (r#""idle-ms": 999"#, false),
+        (r#""idle-ms": 3600001"#, false),
+    ];
+    for (extra, ok) in cases {
+        let body = format!(
+            r#"{{"cloud": {{"url": "https://cloud.zriz.io", "token-env": "ZRIZ_TOKEN"}},
+              "evidence": "redacted", "worker": {{"socket": "/run/zriz/worker.sock"}},
+              "resources": {{"web": {{"type": "browser", "base-url": "https://app.example.com", {extra}}}}}}}"#
+        );
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = write_config(&dir, &body);
+        let mut env = StdHashMap::new();
+        env.insert("ZRIZ_TOKEN", "t");
+        let got = load(&path, &lookup(env));
+        assert_eq!(got.is_ok(), ok, "{extra}: {got:?}");
+        if let Err(e) = got {
+            assert!(e.to_string().contains("web"), "names the resource: {e}");
+        }
+    }
+}

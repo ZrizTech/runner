@@ -352,6 +352,13 @@ fn validate_browser(id: &str, r: &Resource) -> std::result::Result<(), ConfigErr
     if r.origins.len() > 15 || r.origins.iter().any(|o| !bare(o)) {
         return Err(bad("origins must be at most 15 bare http(s) origins"));
     }
+    // The ranges of the worker (`worker-contract/worker-request.json`).
+    if r.max_contexts.is_some_and(|n| !(1..=16).contains(&n)) {
+        return Err(bad("max-contexts must be 1..16"));
+    }
+    if r.idle_ms.is_some_and(|n| !(1000..=3_600_000).contains(&n)) {
+        return Err(bad("idle-ms must be 1000..3600000"));
+    }
     Ok(())
 }
 
