@@ -4,6 +4,7 @@ import { mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { constants as osConst } from 'node:os'
 import { VERSION, errorResponse } from './protocol.js'
+import { createEnded } from './decide.js'
 
 const DEFAULT_ROOT = '/tmp/zriz-run'
 const DEFAULT_IDLE_MS = 10 * 60 * 1000
@@ -13,6 +14,7 @@ const SWEEP_EVERY_MS = 60 * 1000
 const KILL_GRACE_MS = 2000
 const TOKEN_GRACE_MS = 100
 const POLL_MS = 15
+const MAX_SWEPT = 1000
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const sig = (name) => 128 + (osConst.signals[name] ?? 0)
@@ -23,13 +25,29 @@ const sig = (name) => 128 + (osConst.signals[name] ?? 0)
 // removed when it has had no use and no live handle for the idle time. Handles are keyed
 // (run, resource, handle). Killing always targets the whole process group.
 // Only ids, mode and exit codes ever leave this file; never argv, env or output.
-export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = DEFAULT_MAX_TOTAL } = {}) {
+// `run.close` marks the run as ended (1000 ids at most): its new ops are refused with `context-lost`
+// and `why` `run-closed`, and its processes (handles and `run` ops in flight) are stopped.
+// A handle that the idle sweep removed is remembered (1000 at most): a later op on it gets
+// `no-handle` with `why` `idle`. A folder that cannot be removed is retried by the next sweep.
+export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = DEFAULT_MAX_TOTAL, rm = (d) => rmSync(d, { recursive: true, force: true }), log } = {}) {
   const procs = new Map() // handleKey -> proc
+  const live = new Set() // every process started and not yet finished
   const dirs = new Map() // run + resource -> { dir, last, idleMs, users }
+  const ended = createEnded(MAX_SWEPT)
+  const swept = new Set() // handleKey; handles removed by the idle sweep
+  const stuck = new Map() // dir -> run; folders that could not be removed
   let sweepTimer = null
 
   const hkey = (run, resource, handle) => JSON.stringify([run, resource, handle])
   const dkey = (run, resource) => JSON.stringify([run, resource])
+
+  // Best effort: a folder that stays is logged (ids only) and retried by the next sweep.
+  function removeDir(dir, run, resource) {
+    try { rm(dir); stuck.delete(dir) } catch {
+      stuck.set(dir, run)
+      log?.emit('WARN', 'worker.cli', 'folder not removed', [['run_id', run], ['resource', resource]])
+    }
+  }
 
   function useDir(run, policy) {
     const k = dkey(run, policy.resource)
@@ -64,10 +82,11 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
 
   function drop(p) {
     clearTimeout(p.lifeTimer)
+    live.delete(p)
     if (p.hkey) procs.delete(p.hkey)
   }
 
-  function launch(policy, args, dir, deadline) {
+  function launch(policy, args, dir, runId) {
     const env = { PATH: '/usr/bin:/bin', HOME: dir.dir, LANG: 'C.UTF-8', ...(policy.env ?? {}), ...(args.env ?? {}) }
     env.HOME = dir.dir
     const child = spawn(policy.path, [...(policy['argv-prefix'] ?? []), ...(args.args ?? [])], {
@@ -77,8 +96,9 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
     const p = {
       child, dir, exited: false, closed: false, code: null, signal: null, error: false,
       cap, out: { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) }, cursor: { stdout: 0, stderr: 0 },
-      truncated: false, lastUse: now(), idleMs: dir.idleMs, hkey: null, lifeTimer: null, marks: new Map(),
+      truncated: false, lastUse: now(), idleMs: dir.idleMs, hkey: null, lifeTimer: null, marks: new Map(), run: runId, endedRun: false,
     }
+    live.add(p)
     dir.users++
     const feed = (name) => (buf) => {
       const have = p.out[name].length
@@ -152,30 +172,35 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
     return o
   }
 
+  const endedResponse = (req) => errorResponse('context-lost', req['op-id'], { why: 'run-closed' })
   const ok = (req, out) => ({ v: VERSION, 'op-id': req['op-id'], ok: true, out })
 
   async function finishProc(p) {
+    if (p.finished) return // run.close and the op itself may both finish a process
+    p.finished = true
     await until(() => p.closed, 1000)
     drop(p)
     p.dir.users--
     p.dir.last = now()
   }
 
-  async function run(req, dir) {
+  async function run(req, dir, signal) {
     const { policy, args } = req
     let p
-    try { p = launch(policy, args, dir) } catch { return errorResponse('spawn-failed', req['op-id']) }
+    try { p = launch(policy, args, dir, req.run) } catch { return errorResponse('spawn-failed', req['op-id']) }
     await until(() => p.child.pid !== undefined || p.error, 200)
     if (p.error || p.child.pid === undefined) {
       p.dir.users--
-      clearTimeout(p.lifeTimer)
+      drop(p)
       return errorResponse('spawn-failed', req['op-id'])
     }
     const ms = Math.min(policy['timeout-ms'], req['deadline-ms'])
-    const done = await until(() => p.exited && p.closed, ms)
+    // The runner closed the socket (signal): nobody waits for the answer, stop the process.
+    await until(() => p.endedRun || signal?.aborted || (p.exited && p.closed), ms)
     let timedOut = false
-    if (!done) { timedOut = true; await terminate(p) }
+    if (!p.endedRun && !(p.exited && p.closed)) { timedOut = true; await terminate(p) }
     await finishProc(p)
+    if (p.endedRun) return endedResponse(req)
     const o = { 'exit-code': timedOut ? -1 : exitCode(p), ...payload(p, args, { advance: false }) }
     if (timedOut) o['timed-out'] = true
     return ok(req, o)
@@ -192,15 +217,15 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
       return errorResponse('too-many-handles', req['op-id'], { limit: mine >= mineMax ? mineMax : maxTotal })
     }
     let p
-    try { p = launch(policy, args, dir) } catch { return errorResponse('spawn-failed', req['op-id']) }
+    try { p = launch(policy, args, dir, runId) } catch { return errorResponse('spawn-failed', req['op-id']) }
     await until(() => p.child.pid !== undefined || p.error, 200)
     if (p.error || p.child.pid === undefined) {
       dir.users--
-      clearTimeout(p.lifeTimer)
+      drop(p)
       return errorResponse('spawn-failed', req['op-id'])
     }
-    p.run = runId
     p.hkey = k
+    swept.delete(k)
     procs.set(k, p)
     if (args.until) {
       await until(() => p.exited || markerReady(p, args.until), Math.min(policy['timeout-ms'], req['deadline-ms']))
@@ -238,17 +263,20 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
     const t = now()
     for (const p of [...procs.values()]) {
       if (t - p.lastUse > p.idleMs) {
+        const k = p.hkey
         await terminate(p)
         await finishProc(p)
+        if (k) { swept.delete(k); swept.add(k); if (swept.size > MAX_SWEPT) swept.delete(swept.values().next().value) }
       }
     }
     for (const [k, d] of [...dirs]) {
       const live = [...procs.values()].some((p) => p.dir === d)
       if (!live && d.users <= 0 && t - d.last > d.idleMs) {
         dirs.delete(k)
-        rmSync(d.dir, { recursive: true, force: true })
+        removeDir(d.dir, d.run, d.resource)
       }
     }
+    for (const [dir, run] of [...stuck]) removeDir(dir, run, undefined)
   }
 
   function ensureTimer() {
@@ -258,18 +286,23 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
   }
 
   // req is a validated cli.exec request. Returns a worker response.
-  async function handle(req) {
+  async function handle(req, { signal } = {}) {
     ensureTimer()
     await sweep()
+    if (ended.has(req.run)) return endedResponse(req)
     const { policy, args } = req
     const dir = useDir(req.run, policy)
     try {
-      if (args.mode === 'run') return await run(req, dir)
+      if (args.mode === 'run') return await run(req, dir, signal)
       if (args.mode === 'start') {
         return await start(req, dir)
       }
       const p = procs.get(hkey(req.run, policy.resource, args.handle))
-      if (!p) return errorResponse('no-handle', req['op-id'])
+      if (!p) {
+        return swept.has(hkey(req.run, policy.resource, args.handle))
+          ? errorResponse('no-handle', req['op-id'], { why: 'idle' })
+          : errorResponse('no-handle', req['op-id'])
+      }
       p.lastUse = now()
       p.idleMs = dir.idleMs
       const r = await (args.mode === 'read' ? read(req, p) : args.mode === 'wait' ? wait(req, p) : stop(req, p))
@@ -282,12 +315,18 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
 
   // Closes the handles and the work folders of the run; returns how many handles.
   async function closeRun(runId) {
+    ended.add(runId)
     let n = 0
-    for (const p of [...procs.values()]) {
-      if (p.run === runId) { await terminate(p); await finishProc(p); n++ }
+    for (const p of [...live]) {
+      if (p.run !== runId) continue
+      p.endedRun = true
+      if (p.hkey) n++
+      await terminate(p)
+      await finishProc(p)
     }
+    for (const k of [...swept]) if (JSON.parse(k)[0] === runId) swept.delete(k)
     for (const [k, d] of [...dirs]) {
-      if (d.run === runId) { dirs.delete(k); rmSync(d.dir, { recursive: true, force: true }) }
+      if (d.run === runId) { dirs.delete(k); removeDir(d.dir, d.run, d.resource) }
     }
     return n
   }
@@ -304,7 +343,7 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
       if (sweepTimer) clearInterval(sweepTimer)
       sweepTimer = null
       for (const p of [...procs.values()]) { await terminate(p); drop(p) }
-      for (const d of dirs.values()) rmSync(d.dir, { recursive: true, force: true })
+      for (const d of dirs.values()) removeDir(d.dir, d.run, d.resource)
       dirs.clear()
     },
   }
