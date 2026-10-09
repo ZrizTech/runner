@@ -256,8 +256,14 @@ fn handle_names_have_no_idle_limit_and_the_1001st_drops_the_oldest_with_one_line
     handles.put("run-new", "shell", "h1", "cmd");
     assert!(handles.get("run-0", "shell", "h1").is_none());
     assert_eq!(handles.get("run-1", "shell", "h1").as_deref(), Some("cmd"));
-    assert_eq!(handles.get("run-new", "shell", "h1").as_deref(), Some("cmd"));
+    assert_eq!(
+        handles.get("run-new", "shell", "h1").as_deref(),
+        Some("cmd")
+    );
     let out = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
     assert_eq!(out.matches("state dropped").count(), 1, "{out}");
-    assert!(out.contains("state dropped run_id=run-0 kind=handles"), "{out}");
+    assert!(
+        out.contains("state dropped run_id=run-0 kind=handles"),
+        "{out}"
+    );
 }

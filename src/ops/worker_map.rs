@@ -65,7 +65,7 @@ fn put(d: &mut Map<String, Value>, k: &str, v: Option<u64>) {
 }
 
 fn handle_of(op: &contract::Op) -> &str {
-    op.args.get("handle").and_then(Value::as_str).unwrap_or("")
+    op.args.get("handle").and_then(Value::as_str).unwrap_or("-")
 }
 
 /// The frame for a handle the runner knows and the worker lost in a restart.

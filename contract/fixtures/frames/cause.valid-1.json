@@ -2,9 +2,9 @@
   "reason": "assertion",
   "side": "target",
   "retry": "no",
-  "message": "check 0 of step 6 (ymy-web/docs-page) failed: reads.h1 is \"Is zriz safe? ...\" and the pipeline expects \"zriz security\"",
+  "message": "check 0 of step 6 (shop-web/docs-page) failed: reads.h1 is \"Is zriz safe? ...\" and the pipeline expects \"zriz security\"",
   "step-index": 6,
-  "action": "ymy-web/docs-page",
+  "action": "shop-web/docs-page",
   "details": {
     "check": 0,
     "expression": [

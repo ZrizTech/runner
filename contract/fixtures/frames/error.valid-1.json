@@ -2,6 +2,6 @@
   "op-id": "op-1",
   "reason": "host-not-allowed",
   "details": {
-    "resource": "ymy-web"
+    "resource": "shop-web"
   }
 }

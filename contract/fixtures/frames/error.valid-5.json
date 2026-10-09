@@ -2,7 +2,7 @@
   "op-id": "op-32",
   "reason": "context-lost",
   "details": {
-    "resource": "ymy-browser",
+    "resource": "shop-browser",
     "why": "idle",
     "idle-ms": 600000
   }

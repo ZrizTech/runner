@@ -41,7 +41,7 @@ async fn op_failed_is_an_error_line_without_payload() {
     let out = buf.text();
     assert!(err.is_some());
     assert!(out.contains(" ERROR trace_id=- "), "{out}");
-    assert!(out.contains("runner.ops      op failed run_id=r1 step=3 op_id=o1 kind=http.request resource=web status=error reason=runner-error error=http-client elapsed_ms="), "{out}");
+    assert!(out.contains("runner.ops      op failed run_id=r1 step=3 op_id=o1 kind=http.request resource=web status=error reason=connection-error elapsed_ms="), "{out}");
     assert!(
         !out.contains("sekrit-value") && !out.contains("/private/path"),
         "{out}"

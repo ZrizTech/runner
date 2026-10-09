@@ -5,7 +5,7 @@
       "step-type": "call",
       "status": "pass",
       "step-index": 10,
-      "action": "ymy-web/signup-post",
+      "action": "shop-web/signup-post",
       "timing": {
         "started-at": "2026-10-09T10:15:02.120Z",
         "duration-ms": 25410,
@@ -39,9 +39,9 @@
     "reason": "assertion",
     "side": "target",
     "retry": "no",
-    "message": "check 0 of step 6 (ymy-web/docs-page) failed: reads.h1 is \"Is zriz safe? ...\" and the pipeline expects \"zriz security\"",
+    "message": "check 0 of step 6 (shop-web/docs-page) failed: reads.h1 is \"Is zriz safe? ...\" and the pipeline expects \"zriz security\"",
     "step-index": 6,
-    "action": "ymy-web/docs-page",
+    "action": "shop-web/docs-page",
     "details": {
       "check": 0,
       "expression": [

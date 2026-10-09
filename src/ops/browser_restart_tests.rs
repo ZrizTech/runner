@@ -166,7 +166,10 @@ async fn a_context_made_by_an_op_that_ended_in_an_error_is_tracked() {
     let dir = tempfile::tempdir().expect("dir");
     let (sock, boot) = fake_worker(&dir);
     let h = handler(&sock, vec![], &[]).await;
-    assert_eq!(failed(page(&h, "run1", "boom").await).reason, "worker-error");
+    assert_eq!(
+        failed(page(&h, "run1", "boom").await).reason,
+        "worker-error"
+    );
     *boot.lock().expect("lock") = "boot-2".to_string();
     let e = failed(page(&h, "run1", "x").await);
     assert_eq!(e.details["why"], "worker-restarted");

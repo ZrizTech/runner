@@ -178,3 +178,60 @@ fn the_reason_list_is_the_runner_and_worker_words_of_the_contract() {
         .collect();
     assert_eq!(got, want);
 }
+
+/// Keys put into `details` one by one (not in a `json!` of a maker call):
+/// `d.insert("k".into(), ..)`, `put(&mut d, "k", ..)` and
+/// `details.insert("k".into(), ..)`. Each is in the closed set of
+/// `error.json` and in a row of a runner or worker word.
+#[test]
+fn keys_added_one_by_one_are_closed_and_belong_to_a_row() {
+    let closed: BTreeSet<String> =
+        json("contract/error.json")["properties"]["details"]["properties"]
+            .as_object()
+            .expect("props")
+            .keys()
+            .cloned()
+            .collect();
+    let reasons = json("contract/cause/reasons.json");
+    let in_rows: BTreeSet<String> = reasons["reasons"]
+        .as_array()
+        .expect("rows")
+        .iter()
+        .filter(|r| {
+            r["by"]
+                .as_array()
+                .expect("by")
+                .iter()
+                .any(|b| b == "runner" || b == "worker")
+        })
+        .flat_map(|r| r["details"].as_array().expect("details").clone())
+        .map(|k| k.as_str().unwrap().to_string())
+        .collect();
+    let mut files = Vec::new();
+    sources(Path::new("src/ops"), &mut files);
+    files.retain(|f| f.ends_with("worker_map.rs") || f.ends_with("errors.rs"));
+    let mut seen = 0;
+    for f in files {
+        let src = fs::read_to_string(&f).expect("read");
+        for pat in ["d.insert(", "details.insert(", "put(&mut d, "] {
+            for (at, _) in src.match_indices(pat) {
+                let a = args_at(&src, at + pat.find('(').expect("open"));
+                let Some(k) = literals(a).into_iter().next() else {
+                    continue;
+                };
+                seen += 1;
+                assert!(
+                    closed.contains(&k),
+                    "key {k} is not closed: {}",
+                    f.display()
+                );
+                assert!(
+                    in_rows.contains(&k),
+                    "key {k} is in no row: {}",
+                    f.display()
+                );
+            }
+        }
+    }
+    assert!(seen >= 8, "the scan saw only {seen} inserts");
+}

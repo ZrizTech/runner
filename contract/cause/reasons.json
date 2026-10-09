@@ -94,6 +94,11 @@
       "request-too-large",
       "not-implemented"
     ],
+    "cloud-detail-keys": [
+      "runner",
+      "unit",
+      "scope"
+    ],
     "wait-reasons": [
       "runner-busy",
       "runner-down",

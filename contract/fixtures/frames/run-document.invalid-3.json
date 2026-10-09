@@ -18,7 +18,7 @@
     }
   },
   "runner": {
-    "name": "ymy-uat",
+    "name": "shop-uat",
     "env": "uat",
     "build": "runner/0.5.0+3f2a9c0d1e4b"
   },
@@ -26,13 +26,13 @@
     "reason": "service-stall",
     "side": "service",
     "retry": "later",
-    "message": "step 10 (ymy-web/signup-post) waited 25300 ms for the runner ymy-uat: the runner was connected and not busy, and the zriz service did not send the op, until the pipeline limit of 30000 ms ended",
+    "message": "step 10 (shop-web/signup-post) waited 25300 ms for the runner shop-uat: the runner was connected and not busy, and the zriz service did not send the op, until the pipeline limit of 30000 ms ended",
     "step-index": 10,
-    "action": "ymy-web/signup-post",
+    "action": "shop-web/signup-post",
     "details": {
       "wait-ms": 25300,
       "timeout-ms": 30000,
-      "runner": "ymy-uat"
+      "runner": "shop-uat"
     }
   }
 }

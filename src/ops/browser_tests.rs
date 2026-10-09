@@ -362,7 +362,7 @@ fn op() -> crate::contract::Op {
         "op",
         "run1",
         "browser.page",
-        "ymy-browser",
+        "shop-browser",
         3000,
         HashMap::new(),
         vec![],
@@ -377,7 +377,7 @@ fn capacity_carries_the_numbers() {
     assert_eq!(e.reason, "runner-at-capacity");
     assert_eq!(
         Value::Object(e.details),
-        json!({"resource": "ymy-browser", "limit-name": "max-contexts", "limit": 8,
+        json!({"resource": "shop-browser", "limit-name": "max-contexts", "limit": 8,
             "busy": 8, "waited-ms": 5000})
     );
 }
@@ -390,7 +390,7 @@ fn context_lost_is_idle() {
     assert_eq!(e.reason, "context-lost");
     assert_eq!(
         Value::Object(e.details),
-        json!({"resource": "ymy-browser", "why": "idle", "idle-ms": 600000})
+        json!({"resource": "shop-browser", "why": "idle", "idle-ms": 600000})
     );
 }
 

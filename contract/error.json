@@ -40,13 +40,19 @@
       "type": "object",
       "properties": {
         "resource": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
         },
         "handle": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_-]{1,32}$"
         },
         "limit-name": {
           "enum": [
@@ -82,10 +88,32 @@
           ]
         },
         "where": {
-          "type": "string"
+          "enum": [
+            "unknown-type",
+            "cloud-restart",
+            "interpreter",
+            "recovery",
+            "unknown-word",
+            "worker-word",
+            "op-handler",
+            "op-args",
+            "placeholder",
+            "capture-spec",
+            "response-encoding",
+            "evidence-excerpt",
+            "sql-driver",
+            "http-request",
+            "http-client",
+            "http-redirects",
+            "http-response-size",
+            "browser-args",
+            "worker-deadline"
+          ]
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-z0-9.-]{1,64}$"
         },
         "why": {
           "enum": [

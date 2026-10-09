@@ -191,8 +191,8 @@ At most 2 connections per resource. A query reads at most 1000 rows (`row-count`
 | `base-url` | Required. A bare origin: no path, query or fragment. |
 | `origins` | Extra allowed origins, bare, at most 15. Any other request the page makes is blocked. |
 | `secrets` | `${NAME}` is allowed in `fill` and `press-seq` values. |
-| `max-contexts` | Most live browser contexts in the worker (worker default 3). When all are busy, an op waits up to 5 s (or its own timeout), then fails with `runner-at-capacity` and the numbers. A context closed to make room fails the next op of that run once (`context lost`). |
-| `idle-ms` | Idle time before a context is closed (worker default 10 minutes). |
+| `max-contexts` | 1 to 16 (worker default 3). The limit of this resource: only its contexts count. A run holds its place until the run ends or its context is idle for `idle-ms`; the worker never closes a context to make room. When all places are in use, a new op waits up to 5 s (or until just before its own timeout), then fails with `runner-at-capacity` and the numbers. |
+| `idle-ms` | 1000 to 3600000 (worker default 10 minutes). A context idle for this time is closed; the next op of that run fails once with `context-lost`. |
 | `viewport` | `{"width": 1280, "height": 800}`. |
 
 **cli** (needs `worker.socket`)
@@ -249,16 +249,16 @@ Logs go to stdout, one line per event, never payloads: only ids, kinds, reasons 
 
 ## Error frames
 
-A failed op gives an error frame: `{"op-id", "reason", "details"}`. `reason` is one word of the closed list in `contract/error.json`. `details` has ids and numbers only (for example `resource`, `name`, `limit`, `busy`, `waited-ms`) and can be empty. The frame has no free text and no `message`: the cloud makes the message from the reason and `details`. A reason the runner cannot prove is `runner-error`, with one fixed `where` word in `details`.
+A failed op gives an error frame: `{"op-id", "reason", "details"}`. `reason` is one word of the closed list in `contract/error.json`. `details` has ids and numbers only (for example `resource`, `name`, `limit`, `busy`, `waited-ms`) and can be empty. The frame has no free text and no `message`: the cloud makes the message from the reason and `details`. A reason the runner cannot prove is `runner-error`, with one fixed `where` word in `details`. Only the faults of the runner itself make its health `degraded`: `worker-error`, and `runner-error` with the words `op-handler`, `response-encoding`, `worker-word`, `evidence-excerpt` or `worker-deadline`. A failed connect to the target is `connection-error`; a query the database refuses is a failed result (the cloud reads it as `sql-error`). When the cloud refuses a request, the runner sends the frames of it one by one, and drops a frame only after three refusals of that frame alone, spaced by the backoff.
 
 Example:
 
     {"op-id": "0c7d6f0e-0a51-4a7b-8f0e-5a1f0d1c2b3a", "reason": "runner-at-capacity",
-     "details": {"resource": "ymy-browser", "limit-name": "max-contexts", "limit": 8, "busy": 8, "waited-ms": 5000}}
+     "details": {"resource": "shop-browser", "limit-name": "max-contexts", "limit": 8, "busy": 8, "waited-ms": 5000}}
 
 ## Release note: cloud version
 
-This runner needs a cloud with the run-cause contract (contract revision `00e0218` or newer, and the cloud build of the same release). It is not compatible with an older cloud: the error frame has `details` and no `message`, the reasons are the new closed list, and the exchange request has `health`.
+This runner needs a cloud with the run-cause contract (the cloud of the same release). It is not compatible with an older cloud: the error frame has `details` and no `message`, the reasons are the new closed list, and the exchange request has `health`.
 
 ## Build and test
 

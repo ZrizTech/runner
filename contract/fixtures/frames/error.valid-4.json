@@ -2,7 +2,7 @@
   "op-id": "op-31",
   "reason": "runner-at-capacity",
   "details": {
-    "resource": "ymy-browser",
+    "resource": "shop-browser",
     "limit-name": "max-contexts",
     "limit": 8,
     "busy": 8,

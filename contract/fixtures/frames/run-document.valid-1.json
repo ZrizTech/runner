@@ -5,7 +5,7 @@
       "step-type": "call",
       "status": "pass",
       "step-index": 10,
-      "action": "ymy-web/signup-post",
+      "action": "shop-web/signup-post",
       "timing": {
         "started-at": "2026-10-09T10:15:02.120Z",
         "duration-ms": 25410,
@@ -30,7 +30,7 @@
     "long-waits": 0
   },
   "runner": {
-    "name": "ymy-uat",
+    "name": "shop-uat",
     "env": "uat",
     "build": "runner/0.5.0+3f2a9c0d1e4b"
   },

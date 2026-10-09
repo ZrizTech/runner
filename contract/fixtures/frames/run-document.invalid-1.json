@@ -18,7 +18,7 @@
     }
   },
   "runner": {
-    "name": "ymy-uat",
+    "name": "shop-uat",
     "env": "uat",
     "build": "runner/0.5.0+3f2a9c0d1e4b"
   },

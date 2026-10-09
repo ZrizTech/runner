@@ -392,6 +392,10 @@ fn default_now() -> NowFn {
 mod tests;
 
 #[cfg(test)]
+#[path = "leak_tests.rs"]
+mod leak_tests;
+
+#[cfg(test)]
 #[path = "close_tests.rs"]
 mod close_tests;
 
