@@ -157,7 +157,8 @@ cmd_deploy() {
 	"
 
 	echo "starting stack"
-	compose_remote up -d
+	# Always new containers: the runner reads its config only at start, and an equal image does not restart it.
+	compose_remote up -d --force-recreate
 
 	wait_connected || true
 
