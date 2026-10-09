@@ -84,7 +84,8 @@
       "http-redirects",
       "http-response-size",
       "browser-args",
-      "worker-deadline"
+      "worker-deadline",
+      "cause-maker"
     ],
     "worker-reasons": [
       "bad-json",
