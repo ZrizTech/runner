@@ -1,7 +1,7 @@
 .PHONY: sync-contract
 
 # Maintainers only: copies the vendored wire protocol from the upstream contract repo.
-CONTRACT_DIR ?= ../zriz-contract
+CONTRACT_DIR ?= ../../zriz-contract
 
 sync-contract:
 	cp $(CONTRACT_DIR)/contract/*.json contract/
