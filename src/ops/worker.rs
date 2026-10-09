@@ -57,12 +57,19 @@ pub(crate) async fn ping(socket: &str) -> bool {
 }
 
 /// Tells the worker that a run ended; it closes the contexts and handles of
-/// that run. `Err` when the worker is not reachable.
+/// that run. `Err` when the worker is not reachable or does not answer
+/// `ok: true`. A `trace_id` that is not a trace id is left out.
 pub(crate) async fn run_close(
     socket: &str,
     run_id: &str,
     trace_id: &str,
 ) -> Result<(), Unavailable> {
-    let req = json!({"v": 1, "kind": "run.close", "run": run_id, "trace-id": trace_id});
-    call(socket, &req, CLOSE_TIMEOUT).await.map(|_| ())
+    let mut req = json!({"v": 1, "kind": "run.close", "run": run_id});
+    if crate::contract::is_trace_id(trace_id) {
+        req["trace-id"] = json!(trace_id);
+    }
+    let v = call(socket, &req, CLOSE_TIMEOUT).await?;
+    (v.get("ok") == Some(&Value::Bool(true)))
+        .then_some(())
+        .ok_or(Unavailable)
 }

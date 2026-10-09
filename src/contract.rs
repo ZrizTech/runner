@@ -7,7 +7,7 @@ pub mod schema;
 
 pub use frame::{
     BrowserLoad, CliLoad, EndedRun, Error, ExchangeRequest, ExchangeResponse, Frame, Health, Op,
-    Result, Runner, Timing,
+    Result, Runner, Timing, is_trace_id,
 };
 pub use schema::{ContractError, Validator, deny_keys};
 

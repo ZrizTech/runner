@@ -11,9 +11,6 @@ const PING_EVERY: Duration = Duration::from_secs(1);
 /// Contexts a browser resource may hold when its config sets no `max-contexts`.
 const DEFAULT_MAX_CONTEXTS: u64 = 3;
 
-/// Handles a cli resource may hold when its config sets no `max-handles`.
-const DEFAULT_MAX_HANDLES: u64 = 2;
-
 /// Startup checks. Warns about secretless http resources and pings the
 /// worker; returns whether the worker is up.
 pub(super) async fn startup(cfg: &Config) -> bool {
@@ -72,9 +69,13 @@ impl Handler {
             .and_then(Value::as_str)
         {
             self.contexts.note_boot(boot);
+            self.handle_lives.note_boot(boot);
         }
         if let Ok(mut last) = self.ping_info.lock() {
             *last = info;
+        }
+        if up {
+            self.flush_closes().await;
         }
         let was = self.worker_up.swap(up, Ordering::SeqCst);
         if up && !was {
@@ -85,7 +86,8 @@ impl Handler {
     }
 
     /// The worker numbers for the health: `busy` from the last ping, the
-    /// limits from the config (a browser resource has no limit in the ping).
+    /// limits of the browser resources from the config (the ping has none).
+    /// `cli` is there only when the last ping had it.
     pub fn worker_health(&self) -> WorkerHealth {
         let needed = needs_worker(&self.cfg);
         let up = self.worker_up.load(Ordering::SeqCst);
@@ -117,18 +119,13 @@ impl Handler {
                     .map_or(DEFAULT_MAX_CONTEXTS, u64::from),
             })
             .collect();
-        let cli_limit: u64 = self
-            .cfg
-            .resources
-            .values()
-            .filter(|r| r.r#type == "cli")
-            .map(|r| r.max_handles.map_or(DEFAULT_MAX_HANDLES, u64::from))
-            .sum();
+        // Only the numbers of the worker: `limit` is its total, not a sum of
+        // the per-run limits of the config.
         let cli_ping = ping.as_ref().and_then(|p| p.get("cli"));
         let num = |k: &str| cli_ping.and_then(|c| c.get(k)?.as_u64());
-        let cli = has_type(&self.cfg, "cli").then(|| contract::CliLoad {
+        let cli = num("limit").map(|limit| contract::CliLoad {
             busy: num("busy").unwrap_or(0),
-            limit: num("limit").unwrap_or(cli_limit),
+            limit,
         });
         WorkerHealth {
             needed,

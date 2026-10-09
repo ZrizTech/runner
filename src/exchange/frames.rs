@@ -294,7 +294,7 @@ impl Inner {
     /// One id of a run-end notice: one DEBUG line with the trace of the
     /// notice, then the handler frees the resources off the loop.
     fn run_ended(self: &Arc<Self>, run: contract::EndedRun) {
-        let trace = if run.trace_id.len() == 36 {
+        let trace = if contract::is_trace_id(&run.trace_id) {
             run.trace_id.as_str()
         } else {
             "-"

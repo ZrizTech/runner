@@ -46,13 +46,17 @@ impl Op {
     /// ignored (it would break the log columns and the worker schema).
     pub fn valid_trace_id(&self) -> Option<&str> {
         let t = self.trace_id.as_deref()?;
-        let ok = t.len() == 36
-            && t.bytes().enumerate().all(|(i, b)| match i {
-                8 | 13 | 18 | 23 => b == b'-',
-                _ => b.is_ascii_digit() || (b'a'..=b'f').contains(&b),
-            });
-        ok.then_some(t)
+        is_trace_id(t).then_some(t)
     }
+}
+
+/// True for a trace id: a lower-case hex uuid with hyphens.
+pub fn is_trace_id(t: &str) -> bool {
+    t.len() == 36
+        && t.bytes().enumerate().all(|(i, b)| match i {
+            8 | 13 | 18 | 23 => b == b'-',
+            _ => b.is_ascii_digit() || (b'a'..=b'f').contains(&b),
+        })
 }
 
 /// Execution timing for a Result.

@@ -35,6 +35,8 @@ fn fake_worker(dir: &tempfile::TempDir) -> (String, Boot) {
                 json!({"v": 1, "kind": "ping", "ok": true, "browser": [], "cli": {"busy": 0, "limit": 2}, "boot-id": id})
             } else if req["kind"] == "run.close" {
                 json!({"v": 1, "kind": "run.close", "ok": true, "closed": 1})
+            } else if req.to_string().contains("boom") {
+                json!({"v": 1, "op-id": req["op-id"], "ok": false, "reason": "internal"})
             } else {
                 json!({"v": 1, "op-id": req["op-id"], "ok": true, "out": {"ok": true}})
             };
@@ -157,4 +159,27 @@ async fn listed_secret_with_no_value_is_not_set() {
     let e = failed(page(&h, "run1", "${PW}").await);
     assert_eq!(e.reason, "secret-not-set");
     assert_eq!(Value::Object(e.details), json!({"name": "PW"}));
+}
+
+#[tokio::test]
+async fn a_context_made_by_an_op_that_ended_in_an_error_is_tracked() {
+    let dir = tempfile::tempdir().expect("dir");
+    let (sock, boot) = fake_worker(&dir);
+    let h = handler(&sock, vec![], &[]).await;
+    assert_eq!(failed(page(&h, "run1", "boom").await).reason, "worker-error");
+    *boot.lock().expect("lock") = "boot-2".to_string();
+    let e = failed(page(&h, "run1", "x").await);
+    assert_eq!(e.details["why"], "worker-restarted");
+}
+
+#[test]
+fn the_lost_pairs_keep_1000_and_drop_the_oldest() {
+    let c = super::super::contexts::Contexts::default();
+    c.note_boot("b1");
+    for i in 0..1001 {
+        c.add(&format!("run-{i}"), "web");
+    }
+    c.note_boot("b2");
+    assert!(!c.take_lost("run-0", "web"), "the oldest pair is out");
+    assert!(c.take_lost("run-1", "web"));
 }

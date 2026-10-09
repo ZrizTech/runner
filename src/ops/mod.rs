@@ -133,6 +133,7 @@ pub struct Handler {
     /// The (run, `resource/handle`) pairs of started cli handles.
     handle_lives: contexts::Contexts,
     ended_runs: ended::EndedRuns,
+    close_retry: ended::CloseRetry,
     worker_up: AtomicBool,
     last_ping: Mutex<Option<Instant>>,
     /// The last good ping response of the worker; `None` while it is down.
@@ -195,6 +196,7 @@ impl Handler {
             contexts: contexts::Contexts::default(),
             handle_lives: contexts::Contexts::default(),
             ended_runs: ended::EndedRuns::default(),
+            close_retry: ended::CloseRetry::default(),
         })
     }
 
@@ -388,6 +390,10 @@ fn default_now() -> NowFn {
 #[cfg(test)]
 #[path = "ops_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "close_tests.rs"]
+mod close_tests;
 
 #[cfg(test)]
 #[path = "ended_tests.rs"]

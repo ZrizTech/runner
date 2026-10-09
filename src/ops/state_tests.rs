@@ -227,6 +227,7 @@ async fn health_numbers_come_from_the_ping_and_the_config() {
     let before = h.worker_health();
     assert!(before.up && before.needed);
     assert_eq!(before.browser[0].busy, 0, "no ping result yet");
+    assert!(before.cli.is_none(), "no cli numbers without a ping");
     *h.last_ping.lock().unwrap() = None;
     h.refresh_worker().await;
     let w = h.worker_health();

@@ -3,10 +3,38 @@
 use super::{Handler, worker};
 use std::collections::VecDeque;
 use std::sync::Mutex;
-use std::sync::atomic::Ordering;
 
 /// The most ended run ids kept; the oldest goes first.
 const MAX_ENDED: usize = 1000;
+
+/// The most `run.close` calls kept for a retry.
+const MAX_RETRY: usize = 64;
+
+/// The `run.close` calls the worker did not take (run id, trace id).
+#[derive(Default)]
+pub(crate) struct CloseRetry {
+    list: Mutex<VecDeque<(String, String)>>,
+}
+
+impl CloseRetry {
+    fn add(&self, run: &str, trace: &str) {
+        let Ok(mut l) = self.list.lock() else { return };
+        if l.iter().any(|(r, _)| r == run) {
+            return;
+        }
+        if l.len() >= MAX_RETRY {
+            l.pop_front();
+        }
+        l.push_back((run.to_string(), trace.to_string()));
+    }
+
+    fn take_all(&self) -> Vec<(String, String)> {
+        self.list
+            .lock()
+            .map(|mut l| l.drain(..).collect())
+            .unwrap_or_default()
+    }
+}
 
 /// The runs that got a run-end notice. An op of such a run is refused, and
 /// an op of it that ends later keeps no state.
@@ -54,9 +82,30 @@ impl Handler {
         // its own state (`free_ended`).
         self.ended_runs.mark(run_id);
         self.free_run(run_id);
-        if self.cfg.worker_socket.is_empty() || !self.worker_up.load(Ordering::SeqCst) {
+        if self.cfg.worker_socket.is_empty() {
             return;
         }
-        let _ = worker::run_close(&self.cfg.worker_socket, run_id, trace_id).await;
+        // Whatever the flag says: it may be down for a second only.
+        if worker::run_close(&self.cfg.worker_socket, run_id, trace_id)
+            .await
+            .is_ok()
+        {
+            self.flush_closes().await;
+        } else {
+            self.close_retry.add(run_id, trace_id);
+        }
+    }
+
+    /// Sends the `run.close` of the runs the worker did not take before.
+    /// Called after a good worker call. A failure puts the run back.
+    pub(super) async fn flush_closes(&self) {
+        for (run, trace) in self.close_retry.take_all() {
+            if worker::run_close(&self.cfg.worker_socket, &run, &trace)
+                .await
+                .is_err()
+            {
+                self.close_retry.add(&run, &trace);
+            }
+        }
     }
 }
