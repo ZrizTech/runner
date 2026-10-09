@@ -1,5 +1,9 @@
 {
   "op-id": "op-32",
-  "reason": "arg-not-allowed",
-  "message": "refused"
+  "reason": "context-lost",
+  "details": {
+    "resource": "ymy-browser",
+    "why": "idle",
+    "idle-ms": 600000
+  }
 }

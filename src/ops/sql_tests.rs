@@ -413,7 +413,8 @@ async fn driver_error_hides_query_text() {
     assert!(result.is_none());
     let err = err.expect("error");
     assert_eq!(err.reason, "runner-error");
-    assert!(!err.message.contains(query));
+    assert_eq!(err.details["where"], "sql-driver");
+    assert!(!serde_json::to_string(&err).expect("json").contains(query));
 }
 
 // --- pure unit tests: DSN parsing and value conversion ---

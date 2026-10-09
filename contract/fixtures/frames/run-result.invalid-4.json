@@ -1,0 +1,23 @@
+{
+  "status": "pass",
+  "step-results": [
+    {
+      "step-type": "call",
+      "status": "pass",
+      "step-index": 10,
+      "action": "ymy-web/signup-post",
+      "timing": {
+        "started-at": "2026-10-09T10:15:02.120Z",
+        "duration-ms": 25410,
+        "wait-ms": 25300,
+        "work-ms": 95,
+        "sleep-ms": 0,
+        "ops": 1,
+        "long-wait": false,
+        "wait-reason": "service-stall"
+      }
+    }
+  ],
+  "errors": [],
+  "final-context": {}
+}

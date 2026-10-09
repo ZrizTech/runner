@@ -247,6 +247,19 @@ Notes on `cli` shapes:
 
 Logs go to stdout, one line per event, never payloads: only ids, kinds, reasons and timings.
 
+## Error frames
+
+A failed op gives an error frame: `{"op-id", "reason", "details"}`. `reason` is one word of the closed list in `contract/error.json`. `details` has ids and numbers only (for example `resource`, `name`, `limit`, `busy`, `waited-ms`) and can be empty. The frame has no free text and no `message`: the cloud makes the message from the reason and `details`. A reason the runner cannot prove is `runner-error`, with one fixed `where` word in `details`.
+
+Example:
+
+    {"op-id": "0c7d6f0e-0a51-4a7b-8f0e-5a1f0d1c2b3a", "reason": "runner-at-capacity",
+     "details": {"resource": "ymy-browser", "limit-name": "max-contexts", "limit": 8, "busy": 8, "waited-ms": 5000}}
+
+## Release note: cloud version
+
+This runner needs a cloud with the run-cause contract (contract revision `00e0218` or newer, and the cloud build of the same release). It is not compatible with an older cloud: the error frame has `details` and no `message`, the reasons are the new closed list, and the exchange request has `health`.
+
 ## Build and test
 
 You need Rust (see `rust-version` in `Cargo.toml`) and, for the worker, Node 22 or newer.

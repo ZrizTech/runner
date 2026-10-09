@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/cause.json",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "side": {
+      "enum": [
+        "target",
+        "pipeline",
+        "runner",
+        "service",
+        "limit",
+        "network"
+      ]
+    },
+    "retry": {
+      "enum": [
+        "no",
+        "later",
+        "now",
+        "unknown"
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "step-index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "action": {
+      "type": "string"
+    },
+    "details": {
+      "type": "object"
+    },
+    "more": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": [
+    "reason",
+    "side",
+    "retry",
+    "message",
+    "details"
+  ],
+  "additionalProperties": false
+}

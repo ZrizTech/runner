@@ -1,0 +1,26 @@
+{
+  "status": "error",
+  "step-results": [],
+  "errors": [],
+  "final-context": {},
+  "timing": {
+    "duration-ms": 30020,
+    "wait-ms": 25300,
+    "work-ms": 4100,
+    "sleep-ms": 0,
+    "evidence-ms": 0,
+    "cloud-ms": 620,
+    "long-waits": 1,
+    "longest-wait": {
+      "step-index": 10,
+      "wait-ms": 25300,
+      "wait-reason": "service-stall"
+    }
+  },
+  "runner": {
+    "name": "ymy-uat",
+    "env": "uat",
+    "build": "runner/0.5.0+3f2a9c0d1e4b"
+  },
+  "trace-id": "5d0c9a52-7c1e-4b1f-9a55-0d6f3a2b8c11"
+}

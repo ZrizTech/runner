@@ -142,11 +142,7 @@ async fn error_reply_carries_reason() {
     let op_frame = build_op_frame("frame-op-2", "op-1");
     let handler: Arc<dyn Handler> = Arc::new(FakeHandler::with_error(
         4,
-        contract::Error {
-            op_id: "op-1".to_string(),
-            reason: "timeout".to_string(),
-            message: "boom".to_string(),
-        },
+        contract::Error::new("op-1", "timeout", serde_json::json!({"timeout-ms": 5})),
     ));
 
     let op_frame_id = op_frame.id.clone();
@@ -214,7 +210,7 @@ async fn panicking_handler_replies_runner_error() {
     let op_err: contract::Error = serde_json::from_value(f.d).expect("decode error");
     assert_eq!(op_err.op_id, "op-1");
     assert_eq!(op_err.reason, "runner-error");
-    assert_eq!(op_err.message, "op handler panicked");
+    assert_eq!(op_err.details["where"], "op-handler");
 
     cancel.cancel();
     assert_eq!(done.await.expect("join"), Ok(()));

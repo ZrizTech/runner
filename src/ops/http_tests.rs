@@ -197,11 +197,8 @@ async fn unknown_placeholder_names_key() {
         .await;
     assert!(result.is_none());
     let err = err.expect("error");
-    assert_eq!(err.reason, "runner-error");
-    assert_eq!(
-        err.message,
-        "environment variable MISSING_KEY is not set on the runner"
-    );
+    assert_eq!(err.reason, "secret-not-set");
+    assert_eq!(err.details["name"], "MISSING_KEY");
 }
 
 #[tokio::test]
@@ -603,7 +600,7 @@ async fn no_secrets_list_means_no_env_names() {
     let (h, asked) = recording_handler("http://127.0.0.1:1", None).await;
     let (result, err) = sub_header_op(&h, "${SOME_ENV}").await;
     assert!(result.is_none());
-    assert_eq!(err.expect("error").reason, "placeholder-in-disallowed-slot");
+    assert_eq!(err.expect("error").reason, "placeholder-not-found");
     assert!(asked.lock().expect("lock").is_empty(), "lookup was asked");
 }
 
@@ -622,7 +619,7 @@ async fn secrets_list_allows_only_listed_names() {
 
     let (result, err) = sub_header_op(&h, "${B}").await;
     assert!(result.is_none());
-    assert_eq!(err.expect("error").reason, "placeholder-in-disallowed-slot");
+    assert_eq!(err.expect("error").reason, "placeholder-not-found");
     assert_eq!(asked.lock().expect("lock").len(), 1, "B was looked up");
 }
 
@@ -631,7 +628,7 @@ async fn runner_token_name_is_never_substitutable() {
     let (h, asked) = recording_handler("http://127.0.0.1:1", Some(vec!["RUNNER_TOK"])).await;
     let (result, err) = sub_header_op(&h, "${RUNNER_TOK}").await;
     assert!(result.is_none());
-    assert_eq!(err.expect("error").reason, "placeholder-in-disallowed-slot");
+    assert_eq!(err.expect("error").reason, "placeholder-not-found");
     assert!(asked.lock().expect("lock").is_empty(), "lookup was asked");
 }
 

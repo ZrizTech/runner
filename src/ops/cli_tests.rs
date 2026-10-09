@@ -193,14 +193,24 @@ async fn unknown_command_and_closed_keys() {
 #[tokio::test]
 async fn placeholders_only_in_env_for_allowed_names() {
     let (_d, h, seen, _) = up().await;
+    let slot = "placeholder-in-disallowed-slot";
     let cases = [
-        json!({"command": "shopctl", "args": ["init", "${KEY}"]}),
-        json!({"command": "shopctl", "args": ["version"], "until": {"stream": "stdout", "after": "${KEY}"}}),
-        json!({"command": "shopctl", "args": ["version"], "env": {"SHOPCTL_TOKEN": "${OTHER}"}}),
+        (
+            json!({"command": "shopctl", "args": ["init", "${KEY}"]}),
+            slot,
+        ),
+        (
+            json!({"command": "shopctl", "args": ["version"], "until": {"stream": "stdout", "after": "${KEY}"}}),
+            slot,
+        ),
+        (
+            json!({"command": "shopctl", "args": ["version"], "env": {"SHOPCTL_TOKEN": "${OTHER}"}}),
+            "placeholder-not-found",
+        ),
     ];
-    for args in cases {
+    for (args, want) in cases {
         let r = run(&h, args, &[]).await;
-        assert_eq!(reason(&r), "placeholder-in-disallowed-slot");
+        assert_eq!(reason(&r), want);
     }
     let r = run(
         &h,
@@ -328,23 +338,34 @@ async fn stdout_json_is_parsed() {
 async fn worker_reasons_are_mapped() {
     let (_d, h, _, reply) = up().await;
     let table = [
-        ("handle-busy", "runner-error"),
-        ("no-handle", "runner-error"),
-        ("too-many-handles", "runner-error"),
-        ("spawn-failed", "runner-error"),
-        ("at-capacity", "runner-at-capacity"),
-        ("internal", "runner-error"),
+        ("handle-busy", "handle-busy", json!({"handle": "h1"})),
+        ("no-handle", "no-handle", json!({"handle": "h1"})),
+        ("too-many-handles", "too-many-handles", json!({"limit": 2})),
+        ("spawn-failed", "spawn-failed", json!({})),
+        ("internal", "worker-error", json!({})),
+        (
+            "bad-request",
+            "worker-mismatch",
+            json!({"worker-reason": "bad-request"}),
+        ),
+        ("brand-new", "runner-error", json!({"where": "worker-word"})),
     ];
-    for (worker_reason, want) in table {
-        *reply.lock().expect("lock") =
-            json!({"ok": false, "reason": worker_reason, "message": "free text /opt/shopctl"});
-        let r = run(&h, json!({"command": "shopctl", "args": ["version"]}), &[]).await;
+    for (worker_reason, want, details) in table {
+        *reply.lock().expect("lock") = json!({"ok": false, "reason": worker_reason,
+            "message": "free text /opt/shopctl", "limit": 2});
+        let r = run(
+            &h,
+            json!({"command": "shopctl", "handle": "h1", "mode": "start", "args": ["version"]}),
+            &[],
+        )
+        .await;
         assert_eq!(reason(&r), want, "{worker_reason}");
-        let msg = r.1.expect("err").message;
-        assert!(!msg.contains("free text"), "{msg}");
-        if want == "runner-error" && worker_reason != "internal" {
-            assert!(msg.contains(worker_reason), "{msg}");
-        }
+        let e = r.1.expect("err");
+        assert_eq!(
+            serde_json::Value::Object(e.details),
+            details,
+            "{worker_reason}"
+        );
     }
 }
 

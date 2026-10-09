@@ -3,27 +3,106 @@
   "$id": "https://zriz.io/contract/error.json",
   "type": "object",
   "properties": {
-    "op-id": {"type": "string"},
+    "op-id": {
+      "type": "string"
+    },
     "reason": {
       "enum": [
-        "unknown-arg",
-        "unknown-kind",
-        "unknown-resource",
+        "timeout",
+        "capture-not-found",
         "host-not-allowed",
         "read-only",
         "placeholder-in-disallowed-slot",
+        "command-not-allowed",
+        "arg-not-allowed",
+        "handle-busy",
+        "no-handle",
+        "unknown-resource",
+        "secret-not-set",
+        "context-lost",
+        "runner-at-capacity",
+        "too-many-handles",
+        "spawn-failed",
+        "worker-unavailable",
+        "worker-mismatch",
+        "worker-error",
+        "unknown-arg",
+        "unknown-kind",
+        "runner-error",
         "evidence-disabled",
         "evidence-expired",
-        "timeout",
-        "runner-at-capacity",
-        "runner-error",
-        "worker-unavailable",
-        "command-not-allowed",
-        "arg-not-allowed"
+        "placeholder-not-found"
       ]
     },
-    "message": {"type": "string"}
+    "details": {
+      "type": "object",
+      "properties": {
+        "resource": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "handle": {
+          "type": "string"
+        },
+        "limit-name": {
+          "enum": [
+            "max-inflight",
+            "max-contexts",
+            "max-handles"
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "busy": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "waited-ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timeout-ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "worker-reason": {
+          "enum": [
+            "bad-json",
+            "bad-version",
+            "unknown-kind",
+            "bad-request",
+            "request-too-large",
+            "not-implemented"
+          ]
+        },
+        "where": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "why": {
+          "enum": [
+            "idle",
+            "worker-restarted"
+          ]
+        },
+        "idle-ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
   },
-  "required": ["op-id", "reason", "message"],
-  "additionalProperties": true
+  "required": [
+    "op-id",
+    "reason",
+    "details"
+  ],
+  "additionalProperties": false
 }

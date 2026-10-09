@@ -6,7 +6,9 @@ mod announce;
 mod browser;
 mod capture;
 mod cli;
+mod contexts;
 mod ended;
+mod errors;
 mod evidence;
 mod handles;
 mod http;
@@ -17,6 +19,7 @@ mod sql_pg;
 mod subst;
 mod vault;
 mod worker;
+mod worker_map;
 
 pub use sql::{DsnError, ParsedDsn, SqlConn, SqlOpError, parse_dsn};
 
@@ -26,13 +29,15 @@ use crate::evidence::Store as EvidenceStore;
 use crate::exchange::WorkerHealth;
 use crate::placeholder::{self, PlaceholderError};
 use crate::scrub;
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
+
+use errors::{capture_error, new_error, placeholder_substitute_error, runner_error, with_resource};
 
 /// A boxed, `Send` future; the shape Rust needs for the small async seams
 /// [`Handler`] takes as options.
@@ -124,6 +129,7 @@ pub struct Handler {
     jars: jar::Jars,
     vault: vault::Vault,
     handles: handles::Handles,
+    contexts: contexts::Contexts,
     worker_up: AtomicBool,
     last_ping: Mutex<Option<Instant>>,
     /// The last good ping response of the worker; `None` while it is down.
@@ -183,6 +189,7 @@ impl Handler {
             jars: jar::Jars::default(),
             vault: vault::Vault::default(),
             handles: handles::Handles::default(),
+            contexts: contexts::Contexts::default(),
         })
     }
 
@@ -228,8 +235,16 @@ impl Handler {
         let (result, err) =
             match tokio::time::timeout(Duration::from_millis(millis), self.dispatch(&op)).await {
                 Ok(pair) => pair,
-                Err(_) => (None, Some(new_error(&op.op_id, "timeout", "op timed out"))),
+                Err(_) => (
+                    None,
+                    Some(new_error(
+                        &op.op_id,
+                        "timeout",
+                        json!({"timeout-ms": millis}),
+                    )),
+                ),
             };
+        let err = err.map(|e| with_resource(e, &op.resource));
         log::handled(&op, (self.now)(), start, &result, &err);
         (result, err)
     }
@@ -241,11 +256,11 @@ impl Handler {
                 Some(new_error(
                     &op.op_id,
                     "unknown-kind",
-                    &format!("unknown op kind {:?}", op.kind),
+                    json!({"kind": op.kind}),
                 )),
             );
         };
-        if let Some(e) = check_closed_keys(&op.op_id, &op.kind, &op.args, allowed) {
+        if let Some(e) = check_closed_keys(&op.op_id, &op.args, allowed) {
             return (None, Some(e));
         }
 
@@ -269,65 +284,23 @@ impl Handler {
             _ => Err(new_error(
                 op_id,
                 "unknown-resource",
-                &format!("unknown resource {name:?}"),
+                json!({"resource": name}),
             )),
         }
     }
 }
 
-fn capture_error(op_id: &str, missing: Option<&str>) -> ErrorFrame {
-    match missing {
-        Some(n) => new_error(
-            op_id,
-            "runner-error",
-            &format!("capture {n} not found in the response"),
-        ),
-        None => new_error(op_id, "runner-error", "invalid capture"),
-    }
-}
-
 fn check_closed_keys(
     op_id: &str,
-    kind: &str,
     args: &HashMap<String, Value>,
     allowed: &[&str],
 ) -> Option<ErrorFrame> {
     for key in args.keys() {
         if !allowed.contains(&key.as_str()) {
-            return Some(new_error(
-                op_id,
-                "unknown-arg",
-                &format!("unknown arg {key:?} for {kind}"),
-            ));
+            return Some(new_error(op_id, "unknown-arg", json!({})));
         }
     }
     None
-}
-
-fn new_error(op_id: &str, reason: &str, message: &str) -> ErrorFrame {
-    ErrorFrame {
-        op_id: op_id.to_string(),
-        reason: reason.to_string(),
-        message: message.to_string(),
-    }
-}
-
-/// Maps an error from [`placeholder::substitute`] to the contract error an
-/// op should return. A disallowed slot keeps its own reason; an unknown
-/// placeholder names the missing environment variable so the user knows
-/// what to set on the runner, without ever including its value; anything
-/// else falls back to a generic message.
-fn placeholder_substitute_error(op_id: &str, err: &PlaceholderError) -> ErrorFrame {
-    match err {
-        PlaceholderError::DisallowedSlot(_) => {
-            new_error(op_id, "placeholder-in-disallowed-slot", &err.to_string())
-        }
-        PlaceholderError::UnknownPlaceholder(name) => new_error(
-            op_id,
-            "runner-error",
-            &format!("environment variable {name} is not set on the runner"),
-        ),
-    }
 }
 
 /// Renders `v` as a string for use in headers and query params, tolerating

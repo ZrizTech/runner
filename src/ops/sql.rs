@@ -8,11 +8,12 @@
 //! database.
 
 use super::{
-    BoxFuture, Handler, OpenSql, SqlOpenError, capture, duration_ms, new_error, scrub_payload,
+    BoxFuture, Handler, OpenSql, SqlOpenError, capture, duration_ms, new_error, runner_error,
+    scrub_payload,
 };
 use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame, Timing};
 use crate::{project, readonly};
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 use std::sync::Arc;
 
 /// Errors parsing a MySQL DSN
@@ -350,7 +351,7 @@ impl Handler {
                     Some(new_error(
                         &op.op_id,
                         "unknown-resource",
-                        &format!("unknown resource {:?}", op.resource),
+                        json!({"resource": op.resource}),
                     )),
                 );
             }
@@ -365,12 +366,14 @@ impl Handler {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-        if resource.read_only
-            && let Err(e) = readonly::check(&query)
-        {
+        if resource.read_only && readonly::check(&query).is_err() {
             return (
                 None,
-                Some(new_error(&op.op_id, "read-only", &e.to_string())),
+                Some(new_error(
+                    &op.op_id,
+                    "read-only",
+                    json!({"resource": op.resource}),
+                )),
             );
         }
         let params: Vec<Value> = match args.get("params") {
@@ -387,10 +390,7 @@ impl Handler {
                 rows.truncate(MAX_SQL_ROWS);
                 self.shape_sql_result(op, rows, &secrets, exec_ms)
             }
-            Err(_) => (
-                None,
-                Some(new_error(&op.op_id, "runner-error", "query failed")),
-            ),
+            Err(_) => (None, Some(runner_error(&op.op_id, "sql-driver"))),
         }
     }
 
@@ -433,14 +433,7 @@ impl Handler {
         let (scrubbed, count) = match scrub_payload(&payload, secrets) {
             Ok(v) => v,
             Err(_) => {
-                return (
-                    None,
-                    Some(new_error(
-                        &op.op_id,
-                        "runner-error",
-                        "response encoding failed",
-                    )),
-                );
+                return (None, Some(runner_error(&op.op_id, "response-encoding")));
             }
         };
         (

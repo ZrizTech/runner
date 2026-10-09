@@ -158,11 +158,11 @@ async fn secret_not_in_allowlist_refused() {
     let (sock, seen) = fake_worker(&dir, json!({"ok": true}));
     let h = handler(sock.to_str().expect("p"), Some(vec!["PW"]), ENV).await;
     let r = run(&h, json!({"commands": [fill("${OTHER}")]}), &[]).await;
-    assert_eq!(reason(&r), "placeholder-in-disallowed-slot");
+    assert_eq!(reason(&r), "placeholder-not-found");
     // No `secrets` at all means none allowed.
     let h2 = handler(sock.to_str().expect("p"), None, ENV).await;
     let r = run(&h2, json!({"commands": [fill("${PW}")]}), &[]).await;
-    assert_eq!(reason(&r), "placeholder-in-disallowed-slot");
+    assert_eq!(reason(&r), "placeholder-not-found");
     assert!(seen.lock().expect("lock").is_empty());
 }
 
@@ -317,7 +317,7 @@ async fn http_secrets_allowlist_enforced() {
     let (_, err) = h
         .handle(test_op("o", "r", "http.request", "api", 1000, args, vec![]))
         .await;
-    assert_eq!(err.expect("err").reason, "placeholder-in-disallowed-slot");
+    assert_eq!(err.expect("err").reason, "placeholder-not-found");
 }
 
 #[tokio::test]
@@ -357,34 +357,39 @@ async fn browser_result_scrubs_secret_listed_on_another_resource() {
     assert!(text.contains("[scrubbed]"), "{text}");
 }
 
-#[test]
-fn capacity_message_carries_the_numbers() {
-    let resp = json!({"v": 1, "op-id": "op", "ok": false, "reason": "at-capacity",
-        "message": "free text", "max-contexts": 8, "busy": 8, "waited-ms": 5000});
-    let e = super::worker_out("op", "ymy-browser", &resp).expect_err("error");
-    assert_eq!(e.reason, "runner-at-capacity");
-    assert_eq!(
-        e.message,
-        "browser contexts busy 8 of 8 (max-contexts of resource ymy-browser), waited 5000 ms"
-    );
-    // Without numbers: the fixed short text, never the worker's own.
-    let bare = json!({"ok": false, "reason": "at-capacity", "message": "free text"});
-    let e = super::worker_out("op", "web", &bare).expect_err("error");
-    assert_eq!(e.reason, "runner-at-capacity");
-    assert_eq!(e.message, "worker refused the op");
+fn op() -> crate::contract::Op {
+    test_op(
+        "op",
+        "run1",
+        "browser.page",
+        "ymy-browser",
+        3000,
+        HashMap::new(),
+        vec![],
+    )
 }
 
 #[test]
-fn context_lost_is_mapped() {
-    let resp =
-        json!({"ok": false, "reason": "context-lost", "message": "free text", "max-contexts": 3});
-    let e = super::worker_out("op", "web", &resp).expect_err("error");
-    assert_eq!(e.reason, "runner-error");
+fn capacity_carries_the_numbers() {
+    let resp = json!({"v": 1, "op-id": "op", "ok": false, "reason": "at-capacity",
+        "message": "free text", "max-contexts": 8, "busy": 8, "waited-ms": 5000});
+    let e = super::worker_out(&op(), &resp).expect_err("error");
+    assert_eq!(e.reason, "runner-at-capacity");
     assert_eq!(
-        e.message,
-        "context lost: closed to make room (max-contexts 3)"
+        Value::Object(e.details),
+        json!({"resource": "ymy-browser", "limit-name": "max-contexts", "limit": 8,
+            "busy": 8, "waited-ms": 5000})
     );
-    let bare = json!({"ok": false, "reason": "context-lost"});
-    let e = super::worker_out("op", "web", &bare).expect_err("error");
-    assert_eq!(e.message, "context lost: closed to make room");
+}
+
+#[test]
+fn context_lost_is_idle() {
+    let resp = json!({"ok": false, "reason": "context-lost", "why": "idle",
+        "message": "free text", "idle-ms": 600000, "max-contexts": 3});
+    let e = super::worker_out(&op(), &resp).expect_err("error");
+    assert_eq!(e.reason, "context-lost");
+    assert_eq!(
+        Value::Object(e.details),
+        json!({"resource": "ymy-browser", "why": "idle", "idle-ms": 600000})
+    );
 }

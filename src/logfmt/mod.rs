@@ -28,7 +28,7 @@ pub fn millis(d: std::time::Duration) -> i64 {
 use tracing::Level;
 
 /// Keys in print order (`lists.json` keys.order; a test compares).
-pub const KEYS: [&str; 65] = [
+pub const KEYS: [&str; 69] = [
     "org_id",
     "account_id",
     "run_id",
@@ -58,6 +58,7 @@ pub const KEYS: [&str; 65] = [
     "state",
     "prev_state",
     "reason",
+    "side",
     "auth_method",
     "provider",
     "browser",
@@ -79,6 +80,9 @@ pub const KEYS: [&str; 65] = [
     "attempts",
     "writes",
     "timeout_ms",
+    "wait_ms",
+    "work_ms",
+    "held_ms",
     "busy",
     "cap",
     "browser_busy",

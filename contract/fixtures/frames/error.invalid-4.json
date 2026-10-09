@@ -1,5 +1,7 @@
 {
   "op-id": "op-34",
-  "reason": "Command-Not-Allowed",
-  "message": "x"
+  "reason": "timeout",
+  "details": {
+    "secret": "x"
+  }
 }

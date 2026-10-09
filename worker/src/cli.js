@@ -187,8 +187,9 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
     if (procs.has(k)) return errorResponse('handle-busy', req['op-id'])
     let mine = 0
     for (const p of procs.values()) if (p.run === runId) mine++
-    if (mine >= (policy['max-handles'] ?? DEFAULT_MAX_HANDLES) || procs.size >= maxTotal) {
-      return errorResponse('too-many-handles', req['op-id'])
+    const mineMax = policy['max-handles'] ?? DEFAULT_MAX_HANDLES
+    if (mine >= mineMax || procs.size >= maxTotal) {
+      return errorResponse('too-many-handles', req['op-id'], { limit: mine >= mineMax ? mineMax : maxTotal })
     }
     let p
     try { p = launch(policy, args, dir) } catch { return errorResponse('spawn-failed', req['op-id']) }

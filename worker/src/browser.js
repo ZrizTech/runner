@@ -257,7 +257,7 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
     await sweep()
     const k = key(req.run, req.policy.resource)
     if (lost.delete(k) && !sessions.has(k)) {
-      return errorResponse('context-lost', req['op-id'], { why: 'idle', 'max-contexts': req.policy['max-contexts'] ?? DEFAULT_MAX_CONTEXTS })
+      return errorResponse('context-lost', req['op-id'], { why: 'idle', 'idle-ms': req.policy['idle-ms'] ?? DEFAULT_IDLE_MS, 'max-contexts': req.policy['max-contexts'] ?? DEFAULT_MAX_CONTEXTS })
     }
     const got = await session(req.run, req.policy, req['deadline-ms'])
     if (got.refused) return errorResponse('at-capacity', req['op-id'], got.refused)

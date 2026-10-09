@@ -13,7 +13,7 @@
       "enum": ["set", "call", "poll", "for", "sleep", "log", "assert", "skip", "fail"]
     },
     "status": {"enum": ["pass", "fail", "skip", "error"]},
-    "reason": {"type": "string"}
+    "cause": {"$ref": "https://zriz.io/contract/cause.json"}
   },
   "required": ["v", "kind", "run-id", "trace-id", "at"],
   "additionalProperties": false,
@@ -26,7 +26,7 @@
             {"required": ["step-index"]},
             {"required": ["step-type"]},
             {"required": ["status"]},
-            {"required": ["reason"]}
+            {"required": ["cause"]}
           ]
         }
       }
@@ -35,7 +35,7 @@
       "if": {"properties": {"kind": {"const": "step-done"}}, "required": ["kind"]},
       "then": {
         "required": ["step-index", "step-type", "status"],
-        "not": {"required": ["reason"]}
+        "not": {"required": ["cause"]}
       }
     },
     {
@@ -48,20 +48,20 @@
             {"required": ["step-type"]}
           ]
         },
-        "if": {"properties": {"status": {"const": "error"}}, "required": ["status"]},
-        "then": true,
-        "else": {"not": {"required": ["reason"]}}
+        "if": {"properties": {"status": {"const": "pass"}}, "required": ["status"]},
+        "then": {"not": {"required": ["cause"]}},
+        "else": {"required": ["cause"]}
       }
     },
     {
       "if": {"properties": {"kind": {"const": "runner-down"}}, "required": ["kind"]},
       "then": {
-        "required": ["reason"],
         "not": {
           "anyOf": [
             {"required": ["step-index"]},
             {"required": ["step-type"]},
-            {"required": ["status"]}
+            {"required": ["status"]},
+            {"required": ["cause"]}
           ]
         }
       }

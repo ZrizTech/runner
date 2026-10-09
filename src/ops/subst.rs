@@ -24,8 +24,8 @@ impl Handler {
     }
 
     /// Runs `f` with a lookup over the vault, then the env names in
-    /// `allow` (never the runner token name). A name refused turns the failure into
-    /// `placeholder-in-disallowed-slot`. Adds every vault value of the run and
+    /// `allow` (never the runner token name). A name in neither the vault nor `allow` is
+    /// `placeholder-not-found`; a listed name with no value is `secret-not-set`. Adds every vault value of the run and
     /// every value named in any resource's `secrets` to the returned
     /// secrets, so they are scrubbed from every op.
     pub(super) fn with_lookup(
@@ -37,24 +37,31 @@ impl Handler {
         ) -> std::result::Result<placeholder::Substituted, PlaceholderError>,
     ) -> std::result::Result<placeholder::Substituted, ErrorFrame> {
         let now = (self.now)();
-        let denied: std::cell::RefCell<Option<String>> = std::cell::RefCell::new(None);
+        // The first name with no value: (name, the resource lists it).
+        let missing: std::cell::RefCell<Option<(String, bool)>> = std::cell::RefCell::new(None);
         let lookup = |name: &str| {
             if let Some(v) = self.vault.get(&op.run_id, name, now) {
                 return Some(v);
             }
-            if name == self.cfg.cloud.token_env || !allow.iter().any(|n| n == name) {
-                *denied.borrow_mut() = Some(name.to_string());
-                return None;
+            let listed = name != self.cfg.cloud.token_env && allow.iter().any(|n| n == name);
+            let value = if listed { (self.lookup)(name) } else { None };
+            if value.is_none() {
+                *missing.borrow_mut() = Some((name.to_string(), listed));
             }
-            (self.lookup)(name)
+            value
         };
-        let mut sub = f(&lookup).map_err(|e| match denied.borrow().as_deref() {
-            Some(n) => new_error(
+        let mut sub = f(&lookup).map_err(|e| match (&e, missing.borrow().as_ref()) {
+            (PlaceholderError::UnknownPlaceholder(_), Some((n, true))) => {
+                new_error(&op.op_id, "secret-not-set", json!({"name": n}))
+            }
+            // In neither the vault nor the listed secrets: the cloud decides
+            // which of the two is true (7.2).
+            (PlaceholderError::UnknownPlaceholder(_), Some((n, false))) => new_error(
                 &op.op_id,
-                "placeholder-in-disallowed-slot",
-                &format!("secret {n} is not allowed on this resource"),
+                "placeholder-not-found",
+                json!({"name": n, "resource": op.resource}),
             ),
-            None => placeholder_substitute_error(&op.op_id, &e),
+            _ => placeholder_substitute_error(&op.op_id, &e),
         })?;
         sub.secrets.extend(self.vault.values(&op.run_id, now));
         sub.secrets.extend(self.listed_secrets.iter().cloned());

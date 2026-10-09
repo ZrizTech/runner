@@ -66,6 +66,13 @@ impl Handler {
         }
         let info = worker::ping_info(&self.cfg.worker_socket).await;
         let up = info.is_some();
+        if let Some(boot) = info
+            .as_ref()
+            .and_then(|p| p.get("boot-id"))
+            .and_then(Value::as_str)
+        {
+            self.contexts.note_boot(boot);
+        }
         if let Ok(mut last) = self.ping_info.lock() {
             *last = info;
         }

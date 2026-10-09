@@ -136,9 +136,9 @@ async fn other_run_cannot_resolve() {
     .await;
     assert!(r.is_none());
     let e = e.expect("error");
-    assert_eq!(e.reason, "placeholder-in-disallowed-slot");
-    assert!(e.message.contains("TOKEN"));
-    assert!(!e.message.contains(TOK));
+    assert_eq!(e.reason, "placeholder-not-found");
+    assert_eq!(e.details["name"], "TOKEN");
+    assert!(!serde_json::to_string(&e).expect("json").contains(TOK));
 }
 
 #[tokio::test]
@@ -179,8 +179,9 @@ async fn missing_path_fails_and_stores_nothing() {
     .await;
     assert!(r.is_none());
     let e = e.expect("error");
-    assert_eq!(e.reason, "runner-error");
-    assert!(!e.message.contains(TOK));
+    assert_eq!(e.reason, "capture-not-found");
+    assert_eq!(e.details["name"], "B");
+    assert!(!serde_json::to_string(&e).expect("json").contains(TOK));
     assert_eq!(h.vault.run_count(), 0);
 }
 

@@ -215,10 +215,11 @@ async fn substitution_rules_are_unchanged() {
             .handle(test_op("op", "run", kind, res, 2000, a, vec![]))
             .await;
         assert!(r.is_none(), "{name}");
-        assert_eq!(
-            err.expect("error").reason,
-            "placeholder-in-disallowed-slot",
-            "{name}"
-        );
+        let want = if name == "http-other-resource" {
+            "placeholder-not-found"
+        } else {
+            "placeholder-in-disallowed-slot"
+        };
+        assert_eq!(err.expect("error").reason, want, "{name}");
     }
 }

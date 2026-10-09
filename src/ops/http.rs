@@ -9,11 +9,11 @@
 //! the same fail-closed guarantee, made structural rather than
 //! per-request.
 
-use super::{Handler, capture, duration_ms, new_error, scrub_payload, string_value};
+use super::{Handler, capture, duration_ms, new_error, runner_error, scrub_payload, string_value};
 use crate::config::Resource;
 use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame, Timing};
 use crate::{origin, project};
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 
 /// Bounds how much of a response body is read; a response larger than this
 /// is refused rather than buffered in full.
@@ -37,18 +37,12 @@ enum SendErrorKind {
 }
 
 impl SendErrorKind {
-    fn reason(&self) -> &'static str {
+    fn frame(&self, op_id: &str) -> ErrorFrame {
         match self {
-            Self::HostNotAllowed => "host-not-allowed",
-            _ => "runner-error",
-        }
-    }
-
-    fn message(&self) -> &'static str {
-        match self {
-            Self::HostNotAllowed => "redirect target resolves off the resource origin",
-            Self::TooLarge => "response too large",
-            Self::TooManyRedirects | Self::Runner => "http request failed",
+            Self::HostNotAllowed => new_error(op_id, "host-not-allowed", json!({})),
+            Self::TooLarge => runner_error(op_id, "http-response-size"),
+            Self::TooManyRedirects => runner_error(op_id, "http-redirects"),
+            Self::Runner => runner_error(op_id, "http-client"),
         }
     }
 }
@@ -84,10 +78,7 @@ impl Handler {
             Some(Value::String(s)) if s == "follow" => true,
             Some(Value::String(s)) if s == "none" => false,
             Some(_) => {
-                return (
-                    None,
-                    Some(new_error(&op.op_id, "runner-error", "invalid request")),
-                );
+                return (None, Some(runner_error(&op.op_id, "http-request")));
             }
         };
 
@@ -115,10 +106,7 @@ impl Handler {
                 &secrets,
                 exec_ms,
             ),
-            Err(kind) => (
-                None,
-                Some(new_error(&op.op_id, kind.reason(), kind.message())),
-            ),
+            Err(kind) => (None, Some(kind.frame(&op.op_id))),
         }
     }
 
@@ -254,14 +242,7 @@ impl Handler {
         let (scrubbed, count) = match scrub_payload(&payload, secrets) {
             Ok(v) => v,
             Err(_) => {
-                return (
-                    None,
-                    Some(new_error(
-                        &op.op_id,
-                        "runner-error",
-                        "response encoding failed",
-                    )),
-                );
+                return (None, Some(runner_error(&op.op_id, "response-encoding")));
             }
         };
         (
@@ -322,13 +303,8 @@ fn resolve_http_target(
     args: &Map<String, Value>,
 ) -> std::result::Result<url::Url, ErrorFrame> {
     let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
-    let mut resolved = origin::check(&resource.base_url, path).map_err(|_| {
-        new_error(
-            op_id,
-            "host-not-allowed",
-            "path resolves off the resource origin",
-        )
-    })?;
+    let mut resolved = origin::check(&resource.base_url, path)
+        .map_err(|_| new_error(op_id, "host-not-allowed", json!({})))?;
 
     if let Some(Value::Object(qp)) = args.get("query-params") {
         let mut values: Vec<(String, Vec<String>)> = Vec::new();
@@ -375,22 +351,22 @@ fn build_pending_request(
         reqwest::Method::GET
     } else {
         reqwest::Method::from_bytes(method_str.to_uppercase().as_bytes())
-            .map_err(|_| new_error(op_id, "runner-error", "invalid request"))?
+            .map_err(|_| runner_error(op_id, "http-request"))?
     };
 
-    let (body, content_type) = http_request_body(args.get("body"))
-        .map_err(|_| new_error(op_id, "runner-error", "invalid request body"))?;
+    let (body, content_type) =
+        http_request_body(args.get("body")).map_err(|_| runner_error(op_id, "http-request"))?;
 
     let mut headers = reqwest::header::HeaderMap::new();
     if let Some(Value::Object(hs)) = args.get("headers") {
         for (k, v) in hs {
             let name = reqwest::header::HeaderName::from_bytes(k.as_bytes())
-                .map_err(|_| new_error(op_id, "runner-error", "invalid request"))?;
+                .map_err(|_| runner_error(op_id, "http-request"))?;
             if is_refused_header(name.as_str()) {
-                return Err(new_error(op_id, "runner-error", "invalid request"));
+                return Err(runner_error(op_id, "http-request"));
             }
             let val = reqwest::header::HeaderValue::from_str(&string_value(Some(v)))
-                .map_err(|_| new_error(op_id, "runner-error", "invalid request"))?;
+                .map_err(|_| runner_error(op_id, "http-request"))?;
             headers.insert(name, val);
         }
     }

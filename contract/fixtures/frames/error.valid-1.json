@@ -1,5 +1,7 @@
 {
   "op-id": "op-1",
   "reason": "host-not-allowed",
-  "message": "host not allowed"
+  "details": {
+    "resource": "ymy-web"
+  }
 }

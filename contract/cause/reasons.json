@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "sides": [
+    "target",
+    "pipeline",
+    "runner",
+    "service",
+    "limit",
+    "network"
+  ],
+  "retry-words": [
+    "no",
+    "later",
+    "now",
+    "unknown"
+  ],
+  "wait-ms-limit": 2000,
+  "value-cut": {
+    "details": 200,
+    "message": 80
+  },
+  "rules": {
+    "slot-syntax": "A slot is {name}. The renderer fills it from the details of the cause or from a derived slot of this object.",
+    "absent-value": "?",
+    "cut-mark": "...[cut K chars]",
+    "derived": {
+      "step-index": "The step-index of the cause. Not a detail key.",
+      "action": "The action of the cause (resource/action). Not a detail key.",
+      "path": "The first item of the detail expression.",
+      "unit": "From limit-name: see unit-of.",
+      "scope": "From limit-name: see scope-of.",
+      "lost": "One of the lost texts. The detail lost names it.",
+      "why": "One of the why texts. The detail why names it.",
+      "where": "One fixed word. The detail where holds it.",
+      "worker-reason": "One of the worker-reasons. The detail worker-reason holds it."
+    },
+    "optional-parts": [
+      {
+        "text": " ({action})",
+        "absent-when": "the step has no action"
+      }
+    ],
+    "limit-names": [
+      "max-inflight",
+      "max-contexts",
+      "max-handles"
+    ],
+    "unit-of": {
+      "max-inflight": "ops",
+      "max-contexts": "browser contexts",
+      "max-handles": "handles"
+    },
+    "scope-of": {
+      "max-inflight": "the runner {runner}",
+      "max-contexts": "resource {resource}",
+      "max-handles": "resource {resource}"
+    },
+    "lost": {
+      "capture": "the captured value {name}",
+      "context": "its browser context",
+      "state": "its state on the runner"
+    },
+    "why-of": {
+      "idle": "the context had no use for {idle-ms} ms",
+      "worker-restarted": "the worker restarted"
+    },
+    "where": [
+      "unknown-type",
+      "cloud-restart",
+      "interpreter",
+      "recovery",
+      "unknown-word",
+      "worker-word",
+      "op-handler",
+      "op-args",
+      "placeholder",
+      "capture-spec",
+      "response-encoding",
+      "evidence-excerpt",
+      "sql-driver",
+      "http-request",
+      "http-client",
+      "http-redirects",
+      "http-response-size",
+      "browser-args"
+    ],
+    "worker-reasons": [
+      "bad-json",
+      "bad-version",
+      "unknown-kind",
+      "bad-request",
+      "request-too-large",
+      "not-implemented"
+    ],
+    "wait-reasons": [
+      "runner-busy",
+      "runner-down",
+      "service-stall"
+    ],
+    "wait-end": ", until the pipeline limit of {timeout-ms} ms ended"
+  },
+  "reasons": [
+    {"reason":"assertion","side":"target","retry":"no","by":["cloud"],"state":"promoted","pattern":"check {check} of step {step-index} ({action}) failed: {path} is {actual} and the pipeline expects {expected}","details":["check","expression","actual","expected","actual-length","expected-length"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"http-error","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} ({action}) got HTTP {http-status} from the target","details":["http-status"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"sql-error","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} ({action}) failed: the database refused the query","details":[],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"browser-error","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} ({action}) failed at browser command {command}: {code}","details":["command","code"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"cli-error","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} ({action}) failed: the command ended with an error","details":[],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"timeout","side":"target","retry":"no","by":["runner"],"state":"in-use","pattern":"step {step-index} ({action}) got no answer from the target in {timeout-ms} ms","details":["timeout-ms"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"poll-timeout","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} ({action}) did not get the expected state in {attempts} attempts","details":["attempts"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"poll-deadline-exceeded","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} ({action}) did not get the expected state in {attempts} attempts and the pipeline limit of {timeout-ms} ms ended","details":["attempts","timeout-ms","wait-ms"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"pipeline-timeout","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"the pipeline limit of {timeout-ms} ms ended at step {step-index} of {steps}","details":["timeout-ms","steps","wait-ms"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"capture-not-found","side":"target","retry":"no","by":["runner"],"state":"new","pattern":"step {step-index} ({action}) did not find the value {name} in the result of the target","details":["name"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"explicit-fail","side":"target","retry":"no","by":["cloud"],"state":"promoted","pattern":"step {step-index} is a fail step of the pipeline","details":[],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"skipped","side":"pipeline","retry":"no","by":["cloud"],"state":"new","pattern":"step {step-index} is a skip step of the pipeline","details":[],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"unknown-action","side":"pipeline","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} calls the action {action} and the project has no such action","details":[],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"unsupported-resource-type","side":"pipeline","retry":"no","by":["cloud"],"state":"in-use","pattern":"resource {resource} has the type {type} and this cloud does not know it","details":["resource","type"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"execution-error","side":"pipeline","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} ({action}) has arguments that the cloud cannot make into an op","details":[],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"template-resolution-error","side":"pipeline","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} uses {ref} and no earlier step or env file gives it","details":["ref"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"for-too-many-items","side":"pipeline","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} has a list of {items} items and the limit is {limit}","details":["items","limit"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"for-not-collection","side":"pipeline","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} is a for step and its value is not a list","details":[],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"host-not-allowed","side":"pipeline","retry":"no","by":["runner"],"state":"in-use","pattern":"step {step-index} ({action}) calls an address that is not on the origin of resource {resource}","details":["resource"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"read-only","side":"pipeline","retry":"no","by":["runner"],"state":"in-use","pattern":"step {step-index} ({action}) writes to resource {resource} and that resource is read-only","details":["resource"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"placeholder-in-disallowed-slot","side":"pipeline","retry":"no","by":["runner"],"state":"in-use","pattern":"step {step-index} ({action}) has the placeholder {name} in a position that the runner does not permit","details":["name"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"command-not-allowed","side":"pipeline","retry":"no","by":["runner"],"state":"in-use","pattern":"step {step-index} ({action}) names a command that resource {resource} does not have in the runner config","details":["resource"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"arg-not-allowed","side":"pipeline","retry":"no","by":["runner"],"state":"in-use","pattern":"step {step-index} ({action}) has an argument that resource {resource} does not permit in the runner config","details":["resource"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"handle-busy","side":"pipeline","retry":"no","by":["worker"],"state":"promoted","pattern":"step {step-index} ({action}) starts the handle {handle} and that handle is in work","details":["handle"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"no-handle","side":"pipeline","retry":"no","by":["worker"],"state":"promoted","pattern":"step {step-index} ({action}) uses the handle {handle} and this run started no such handle","details":["handle"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz validate","doc":"Check the files of the project"}]},
+    {"reason":"runner-unavailable","side":"runner","retry":"no","by":["cloud"],"state":"in-use","pattern":"no runner is connected for the env {env}","details":["env"],"hints":[{"command":"zz runners init --start","doc":"Write the files of a runner for this machine and start it"},{"command":"zz runners","doc":"See the runners of the org"}]},
+    {"reason":"runner-down","side":"runner","retry":"later","by":["cloud"],"state":"promoted","pattern":"the runner {runner} sent no request for {silent-ms} ms during step {step-index}","details":["runner","silent-ms","wait-ms","timeout-ms"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz run <p>","doc":"Run this pipeline again"}]},
+    {"reason":"resource-unavailable","side":"runner","retry":"no","by":["cloud"],"state":"in-use","pattern":"the runner {runner} of the env {env} does not have {count} resources of the pipeline: {resources}","details":["runner","env","count","resources"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"unknown-resource","side":"runner","retry":"no","by":["runner"],"state":"in-use","pattern":"step {step-index} ({action}) uses resource {resource} and the runner {runner} cannot open it","details":["resource","runner"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"secret-not-listed","side":"runner","retry":"no","by":["cloud"],"state":"new","pattern":"step {step-index} ({action}) uses the secret {name} and resource {resource} does not list it in the runner config","details":["name","resource"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"secret-not-set","side":"runner","retry":"no","by":["runner"],"state":"new","pattern":"step {step-index} ({action}) uses the secret {name} and the runner {runner} has no value for it","details":["name","runner"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"capture-lost","side":"runner","retry":"now","by":["cloud"],"state":"new","pattern":"the runner {runner} does not have the captured value {name} of this run at step {step-index}","details":["runner","name"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz run <p>","doc":"Run this pipeline again"}]},
+    {"reason":"runner-restarted","side":"runner","retry":"now","by":["cloud"],"state":"new","pattern":"the runner {runner} restarted during the run and lost {lost}","details":["runner","lost","name"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz run <p>","doc":"Run this pipeline again"}]},
+    {"reason":"context-lost","side":"runner","retry":"now","by":["runner","worker"],"state":"promoted","pattern":"step {step-index} ({action}) lost its browser context: {why}","details":["resource","why","idle-ms"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id> --timeline","doc":"Show the time of each step"}]},
+    {"reason":"runner-at-capacity","side":"runner","retry":"later","by":["runner"],"state":"in-use","pattern":"step {step-index} ({action}) could not start: all {limit} {unit} of {scope} were busy for {waited-ms} ms","details":["limit-name","unit","limit","busy","waited-ms","resource","runner"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id> --timeline","doc":"Show the time of each step"}]},
+    {"reason":"too-many-handles","side":"runner","retry":"later","by":["worker"],"state":"promoted","pattern":"step {step-index} ({action}) could not start a handle: the limit of {limit} handles is in use","details":["limit"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id> --timeline","doc":"Show the time of each step"}]},
+    {"reason":"spawn-failed","side":"runner","retry":"no","by":["worker"],"state":"promoted","pattern":"step {step-index} ({action}) could not start its command on the runner {runner}","details":["runner"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"worker-unavailable","side":"runner","retry":"no","by":["runner"],"state":"in-use","pattern":"step {step-index} ({action}) needs the worker and the runner {runner} cannot connect to it","details":["runner"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"worker-mismatch","side":"runner","retry":"no","by":["runner"],"state":"new","pattern":"the worker of the runner {runner} refused the request of step {step-index}: {worker-reason}","details":["runner","worker-reason"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"worker-error","side":"runner","retry":"unknown","by":["runner"],"state":"new","pattern":"the worker of the runner {runner} had an internal error at step {step-index}","details":["runner"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz runners","doc":"See the runners of the org"}]},
+    {"reason":"unknown-arg","side":"runner","retry":"no","by":["runner"],"state":"in-use","pattern":"the runner {runner} does not know an argument of step {step-index}: its build is too old","details":["runner"],"hints":[{"command":"zz upgrade","doc":"Install the newest version of zz"},{"command":"zz runners","doc":"See the runners of the org"}]},
+    {"reason":"unknown-kind","side":"runner","retry":"no","by":["runner"],"state":"in-use","pattern":"the runner {runner} does not know the op kind {kind} of step {step-index}: its build is too old","details":["runner","kind"],"hints":[{"command":"zz upgrade","doc":"Install the newest version of zz"},{"command":"zz runners","doc":"See the runners of the org"}]},
+    {"reason":"runner-no-answer","side":"runner","retry":"now","by":["cloud"],"state":"new","pattern":"the runner {runner} got the op of step {step-index} and gave no answer in {timeout-ms} ms","details":["runner","timeout-ms"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz run <p>","doc":"Run this pipeline again"}]},
+    {"reason":"unexpected-frame","side":"runner","retry":"unknown","by":["cloud"],"state":"in-use","pattern":"the runner {runner} sent a frame that is not an answer at step {step-index}","details":["runner"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz runners","doc":"See the runners of the org"}]},
+    {"reason":"runner-error","side":"runner","retry":"unknown","by":["runner"],"state":"in-use","pattern":"the runner {runner} could not do step {step-index} and does not know the cause: {where}","details":["runner","where"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz runners","doc":"See the runners of the org"}]},
+    {"reason":"runner-busy","side":"runner","retry":"later","by":["cloud"],"state":"new","pattern":"step {step-index} ({action}) waited {wait-ms} ms for the runner {runner}: the runner had {busy} of {limit} {unit} in work","details":["wait-ms","runner","unit","busy","limit","timeout-ms"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz run <p>","doc":"Run this pipeline again"}]},
+    {"reason":"service-stall","side":"service","retry":"later","by":["cloud"],"state":"new","pattern":"step {step-index} ({action}) waited {wait-ms} ms for the runner {runner}: the runner was connected and not busy, and the zriz service did not send the op","details":["wait-ms","runner","timeout-ms"],"hints":[{"command":"zz runs <id> --timeline","doc":"Show the time of each step"},{"command":"zz run <p>","doc":"Run this pipeline again"}]},
+    {"reason":"invalid-op","side":"service","retry":"unknown","by":["cloud"],"state":"in-use","pattern":"the cloud made an op for step {step-index} that the wire protocol refuses","details":[],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz doctor","doc":"Check the connection to the cloud"}]},
+    {"reason":"run-error","side":"service","retry":"unknown","by":["cloud"],"state":"in-use","pattern":"the cloud could not do the run and does not know the cause: {where}","details":["where"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz doctor","doc":"Check the connection to the cloud"}]},
+    {"reason":"canceled","side":"limit","retry":"now","by":["cloud"],"state":"in-use","pattern":"a member canceled the run at step {step-index}","details":[],"hints":[{"command":"zz run <p>","doc":"Run this pipeline again"}]},
+    {"reason":"net-refused","side":"network","retry":"later","by":["zz"],"state":"new","pattern":"the service at {host} refused the connection","details":["host","method","path"],"hints":[{"command":"zz doctor","doc":"Check the connection to the cloud"}]},
+    {"reason":"net-dns","side":"network","retry":"no","by":["zz"],"state":"new","pattern":"the name {host} did not resolve","details":["host","method","path"],"hints":[{"command":"zz doctor","doc":"Check the connection to the cloud"},{"command":"zz","doc":"Show the commands of zz"}]},
+    {"reason":"net-timeout","side":"network","retry":"later","by":["zz"],"state":"new","pattern":"the service at {host} gave no answer in {timeout-ms} ms","details":["host","method","path","timeout-ms"],"hints":[{"command":"zz doctor","doc":"Check the connection to the cloud"}]},
+    {"reason":"net-tls","side":"network","retry":"no","by":["zz"],"state":"new","pattern":"the TLS handshake with {host} failed","details":["host","method","path"],"hints":[{"command":"zz doctor","doc":"Check the connection to the cloud"},{"command":"zz","doc":"Show the commands of zz"}]},
+    {"reason":"net-unknown","side":"network","retry":"unknown","by":["zz"],"state":"new","pattern":"the request to {host} failed and zz does not know the cause","details":["host","method","path"],"hints":[{"command":"zz doctor","doc":"Check the connection to the cloud"}]},
+    {"reason":"evidence-disabled","side":null,"retry":null,"by":["runner"],"state":"in-use","pattern":null,"details":[],"op-word":true,"hints":[]},
+    {"reason":"evidence-expired","side":null,"retry":null,"by":["runner"],"state":"in-use","pattern":null,"details":[],"op-word":true,"hints":[]},
+    {"reason":"placeholder-not-found","side":null,"retry":null,"by":["runner"],"state":"new","pattern":"step {step-index} ({action}) uses the placeholder {name}: it is not a listed secret of resource {resource} and not a captured value of this run","details":["name","resource"],"op-word":true,"hints":[]}
+  ]
+}

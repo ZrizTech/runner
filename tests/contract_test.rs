@@ -159,3 +159,39 @@ fn deny_keys_contains_token() {
         "DenyKeys = {keys:?}, want containing \"token\""
     );
 }
+
+#[test]
+fn error_frame_fixtures_validate() {
+    let v = Validator::new().expect("NewValidator");
+    let mut seen = 0;
+    for e in fs::read_dir(FIXTURE_DIR).expect("dir") {
+        let name = e.expect("entry").file_name().into_string().expect("name");
+        let Some(rest) = name.strip_prefix("error.") else {
+            continue;
+        };
+        let doc = decode_any(&read_fixture(&name));
+        let ok = v.validate("error", &doc).is_ok();
+        assert_eq!(ok, rest.starts_with("valid"), "fixture {name}");
+        seen += 1;
+    }
+    assert!(seen >= 6, "saw {seen} error fixtures");
+}
+
+#[test]
+fn an_error_frame_has_details_and_no_message() {
+    let v = Validator::new().expect("NewValidator");
+    let e = Error::new(
+        "op-1",
+        "runner-at-capacity",
+        serde_json::json!({"limit-name": "max-inflight", "limit": 8, "busy": 8, "waited-ms": 0}),
+    );
+    let doc = serde_json::to_value(&e).expect("encode");
+    assert!(v.validate("error", &doc).is_ok(), "{doc}");
+    assert!(doc.get("message").is_none());
+    let bare = serde_json::to_value(Error::new("op-1", "spawn-failed", serde_json::json!({})))
+        .expect("encode");
+    assert_eq!(bare["details"], serde_json::json!({}));
+    let mut with_message = doc.clone();
+    with_message["message"] = serde_json::json!("x");
+    assert!(v.validate("error", &with_message).is_err());
+}

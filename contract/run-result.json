@@ -27,6 +27,58 @@
             "skip",
             "error"
           ]
+        },
+        "timing": {
+          "type": "object",
+          "properties": {
+            "started-at": {
+              "type": "string"
+            },
+            "duration-ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "wait-ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "work-ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sleep-ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ops": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "long-wait": {
+              "const": true
+            },
+            "wait-reason": {
+              "enum": [
+                "runner-busy",
+                "runner-down",
+                "service-stall"
+              ]
+            }
+          },
+          "required": [
+            "started-at",
+            "duration-ms",
+            "wait-ms",
+            "work-ms",
+            "sleep-ms",
+            "ops"
+          ],
+          "dependentRequired": {
+            "wait-reason": [
+              "long-wait"
+            ]
+          },
+          "additionalProperties": false
         }
       },
       "required": [
@@ -63,6 +115,101 @@
     },
     "duration-ms": {
       "type": "integer"
+    },
+    "cause": {
+      "$ref": "https://zriz.io/contract/cause.json"
+    },
+    "timing": {
+      "type": "object",
+      "properties": {
+        "duration-ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wait-ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "work-ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sleep-ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence-ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cloud-ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "long-waits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "longest-wait": {
+          "type": "object",
+          "properties": {
+            "step-index": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "wait-ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "wait-reason": {
+              "enum": [
+                "runner-busy",
+                "runner-down",
+                "service-stall"
+              ]
+            }
+          },
+          "required": [
+            "step-index",
+            "wait-ms",
+            "wait-reason"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "duration-ms",
+        "wait-ms",
+        "work-ms",
+        "sleep-ms",
+        "evidence-ms",
+        "cloud-ms",
+        "long-waits"
+      ],
+      "additionalProperties": false
+    },
+    "runner": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "env": {
+          "type": "string"
+        },
+        "build": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "env",
+        "build"
+      ],
+      "additionalProperties": false
+    },
+    "trace-id": {
+      "type": "string"
     }
   },
   "required": [
@@ -71,5 +218,22 @@
     "errors",
     "final-context"
   ],
-  "additionalProperties": true
+  "additionalProperties": true,
+  "if": {
+    "properties": {
+      "status": {
+        "const": "pass"
+      }
+    },
+    "required": [
+      "status"
+    ]
+  },
+  "then": {
+    "not": {
+      "required": [
+        "cause"
+      ]
+    }
+  }
 }

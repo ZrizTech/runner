@@ -2,7 +2,8 @@
 //! hand them to the worker sidecar, then capture, project and scrub what
 //! comes back, in the same order as http.
 
-use super::{Handler, capture, duration_ms, new_error, scrub_payload, worker};
+use super::worker_map::{from_worker, restarted};
+use super::{Handler, capture, duration_ms, new_error, runner_error, scrub_payload, worker};
 use crate::config::Resource;
 use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame, Timing};
 use crate::{origin, placeholder, project};
@@ -34,6 +35,17 @@ impl Handler {
         }
         let (args, mut secrets) = self.substitute_browser(op, &resource)?;
         check_gotos(&op.op_id, &resource, &args)?;
+        // A new `boot-id` of the worker: the context of this run is gone.
+        if self.contexts.needs_boot(&op.run_id, &op.resource)
+            && let Some(boot) = worker::ping_info(socket)
+                .await
+                .and_then(|p| p.get("boot-id").and_then(Value::as_str).map(str::to_string))
+        {
+            self.contexts.note_boot(&boot);
+        }
+        if self.contexts.take_lost(&op.run_id, &op.resource) {
+            return Err(restarted(op));
+        }
 
         let deadline_ms = if op.timeout_ms > 0 {
             op.timeout_ms.min(DEFAULT_DEADLINE_MS)
@@ -61,7 +73,8 @@ impl Handler {
         })?;
         let exec_ms = duration_ms((self.now)(), start);
 
-        let out = worker_out(&op.op_id, &op.resource, &resp)?;
+        let out = worker_out(op, &resp)?;
+        self.contexts.add(&op.run_id, &op.resource);
         let status = if out.get("ok") == Some(&Value::Bool(false)) {
             "fail"
         } else {
@@ -71,7 +84,7 @@ impl Handler {
         let mut payload = project::select_paths(&out, &op.project);
         capture::mask(&mut payload, &caps);
         let (scrubbed, count) = scrub_payload(&payload, &secrets)
-            .map_err(|_| new_error(&op.op_id, "runner-error", "response encoding failed"))?;
+            .map_err(|_| runner_error(&op.op_id, "response-encoding"))?;
         Ok(ResultFrame {
             op_id: op.op_id.clone(),
             status: status.to_string(),
@@ -118,7 +131,7 @@ impl Handler {
 }
 
 pub(super) fn unavailable(op_id: &str) -> ErrorFrame {
-    new_error(op_id, "worker-unavailable", "worker is not reachable")
+    new_error(op_id, "worker-unavailable", json!({}))
 }
 
 /// Every `goto` path must stay on the resource's origin.
@@ -128,7 +141,7 @@ fn check_gotos(
     args: &Map<String, Value>,
 ) -> std::result::Result<(), ErrorFrame> {
     let Some(Value::Array(cmds)) = args.get("commands") else {
-        return Err(new_error(op_id, "runner-error", "invalid request"));
+        return Err(runner_error(op_id, "browser-args"));
     };
     for c in cmds {
         if c.get("do").and_then(Value::as_str) != Some("goto") {
@@ -136,11 +149,7 @@ fn check_gotos(
         }
         let path = c.get("path").and_then(Value::as_str).unwrap_or("");
         if !path.starts_with('/') || origin::check(&resource.base_url, path).is_err() {
-            return Err(new_error(
-                op_id,
-                "host-not-allowed",
-                "path resolves off the resource origin",
-            ));
+            return Err(new_error(op_id, "host-not-allowed", json!({})));
         }
     }
     Ok(())
@@ -175,11 +184,8 @@ fn policy(name: &str, r: &Resource) -> Value {
 }
 
 /// The `out` object of a good response, or the error a bad one maps to.
-/// A refusal for capacity carries the worker's numbers into ONE sentence shape;
-/// a lost context says so. The worker's own text is never passed on.
 fn worker_out(
-    op_id: &str,
-    resource: &str,
+    op: &contract::Op,
     resp: &Value,
 ) -> std::result::Result<Map<String, Value>, ErrorFrame> {
     if resp.get("ok") == Some(&Value::Bool(true))
@@ -187,28 +193,13 @@ fn worker_out(
     {
         return Ok(out.clone());
     }
-    let num = |k: &str| resp.get(k).and_then(Value::as_u64);
-    match resp.get("reason").and_then(Value::as_str) {
-        Some("at-capacity") => {
-            let message = match (num("busy"), num("max-contexts"), num("waited-ms")) {
-                (Some(busy), Some(max), Some(waited)) => format!(
-                    "browser contexts busy {busy} of {max} (max-contexts of resource {resource}), waited {waited} ms"
-                ),
-                _ => "worker refused the op".to_string(),
-            };
-            Err(new_error(op_id, "runner-at-capacity", &message))
-        }
-        Some("context-lost") => {
-            let message = match num("max-contexts") {
-                Some(max) => format!("context lost: closed to make room (max-contexts {max})"),
-                None => "context lost: closed to make room".to_string(),
-            };
-            Err(new_error(op_id, "runner-error", &message))
-        }
-        _ => Err(new_error(op_id, "runner-error", "worker refused the op")),
-    }
+    Err(from_worker(op, resp))
 }
 
 #[cfg(test)]
 #[path = "browser_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "browser_restart_tests.rs"]
+mod restart_tests;

@@ -16,6 +16,7 @@ pub const SCHEMAS: &[(&str, &str)] = &[
         "environment",
         include_str!("../../contract/environment.json"),
     ),
+    ("cause", include_str!("../../contract/cause.json")),
     ("error", include_str!("../../contract/error.json")),
     (
         "exchange-request",
@@ -48,6 +49,10 @@ pub const SCHEMAS: &[(&str, &str)] = &[
     ("redact", include_str!("../../contract/redact.json")),
     ("resource", include_str!("../../contract/resource.json")),
     ("result", include_str!("../../contract/result.json")),
+    (
+        "run-document",
+        include_str!("../../contract/run-document.json"),
+    ),
     ("run-event", include_str!("../../contract/run-event.json")),
     (
         "run-request",

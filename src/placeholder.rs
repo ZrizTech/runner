@@ -7,9 +7,10 @@ use serde_json::{Map, Value};
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum PlaceholderError {
     /// A placeholder appeared in an arg key that does not allow secrets for
-    /// the op's kind. Carries the key name, never a value.
+    /// the op's kind. Carries the key name and the placeholder name (empty
+    /// when the args have a wrong shape), never a value.
     #[error("placeholder in disallowed slot: key {0:?}")]
-    DisallowedSlot(String),
+    DisallowedSlot(String, String),
     /// A placeholder named an environment variable `lookup` did not know.
     /// Carries the placeholder's key, e.g. "TOKEN", never a value.
     #[error("unknown placeholder: {0}")]
@@ -21,7 +22,7 @@ impl PlaceholderError {
     pub fn unknown_name(&self) -> Option<&str> {
         match self {
             PlaceholderError::UnknownPlaceholder(name) => Some(name),
-            PlaceholderError::DisallowedSlot(_) => None,
+            PlaceholderError::DisallowedSlot(..) => None,
         }
     }
 }
@@ -61,8 +62,8 @@ pub fn substitute(
     let mut out = Map::with_capacity(args.len());
     for (key, val) in args {
         if !allowed.contains(&key.as_str()) {
-            if contains_placeholder(val) {
-                return Err(PlaceholderError::DisallowedSlot(key.clone()));
+            if let Some(name) = first_placeholder(val) {
+                return Err(PlaceholderError::DisallowedSlot(key.clone(), name));
             }
             out.insert(key.clone(), val.clone());
             continue;
@@ -82,12 +83,18 @@ pub fn substitute_commands(
 ) -> std::result::Result<Substituted, PlaceholderError> {
     let mut secrets = Vec::new();
     let Value::Array(items) = commands else {
-        return Err(PlaceholderError::DisallowedSlot("commands".to_string()));
+        return Err(PlaceholderError::DisallowedSlot(
+            "commands".to_string(),
+            String::new(),
+        ));
     };
     let mut out_items = Vec::with_capacity(items.len());
     for item in items {
         let Value::Object(cmd) = item else {
-            return Err(PlaceholderError::DisallowedSlot("commands".to_string()));
+            return Err(PlaceholderError::DisallowedSlot(
+                "commands".to_string(),
+                String::new(),
+            ));
         };
         let fills = matches!(
             cmd.get("do").and_then(Value::as_str),
@@ -100,8 +107,9 @@ pub fn substitute_commands(
                     let r = substitute_string(s, lookup, &mut secrets)?;
                     out.insert(k.clone(), Value::String(r));
                 }
-                _ if contains_placeholder(v) => {
-                    return Err(PlaceholderError::DisallowedSlot(k.clone()));
+                _ if first_placeholder(v).is_some() => {
+                    let name = first_placeholder(v).unwrap_or_default();
+                    return Err(PlaceholderError::DisallowedSlot(k.clone(), name));
                 }
                 _ => {
                     out.insert(k.clone(), v.clone());
@@ -195,25 +203,26 @@ fn placeholder_at(s: &str, i: usize) -> Option<usize> {
     }
 }
 
-fn contains_placeholder(val: &Value) -> bool {
+/// The first placeholder name in `val`, if there is one.
+fn first_placeholder(val: &Value) -> Option<String> {
     match val {
-        Value::String(s) => placeholder_scan_any(s),
-        Value::Object(m) => m.values().any(contains_placeholder),
-        Value::Array(items) => items.iter().any(contains_placeholder),
-        _ => false,
+        Value::String(s) => first_name(s),
+        Value::Object(m) => m.values().find_map(first_placeholder),
+        Value::Array(items) => items.iter().find_map(first_placeholder),
+        _ => None,
     }
 }
 
-fn placeholder_scan_any(s: &str) -> bool {
+fn first_name(s: &str) -> Option<String> {
     let mut i = 0;
     while i < s.len() {
-        if placeholder_at(s, i).is_some() {
-            return true;
+        if let Some(n) = placeholder_at(s, i) {
+            return Some(s[i + 2..i + 2 + n].to_string());
         }
         let ch = s[i..].chars().next().unwrap_or('\0');
         i += ch.len_utf8().max(1);
     }
-    false
+    None
 }
 
 #[cfg(test)]
@@ -238,7 +247,7 @@ mod tests {
         let mut env = HashMap::new();
         env.insert("X", "v");
         let err = substitute("http.request", &args, &lookup(env)).unwrap_err();
-        assert!(matches!(err, PlaceholderError::DisallowedSlot(ref k) if k == "path"));
+        assert!(matches!(err, PlaceholderError::DisallowedSlot(ref k, _) if k == "path"));
         assert!(err.to_string().contains("path"));
     }
 
@@ -299,7 +308,7 @@ mod tests {
         let mut env = HashMap::new();
         env.insert("ZRIZ_CANARY", "canary-val");
         let err = substitute("sql.query", &args, &lookup(env)).unwrap_err();
-        assert!(matches!(err, PlaceholderError::DisallowedSlot(ref k) if k == "params"));
+        assert!(matches!(err, PlaceholderError::DisallowedSlot(ref k, _) if k == "params"));
     }
 
     #[test]
@@ -311,7 +320,7 @@ mod tests {
         let mut env = HashMap::new();
         env.insert("X", "v");
         let err = substitute("sql.query", &args, &lookup(env)).unwrap_err();
-        assert!(matches!(err, PlaceholderError::DisallowedSlot(_)));
+        assert!(matches!(err, PlaceholderError::DisallowedSlot(..)));
     }
 
     #[test]
@@ -320,7 +329,7 @@ mod tests {
         let mut env = HashMap::new();
         env.insert("X", "v");
         let err = substitute("evidence.fetch", &args, &lookup(env)).unwrap_err();
-        assert!(matches!(err, PlaceholderError::DisallowedSlot(_)));
+        assert!(matches!(err, PlaceholderError::DisallowedSlot(..)));
     }
 
     #[test]

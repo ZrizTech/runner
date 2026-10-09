@@ -1,9 +1,9 @@
 //! Implements the evidence.fetch op kind. The op's resource field is
 //! ignored: evidence is keyed by run, not by resource.
 
-use super::{Handler, new_error};
+use super::{Handler, new_error, runner_error};
 use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame, Timing};
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 impl Handler {
@@ -14,11 +14,7 @@ impl Handler {
         if self.cfg.evidence == "none" {
             return (
                 None,
-                Some(new_error(
-                    &op.op_id,
-                    "evidence-disabled",
-                    "evidence lookups are disabled for this config",
-                )),
+                Some(new_error(&op.op_id, "evidence-disabled", json!({}))),
             );
         }
 
@@ -28,11 +24,7 @@ impl Handler {
             None => {
                 return (
                     None,
-                    Some(new_error(
-                        &op.op_id,
-                        "evidence-expired",
-                        "no matching evidence for this op-id",
-                    )),
+                    Some(new_error(&op.op_id, "evidence-expired", json!({}))),
                 );
             }
         };
@@ -40,25 +32,14 @@ impl Handler {
         if entry.op_id != want_op_id {
             return (
                 None,
-                Some(new_error(
-                    &op.op_id,
-                    "evidence-expired",
-                    "no matching evidence for this op-id",
-                )),
+                Some(new_error(&op.op_id, "evidence-expired", json!({}))),
             );
         }
 
         let excerpt = match crate::evidence::excerpt(&entry, &self.deny_keys) {
             Ok(e) => e,
             Err(_) => {
-                return (
-                    None,
-                    Some(new_error(
-                        &op.op_id,
-                        "runner-error",
-                        "evidence excerpt failed",
-                    )),
-                );
+                return (None, Some(runner_error(&op.op_id, "evidence-excerpt")));
             }
         };
 

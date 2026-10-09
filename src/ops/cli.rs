@@ -3,7 +3,8 @@
 //! worker sidecar, then capture, project and scrub what comes back.
 
 use super::browser::unavailable;
-use super::{Handler, capture, duration_ms, new_error, scrub_payload, worker};
+use super::worker_map::from_worker;
+use super::{Handler, capture, duration_ms, new_error, runner_error, scrub_payload, worker};
 use crate::config::Resource;
 use crate::config_cli::CliCommand;
 use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame, Timing};
@@ -57,10 +58,10 @@ impl Handler {
             Some(h) if by_handle && handle_ok(h) => Some(
                 self.handles
                     .get(&op.run_id, &op.resource, h, (self.now)())
-                    .ok_or_else(|| not_allowed(&op.op_id, "handle is unknown"))?,
+                    .ok_or_else(|| not_allowed(&op.op_id))?,
             ),
             _ if by_handle => {
-                return Err(not_allowed(&op.op_id, "handle is missing or malformed"));
+                return Err(not_allowed(&op.op_id));
             }
             _ => None,
         };
@@ -93,7 +94,7 @@ impl Handler {
         })?;
         let exec_ms = duration_ms((self.now)(), start);
 
-        let mut out = worker_out(&op.op_id, &resp)?;
+        let mut out = worker_out(op, &resp)?;
         if let Some(h) = handle {
             let finished = mode == "stop"
                 || mode == "wait"
@@ -113,7 +114,7 @@ impl Handler {
         let mut payload = project::select_paths(&out, &op.project);
         capture::mask(&mut payload, &caps);
         let (scrubbed, count) = scrub_payload(&payload, &secrets)
-            .map_err(|_| new_error(&op.op_id, "runner-error", "response encoding failed"))?;
+            .map_err(|_| runner_error(&op.op_id, "response-encoding"))?;
         Ok(ResultFrame {
             op_id: op.op_id.clone(),
             status: "pass".to_string(),
@@ -124,8 +125,8 @@ impl Handler {
     }
 }
 
-fn not_allowed(op_id: &str, what: &str) -> ErrorFrame {
-    new_error(op_id, "arg-not-allowed", what)
+fn not_allowed(op_id: &str) -> ErrorFrame {
+    new_error(op_id, "arg-not-allowed", json!({}))
 }
 
 /// Checks mode, command, argv shape, handle and env names against the
@@ -139,25 +140,25 @@ fn checked<'a>(
     let mode = match args.get("mode") {
         None => "run",
         Some(Value::String(m)) if MODES.contains(&m.as_str()) => m.as_str(),
-        _ => return Err(not_allowed(op_id, "mode is not allowed")),
+        _ => return Err(not_allowed(op_id)),
     };
     let (name, cmd) = pick_command(op_id, r, args.get("command"), remembered)?;
 
     let mut argv = Vec::new();
     if let Some(v) = args.get("args") {
         let Value::Array(items) = v else {
-            return Err(not_allowed(op_id, "args must be a list"));
+            return Err(not_allowed(op_id));
         };
         for i in items {
             let Some(s) = i.as_str() else {
-                return Err(not_allowed(op_id, "args must be strings"));
+                return Err(not_allowed(op_id));
             };
             argv.push(s.to_string());
         }
     }
     let runs = matches!(mode, "run" | "start");
     if runs && !argshape::matches(&cmd.shapes, &argv) || !runs && !argv.is_empty() {
-        return Err(not_allowed(op_id, "argv does not match a declared shape"));
+        return Err(not_allowed(op_id));
     }
 
     let mut w = Map::new();
@@ -170,7 +171,7 @@ fn checked<'a>(
             w.insert("handle".into(), json!(h));
         }
         None if mode == "run" => {}
-        _ => return Err(not_allowed(op_id, "handle is missing or malformed")),
+        _ => return Err(not_allowed(op_id)),
     }
     for key in ["until", "extract"] {
         if let Some(v) = args.get(key) {
@@ -179,19 +180,19 @@ fn checked<'a>(
     }
     if let Some(env) = args.get("env") {
         let Value::Object(m) = env else {
-            return Err(not_allowed(op_id, "env must be an object"));
+            return Err(not_allowed(op_id));
         };
         if m.iter()
             .any(|(k, v)| !cmd.env_allow.contains(k) || !v.is_string())
         {
-            return Err(not_allowed(op_id, "env name is not allowed"));
+            return Err(not_allowed(op_id));
         }
         w.insert("env".into(), env.clone());
     }
     match args.get("stdout") {
         None => {}
         Some(Value::String(s)) if s == "json" || s == "text" => {}
-        _ => return Err(not_allowed(op_id, "stdout must be json or text")),
+        _ => return Err(not_allowed(op_id)),
     }
     Ok((name, cmd, w))
 }
@@ -210,10 +211,10 @@ fn pick_command<'a>(
     named: Option<&Value>,
     remembered: Option<&str>,
 ) -> std::result::Result<(String, &'a CliCommand), ErrorFrame> {
-    let refused = || new_error(op_id, "command-not-allowed", "command is not declared");
+    let refused = || new_error(op_id, "command-not-allowed", json!({}));
     let name = match (named, remembered) {
         (Some(Value::String(n)), Some(m)) if n != m => {
-            return Err(not_allowed(op_id, "command does not match the handle"));
+            return Err(not_allowed(op_id));
         }
         (Some(Value::String(n)), _) => n.as_str(),
         (None, Some(m)) => m,
@@ -247,23 +248,16 @@ fn policy(resource_id: &str, name: &str, c: &CliCommand, r: &Resource) -> Value 
 }
 
 /// The `out` object of a good response, or the error a bad one maps to.
-/// Messages are fixed strings naming the reason, never worker free text.
-fn worker_out(op_id: &str, resp: &Value) -> std::result::Result<Map<String, Value>, ErrorFrame> {
+fn worker_out(
+    op: &contract::Op,
+    resp: &Value,
+) -> std::result::Result<Map<String, Value>, ErrorFrame> {
     if resp.get("ok") == Some(&Value::Bool(true))
         && let Some(Value::Object(out)) = resp.get("out")
     {
         return Ok(out.clone());
     }
-    Err(match resp.get("reason").and_then(Value::as_str) {
-        Some("at-capacity") => new_error(op_id, "runner-at-capacity", "worker is at capacity"),
-        Some("handle-busy") => new_error(op_id, "runner-error", "cli refused: handle-busy"),
-        Some("no-handle") => new_error(op_id, "runner-error", "cli refused: no-handle"),
-        Some("too-many-handles") => {
-            new_error(op_id, "runner-error", "cli refused: too-many-handles")
-        }
-        Some("spawn-failed") => new_error(op_id, "runner-error", "cli refused: spawn-failed"),
-        _ => new_error(op_id, "runner-error", "worker refused the op"),
-    })
+    Err(from_worker(op, resp))
 }
 
 /// `stdout: json`: parses stdout into `json`; on failure `json` is null and

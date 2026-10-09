@@ -81,7 +81,24 @@ pub struct Error {
     #[serde(rename = "op-id")]
     pub op_id: String,
     pub reason: String,
-    pub message: String,
+    /// Ids and numbers of the reason. Always there, can be empty. The keys
+    /// are the closed set of `contract/error.json`.
+    pub details: serde_json::Map<String, serde_json::Value>,
+}
+
+impl Error {
+    /// The one place that makes an error frame. `details` must be a JSON
+    /// object; anything else gives an empty one.
+    pub fn new(op_id: &str, reason: &str, details: serde_json::Value) -> Self {
+        Self {
+            op_id: op_id.to_string(),
+            reason: reason.to_string(),
+            details: match details {
+                serde_json::Value::Object(m) => m,
+                _ => serde_json::Map::new(),
+            },
+        }
+    }
 }
 
 /// Describes the runner to the cloud in an ExchangeRequest.

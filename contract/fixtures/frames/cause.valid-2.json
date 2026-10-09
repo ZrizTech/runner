@@ -1,0 +1,10 @@
+{
+  "reason": "runner-unavailable",
+  "side": "runner",
+  "retry": "no",
+  "message": "no runner is connected for the env uat",
+  "details": {
+    "env": "uat"
+  },
+  "more": 2
+}

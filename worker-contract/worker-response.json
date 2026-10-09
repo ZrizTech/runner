@@ -172,6 +172,14 @@
           "type": "integer",
           "minimum": 0
         },
+        "limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "idle-ms": {
+          "type": "integer",
+          "minimum": 0
+        },
         "why": {
           "enum": [
             "idle"

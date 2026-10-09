@@ -12,6 +12,7 @@ impl Handler {
         self.jars.forget_run(run_id);
         self.vault.forget(run_id);
         self.handles.forget_run(run_id);
+        self.contexts.forget_run(run_id);
         self.evidence.forget(run_id);
         if self.cfg.worker_socket.is_empty() || !self.worker_up.load(Ordering::SeqCst) {
             return;

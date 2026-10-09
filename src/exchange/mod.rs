@@ -6,6 +6,7 @@
 mod frames;
 mod health;
 mod reply;
+mod run_op;
 mod token;
 
 pub use health::WorkerHealth;

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/run-document.json",
+  "description": "The run document the cloud gives: run-result.json plus the keys that the cloud always adds. Interpreter output is run-result.json alone.",
+  "allOf": [
+    {
+      "$ref": "https://zriz.io/contract/run-result.json"
+    }
+  ],
+  "required": [
+    "timing",
+    "trace-id"
+  ],
+  "if": {
+    "properties": {
+      "status": {
+        "const": "pass"
+      }
+    },
+    "required": [
+      "status"
+    ]
+  },
+  "else": {
+    "required": [
+      "cause"
+    ]
+  }
+}

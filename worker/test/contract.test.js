@@ -17,6 +17,11 @@ for (const [f, doc] of fx('invalid')) {
   test(`invalid fixture fails: ${f}`, () => assert.equal(pick(f)(doc), false))
 }
 
+test('a word of protocol.js has a row in the map', () => {
+  const map = readFileSync(new URL('../../src/ops/worker_map.rs', import.meta.url), 'utf8')
+  for (const w of Object.keys(ERRORS)) assert.ok(map.includes(`"${w}"`), `a word of protocol.js has no row in the map: ${w}`)
+})
+
 const schema = (f) => JSON.parse(readFileSync(new URL(f, contractDir), 'utf8'))
 
 test('the words of protocol.js match the worker contract', () => {

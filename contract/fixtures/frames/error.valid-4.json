@@ -1,5 +1,11 @@
 {
   "op-id": "op-31",
-  "reason": "command-not-allowed",
-  "message": "refused"
+  "reason": "runner-at-capacity",
+  "details": {
+    "resource": "ymy-browser",
+    "limit-name": "max-contexts",
+    "limit": 8,
+    "busy": 8,
+    "waited-ms": 5000
+  }
 }

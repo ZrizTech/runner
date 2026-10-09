@@ -1,5 +1,7 @@
 {
   "op-id": "op-2",
   "reason": "timeout",
-  "message": "timed out"
+  "details": {
+    "timeout-ms": 30000
+  }
 }

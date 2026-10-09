@@ -1,0 +1,38 @@
+{
+  "status": "error",
+  "step-results": [],
+  "errors": [],
+  "final-context": {},
+  "timing": {
+    "duration-ms": 30020,
+    "wait-ms": 25300,
+    "work-ms": 4100,
+    "sleep-ms": 0,
+    "evidence-ms": 0,
+    "cloud-ms": 620,
+    "long-waits": 1,
+    "longest-wait": {
+      "step-index": 10,
+      "wait-ms": 25300,
+      "wait-reason": "service-stall"
+    }
+  },
+  "runner": {
+    "name": "ymy-uat",
+    "env": "uat",
+    "build": "runner/0.5.0+3f2a9c0d1e4b"
+  },
+  "cause": {
+    "reason": "service-stall",
+    "side": "service",
+    "retry": "later",
+    "message": "step 10 (ymy-web/signup-post) waited 25300 ms for the runner ymy-uat: the runner was connected and not busy, and the zriz service did not send the op, until the pipeline limit of 30000 ms ended",
+    "step-index": 10,
+    "action": "ymy-web/signup-post",
+    "details": {
+      "wait-ms": 25300,
+      "timeout-ms": 30000,
+      "runner": "ymy-uat"
+    }
+  }
+}
