@@ -209,9 +209,11 @@ async fn three_refusals_drop_the_frames_with_one_line() {
     let _guard = tracing::subscriber::set_default(sub);
     let cloud = refusing_cloud(400, usize::MAX).await;
     let (h, _ended) = handler(None, WorkerHealth::default());
+    let seen = buf.clone();
     let got = arrivals_until(&cloud, config(&cloud.base_url, h), |a| {
         let carrying = a.iter().filter(|x| !x.req.frames.is_empty()).count();
-        carrying >= 3 && a.last().is_some_and(|x| x.n > 6)
+        let dropped = String::from_utf8_lossy(&seen.0.lock().unwrap()).contains("frames dropped");
+        carrying >= 3 && dropped && a.last().is_some_and(|x| x.req.frames.is_empty())
     })
     .await;
     let carrying = got.iter().filter(|x| !x.req.frames.is_empty()).count();
