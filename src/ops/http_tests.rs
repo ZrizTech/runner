@@ -712,7 +712,15 @@ async fn a_refused_connect_is_connection_error_with_no_details() {
     let mut args = HashMap::new();
     args.insert("path".to_string(), Value::String("/x".to_string()));
     let (result, err) = h
-        .handle(test_op("op-c", "run-c", "http.request", "api", 2000, args, vec![]))
+        .handle(test_op(
+            "op-c",
+            "run-c",
+            "http.request",
+            "api",
+            2000,
+            args,
+            vec![],
+        ))
         .await;
     assert!(result.is_none(), "{result:?}");
     let err = err.expect("error");

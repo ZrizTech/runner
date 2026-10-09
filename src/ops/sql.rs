@@ -177,12 +177,19 @@ impl SqlConn for MysqlConn {
             use mysql_async::prelude::Queryable;
             let sql_params: Vec<mysql_async::Value> =
                 params.iter().map(json_to_sql_value).collect();
-            let mut conn = self.pool.get_conn().await.map_err(|_| SqlOpError::Connect)?;
+            let mut conn = self
+                .pool
+                .get_conn()
+                .await
+                .map_err(|_| SqlOpError::Connect)?;
 
             if read_only {
                 let mut opts = mysql_async::TxOpts::default();
                 opts.with_readonly(true);
-                let mut tx = conn.start_transaction(opts).await.map_err(|e| mysql_fault(&e))?;
+                let mut tx = conn
+                    .start_transaction(opts)
+                    .await
+                    .map_err(|e| mysql_fault(&e))?;
                 let rows: Vec<mysql_async::Row> = tx
                     .exec(query, mysql_async::Params::Positional(sql_params))
                     .await
@@ -410,7 +417,10 @@ impl Handler {
                 self.shape_sql_result(op, rows, &secrets, exec_ms)
             }
             Err(SqlOpError::Database) => (Some(self.sql_failed(op, exec_ms)), None),
-            Err(SqlOpError::Connect) => (None, Some(new_error(&op.op_id, "connection-error", json!({})))),
+            Err(SqlOpError::Connect) => (
+                None,
+                Some(new_error(&op.op_id, "connection-error", json!({}))),
+            ),
             Err(SqlOpError::Other) => (None, Some(runner_error(&op.op_id, "sql-driver"))),
         }
     }

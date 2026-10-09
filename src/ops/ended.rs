@@ -28,7 +28,9 @@ impl EndedRuns {
     }
 
     pub(crate) fn contains(&self, run: &str) -> bool {
-        self.ids.lock().is_ok_and(|ids| ids.iter().any(|r| r == run))
+        self.ids
+            .lock()
+            .is_ok_and(|ids| ids.iter().any(|r| r == run))
     }
 }
 
@@ -39,6 +41,7 @@ impl Handler {
         self.vault.forget(run_id);
         self.handles.forget_run(run_id);
         self.contexts.forget_run(run_id);
+        self.handle_lives.forget_run(run_id);
         self.evidence.forget(run_id);
     }
 

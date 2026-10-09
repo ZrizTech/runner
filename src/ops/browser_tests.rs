@@ -373,7 +373,7 @@ fn op() -> crate::contract::Op {
 fn capacity_carries_the_numbers() {
     let resp = json!({"v": 1, "op-id": "op", "ok": false, "reason": "at-capacity",
         "message": "free text", "max-contexts": 8, "busy": 8, "waited-ms": 5000});
-    let e = super::worker_out(&op(), &resp).expect_err("error");
+    let e = super::worker_out(&op(), &resp, 600_000).expect_err("error");
     assert_eq!(e.reason, "runner-at-capacity");
     assert_eq!(
         Value::Object(e.details),
@@ -386,7 +386,7 @@ fn capacity_carries_the_numbers() {
 fn context_lost_is_idle() {
     let resp = json!({"ok": false, "reason": "context-lost", "why": "idle",
         "message": "free text", "idle-ms": 600000, "max-contexts": 3});
-    let e = super::worker_out(&op(), &resp).expect_err("error");
+    let e = super::worker_out(&op(), &resp, 600_000).expect_err("error");
     assert_eq!(e.reason, "context-lost");
     assert_eq!(
         Value::Object(e.details),
@@ -428,7 +428,15 @@ async fn no_worker_answer_by_the_deadline_is_worker_deadline_not_timeout() {
     let args: HashMap<String, Value> =
         serde_json::from_value(json!({"commands": [{"do": "title"}]})).expect("args");
     let (r, e) = h
-        .handle(test_op("op", "run1", "browser.page", "web", 300, args, vec![]))
+        .handle(test_op(
+            "op",
+            "run1",
+            "browser.page",
+            "web",
+            300,
+            args,
+            vec![],
+        ))
         .await;
     assert!(r.is_none());
     let e = e.expect("error");

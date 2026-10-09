@@ -383,11 +383,11 @@ pub async fn run(
 }
 
 #[cfg(test)]
-#[path = "conformance_tests.rs"]
-mod conformance_tests;
-#[cfg(test)]
 #[path = "batch_tests.rs"]
 mod batch_tests;
+#[cfg(test)]
+#[path = "conformance_tests.rs"]
+mod conformance_tests;
 #[cfg(test)]
 #[path = "log_tests.rs"]
 mod log_tests;

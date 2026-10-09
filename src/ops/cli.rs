@@ -2,8 +2,8 @@
 //! argv tail against its shapes, resolve env secrets, hand the op to the
 //! worker sidecar, then capture, project and scrub what comes back.
 
-use super::browser::unavailable;
-use super::worker_map::from_worker;
+use super::browser::{DEFAULT_IDLE_MS, unavailable, worker_out};
+use super::worker_map::{handle_restarted, no_handle};
 use super::{Handler, capture, duration_ms, new_error, runner_error, scrub_payload, worker};
 use crate::config::Resource;
 use crate::config_cli::CliCommand;
@@ -53,13 +53,38 @@ impl Handler {
         let handle = sub.args.get("handle").and_then(Value::as_str);
         let by_handle = matches!(mode, "read" | "wait" | "stop");
         // read/wait/stop name a process by its handle only; the command comes
-        // from the `start` that opened it. An unknown handle is refused here.
+        // from the `start` that opened it. A handle lost in a restart of the
+        // worker is `handle-lost`; one the run never started is `no-handle`.
+        if by_handle
+            && sub
+                .args
+                .get("args")
+                .is_some_and(|a| a.as_array().is_none_or(|v| !v.is_empty()))
+        {
+            return Err(not_allowed(&op.op_id));
+        }
+        // A `start` notes the boot of the worker too, so a later restart is seen.
+        if let Some(h) = handle
+            && mode == "start"
+            && handle_ok(h)
+        {
+            let _ = self
+                .pair_lost(&self.handle_lives, &op.run_id, &pair_name(&op.resource, h))
+                .await;
+        }
         let remembered = match handle {
-            Some(h) if by_handle && handle_ok(h) => Some(
-                self.handles
-                    .get(&op.run_id, &op.resource, h, (self.now)())
-                    .ok_or_else(|| not_allowed(&op.op_id))?,
-            ),
+            Some(h) if by_handle && handle_ok(h) => {
+                let name = pair_name(&op.resource, h);
+                if self.pair_lost(&self.handle_lives, &op.run_id, &name).await {
+                    self.handles.forget(&op.run_id, &op.resource, h);
+                    return Err(handle_restarted(op));
+                }
+                Some(
+                    self.handles
+                        .get(&op.run_id, &op.resource, h)
+                        .ok_or_else(|| no_handle(op))?,
+                )
+            }
             _ if by_handle => {
                 return Err(not_allowed(&op.op_id));
             }
@@ -88,23 +113,45 @@ impl Handler {
 
         let start = (self.now)();
         let wait = Duration::from_millis(u64::try_from(deadline_ms).unwrap_or(0) + 2000);
+        let live = handle.map(|h| pair_name(&op.resource, h));
+        if let (Some(name), "start") = (&live, mode) {
+            self.handle_lives.add(&op.run_id, name);
+        }
         let resp = worker::call(socket, &req, wait).await.map_err(|_| {
             self.mark_worker_down();
             unavailable(&op.op_id)
         })?;
         let exec_ms = duration_ms((self.now)(), start);
 
-        let mut out = worker_out(op, &resp)?;
+        let idle_ms = resource.idle_ms.unwrap_or(DEFAULT_IDLE_MS);
+        let mut out = match worker_out(op, &resp, idle_ms) {
+            Ok(o) => o,
+            Err(e) => {
+                // The worker refused: it holds no such handle.
+                if let Some(name) = &live
+                    && (mode == "start" || e.reason == "handle-lost" || e.reason == "no-handle")
+                {
+                    self.handle_lives.forget(&op.run_id, name);
+                    if mode != "start"
+                        && let Some(h) = handle
+                    {
+                        self.handles.forget(&op.run_id, &op.resource, h);
+                    }
+                }
+                return Err(e);
+            }
+        };
         if let Some(h) = handle {
             let finished = mode == "stop"
                 || mode == "wait"
                     && out.contains_key("exit-code")
                     && out.get("running") != Some(&Value::Bool(true));
             if mode == "start" {
-                self.handles
-                    .put(&op.run_id, &op.resource, h, &cmd_name, (self.now)());
+                self.handles.put(&op.run_id, &op.resource, h, &cmd_name);
             } else if finished {
                 self.handles.forget(&op.run_id, &op.resource, h);
+                self.handle_lives
+                    .forget(&op.run_id, &pair_name(&op.resource, h));
             }
         }
         if sub.args.get("stdout").and_then(Value::as_str) == Some("json") {
@@ -123,6 +170,11 @@ impl Handler {
             timing: Timing { exec_ms },
         })
     }
+}
+
+/// The name of a handle in `handle_lives`.
+fn pair_name(resource: &str, handle: &str) -> String {
+    format!("{resource}/{handle}")
 }
 
 fn not_allowed(op_id: &str) -> ErrorFrame {
@@ -247,19 +299,6 @@ fn policy(resource_id: &str, name: &str, c: &CliCommand, r: &Resource) -> Value 
     Value::Object(p)
 }
 
-/// The `out` object of a good response, or the error a bad one maps to.
-fn worker_out(
-    op: &contract::Op,
-    resp: &Value,
-) -> std::result::Result<Map<String, Value>, ErrorFrame> {
-    if resp.get("ok") == Some(&Value::Bool(true))
-        && let Some(Value::Object(out)) = resp.get("out")
-    {
-        return Ok(out.clone());
-    }
-    Err(from_worker(op, resp))
-}
-
 /// `stdout: json`: parses stdout into `json`; on failure `json` is null and
 /// `json-invalid` is true.
 fn parse_stdout_json(out: &mut Map<String, Value>) {
@@ -274,6 +313,10 @@ fn parse_stdout_json(out: &mut Map<String, Value>) {
 #[cfg(test)]
 #[path = "cli_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "cli_lost_tests.rs"]
+mod lost_tests;
 
 #[cfg(test)]
 #[path = "cli_handles_tests.rs"]

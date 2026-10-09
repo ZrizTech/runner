@@ -13,6 +13,9 @@ use std::time::Duration;
 /// Deadline sent to the worker when the op carries none.
 const DEFAULT_DEADLINE_MS: i64 = 600_000;
 
+/// The worker's `idle-ms` when the resource sets none (10 minutes).
+pub(super) const DEFAULT_IDLE_MS: u64 = 600_000;
+
 impl Handler {
     pub(crate) async fn browser_page(
         &self,
@@ -36,14 +39,10 @@ impl Handler {
         let (args, mut secrets) = self.substitute_browser(op, &resource)?;
         check_gotos(&op.op_id, &resource, &args)?;
         // A new `boot-id` of the worker: the context of this run is gone.
-        if self.contexts.needs_boot(&op.run_id, &op.resource)
-            && let Some(boot) = worker::ping_info(socket)
-                .await
-                .and_then(|p| p.get("boot-id").and_then(Value::as_str).map(str::to_string))
+        if self
+            .pair_lost(&self.contexts, &op.run_id, &op.resource)
+            .await
         {
-            self.contexts.note_boot(&boot);
-        }
-        if self.contexts.take_lost(&op.run_id, &op.resource) {
             return Err(restarted(op));
         }
 
@@ -67,14 +66,15 @@ impl Handler {
 
         let start = (self.now)();
         let wait = Duration::from_millis(u64::try_from(deadline_ms).unwrap_or(0) + 2000);
+        // The op may make a context, even if it ends in an error.
+        self.contexts.add(&op.run_id, &op.resource);
         let resp = worker::call(socket, &req, wait).await.map_err(|_| {
             self.mark_worker_down();
             unavailable(&op.op_id)
         })?;
         let exec_ms = duration_ms((self.now)(), start);
 
-        let out = worker_out(op, &resp)?;
-        self.contexts.add(&op.run_id, &op.resource);
+        let out = worker_out(op, &resp, resource.idle_ms.unwrap_or(DEFAULT_IDLE_MS))?;
         let status = if out.get("ok") == Some(&Value::Bool(false)) {
             "fail"
         } else {
@@ -184,16 +184,17 @@ fn policy(name: &str, r: &Resource) -> Value {
 }
 
 /// The `out` object of a good response, or the error a bad one maps to.
-fn worker_out(
+pub(super) fn worker_out(
     op: &contract::Op,
     resp: &Value,
+    idle_ms: u64,
 ) -> std::result::Result<Map<String, Value>, ErrorFrame> {
     if resp.get("ok") == Some(&Value::Bool(true))
         && let Some(Value::Object(out)) = resp.get("out")
     {
         return Ok(out.clone());
     }
-    Err(from_worker(op, resp))
+    Err(from_worker(op, resp, idle_ms))
 }
 
 #[cfg(test)]

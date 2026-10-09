@@ -130,6 +130,8 @@ pub struct Handler {
     vault: vault::Vault,
     handles: handles::Handles,
     contexts: contexts::Contexts,
+    /// The (run, `resource/handle`) pairs of started cli handles.
+    handle_lives: contexts::Contexts,
     ended_runs: ended::EndedRuns,
     worker_up: AtomicBool,
     last_ping: Mutex<Option<Instant>>,
@@ -191,6 +193,7 @@ impl Handler {
             vault: vault::Vault::default(),
             handles: handles::Handles::default(),
             contexts: contexts::Contexts::default(),
+            handle_lives: contexts::Contexts::default(),
             ended_runs: ended::EndedRuns::default(),
         })
     }

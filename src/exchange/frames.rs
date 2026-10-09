@@ -186,7 +186,11 @@ impl Inner {
             // The cloud did not accept the request: its counts go back.
             Err(_) => self.counts_unsent(&snap),
             Ok(()) => {
-                let more = !self.queue.lock().unwrap_or_else(|e| e.into_inner()).is_empty();
+                let more = !self
+                    .queue
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .is_empty();
                 if more {
                     self.trigger_exchange();
                 }

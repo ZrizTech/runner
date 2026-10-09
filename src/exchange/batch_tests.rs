@@ -37,7 +37,11 @@ fn has(req: &contract::ExchangeRequest, id: &str) -> bool {
 #[tokio::test(flavor = "multi_thread")]
 async fn one_bad_frame_is_dropped_alone_and_the_good_ones_arrive() {
     let cloud = ImmediateCloud::new(|_, req| {
-        if has(req, "bad") { (400, None) } else { (204, None) }
+        if has(req, "bad") {
+            (400, None)
+        } else {
+            (204, None)
+        }
     })
     .await;
     let mut rx = cloud.take_receiver();
@@ -93,7 +97,14 @@ async fn two_one_mib_frames_go_in_two_requests() {
     let mut sizes = Vec::new();
     while let Ok(a) = rx.try_recv() {
         if !a.req.frames.is_empty() {
-            sizes.push(a.req.frames.iter().map(|f| f.id.as_str()).collect::<Vec<_>>().join(","));
+            sizes.push(
+                a.req
+                    .frames
+                    .iter()
+                    .map(|f| f.id.as_str())
+                    .collect::<Vec<_>>()
+                    .join(","),
+            );
         }
     }
     assert_eq!(sizes, ["big1", "big2,small"], "{sizes:?}");

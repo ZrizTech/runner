@@ -33,14 +33,14 @@ async fn handle_modes_use_the_command_of_the_start() {
     let r = run(&h, json!({"mode": "wait", "handle": "h1"}), &[]).await;
     assert!(r.1.is_none(), "{r:?}");
     let r = run(&h, json!({"mode": "read", "handle": "h1"}), &[]).await;
-    assert_eq!(reason(&r), "arg-not-allowed");
+    assert_eq!(reason(&r), "no-handle");
     let n = seen.lock().expect("lock").len();
     let start = json!({"mode": "start", "command": "third", "args": ["version"], "handle": "h2"});
     assert!(run(&h, start, &[]).await.1.is_none());
     let r = run(&h, json!({"mode": "stop", "handle": "h2"}), &[]).await;
     assert!(r.1.is_none(), "{r:?}");
     let r = run(&h, json!({"mode": "stop", "handle": "h2"}), &[]).await;
-    assert_eq!(reason(&r), "arg-not-allowed");
+    assert_eq!(reason(&r), "no-handle");
     // Only the start and the first stop reached the worker.
     assert_eq!(seen.lock().expect("lock").len(), n + 2);
 }

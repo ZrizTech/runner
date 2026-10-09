@@ -173,7 +173,11 @@ impl super::sql::SqlConn for PgConn {
         read_only: bool,
     ) -> BoxFuture<'a, Result<Vec<Map<String, Value>>, SqlOpError>> {
         Box::pin(async move {
-            let _permit = self.permits.acquire().await.map_err(|_| SqlOpError::Other)?;
+            let _permit = self
+                .permits
+                .acquire()
+                .await
+                .map_err(|_| SqlOpError::Other)?;
             let mut client = self.checkout().await?;
             let out = self.run(&mut client, query, params, read_only).await;
             if out.is_ok()

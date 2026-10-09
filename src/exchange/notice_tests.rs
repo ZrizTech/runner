@@ -221,7 +221,10 @@ async fn three_refusals_drop_the_frames_with_one_line() {
     })
     .await;
     let carrying = got.iter().filter(|x| !x.req.frames.is_empty()).count();
-    assert!(carrying >= 3, "sent at least three times (spaced), then dropped");
+    assert!(
+        carrying >= 3,
+        "sent at least three times (spaced), then dropped"
+    );
     let out = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
     assert_eq!(out.matches("frames dropped").count(), 1, "{out}");
     assert!(

@@ -1615,7 +1615,8 @@
     ],
     "kinds": [
      "jar",
-     "vault"
+     "vault",
+     "handles"
     ]
    }
   },

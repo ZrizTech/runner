@@ -428,8 +428,16 @@ async fn run_with_fault(fault: SqlOpError) -> (Option<ResultFrame>, Option<Error
     .await;
     let mut args = HashMap::new();
     args.insert("query".to_string(), Value::String("SELECT 1".into()));
-    h.handle(test_op("op-f", "run-s", "sql.query", "db", 2000, args, vec![]))
-        .await
+    h.handle(test_op(
+        "op-f",
+        "run-s",
+        "sql.query",
+        "db",
+        2000,
+        args,
+        vec![],
+    ))
+    .await
 }
 
 #[tokio::test]
@@ -448,7 +456,10 @@ async fn a_failed_connect_is_connection_error_and_other_faults_stay_driver() {
     let (r, err) = run_with_fault(SqlOpError::Connect).await;
     let err = err.expect("error");
     assert!(r.is_none());
-    assert_eq!((err.reason.as_str(), err.details.len()), ("connection-error", 0));
+    assert_eq!(
+        (err.reason.as_str(), err.details.len()),
+        ("connection-error", 0)
+    );
     let (_, err) = run_with_fault(SqlOpError::Other).await;
     assert_eq!(err.expect("error").details["where"], "sql-driver");
 }
