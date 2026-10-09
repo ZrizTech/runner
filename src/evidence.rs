@@ -69,6 +69,12 @@ impl Store {
         );
     }
 
+    /// Drops the entry of `run_id` (the run ended).
+    pub fn forget(&self, run_id: &str) {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.by_run.remove(run_id);
+    }
+
     /// Returns the entry stored under `run_id`, or `None` if absent or
     /// older than 120s (in which case it is also deleted).
     pub fn get(&self, run_id: &str, now: SystemTime) -> Option<Entry> {

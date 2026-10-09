@@ -36,5 +36,11 @@
         ]
       }
     }
+  ],
+  "ended-runs": [
+    {
+      "run-id": "02fbde85-dc93-40a7-a8a1-3ba9fe2eccef",
+      "trace-id": "5d0c9a52-7c1e-4b1f-9a55-0d6f3a2b8c11"
+    }
   ]
 }

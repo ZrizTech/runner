@@ -4,8 +4,15 @@
 
 use super::*;
 
-/// How long a worker ping result is trusted before the next announce re-checks.
-const PING_EVERY: Duration = Duration::from_secs(5);
+/// How long a worker ping result is trusted before the next request re-checks.
+/// The numbers of the health are as old as this at most.
+const PING_EVERY: Duration = Duration::from_secs(1);
+
+/// Contexts a browser resource may hold when its config sets no `max-contexts`.
+const DEFAULT_MAX_CONTEXTS: u64 = 3;
+
+/// Handles a cli resource may hold when its config sets no `max-handles`.
+const DEFAULT_MAX_HANDLES: u64 = 2;
 
 /// Startup checks. Warns about secretless http resources and pings the
 /// worker; returns whether the worker is up.
@@ -57,12 +64,70 @@ impl Handler {
             }
             *last = Some(Instant::now());
         }
-        let up = worker::ping(&self.cfg.worker_socket).await;
+        let info = worker::ping_info(&self.cfg.worker_socket).await;
+        let up = info.is_some();
+        if let Ok(mut last) = self.ping_info.lock() {
+            *last = info;
+        }
         let was = self.worker_up.swap(up, Ordering::SeqCst);
         if up && !was {
             tracing::info!(target: "runner.ops", "worker up");
         } else if !up && was {
             tracing::warn!(target: "runner.ops", "worker lost");
+        }
+    }
+
+    /// The worker numbers for the health: `busy` from the last ping, the
+    /// limits from the config (a browser resource has no limit in the ping).
+    pub fn worker_health(&self) -> WorkerHealth {
+        let needed = needs_worker(&self.cfg);
+        let up = self.worker_up.load(Ordering::SeqCst);
+        let ping = self.ping_info.lock().ok().and_then(|p| p.clone());
+        let busy_of = |id: &str| {
+            ping.as_ref()
+                .and_then(|p| {
+                    p.get("browser")?.as_array()?.iter().find_map(|b| {
+                        (b.get("resource")?.as_str()? == id).then(|| b.get("busy")?.as_u64())?
+                    })
+                })
+                .unwrap_or(0)
+        };
+        let mut ids: Vec<&String> = self
+            .cfg
+            .resources
+            .iter()
+            .filter(|(_, r)| r.r#type == "browser")
+            .map(|(id, _)| id)
+            .collect();
+        ids.sort();
+        let browser = ids
+            .into_iter()
+            .map(|id| contract::BrowserLoad {
+                resource: id.clone(),
+                busy: busy_of(id),
+                limit: self.cfg.resources[id]
+                    .max_contexts
+                    .map_or(DEFAULT_MAX_CONTEXTS, u64::from),
+            })
+            .collect();
+        let cli_limit: u64 = self
+            .cfg
+            .resources
+            .values()
+            .filter(|r| r.r#type == "cli")
+            .map(|r| r.max_handles.map_or(DEFAULT_MAX_HANDLES, u64::from))
+            .sum();
+        let cli_ping = ping.as_ref().and_then(|p| p.get("cli"));
+        let num = |k: &str| cli_ping.and_then(|c| c.get(k)?.as_u64());
+        let cli = has_type(&self.cfg, "cli").then(|| contract::CliLoad {
+            busy: num("busy").unwrap_or(0),
+            limit: num("limit").unwrap_or(cli_limit),
+        });
+        WorkerHealth {
+            needed,
+            up,
+            browser,
+            cli,
         }
     }
 

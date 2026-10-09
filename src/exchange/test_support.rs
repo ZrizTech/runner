@@ -290,7 +290,26 @@ pub(crate) fn frame_op_id(f: &contract::Frame) -> String {
 }
 
 pub(crate) fn exchange_response_body(frames: Vec<contract::Frame>) -> Vec<u8> {
-    json_body(&contract::ExchangeResponse { v: 1, frames })
+    exchange_response_with(frames, &[])
+}
+
+/// A `200` body with a run-end notice: `(run id, trace id)` pairs.
+pub(crate) fn exchange_response_with(
+    frames: Vec<contract::Frame>,
+    ended: &[(&str, &str)],
+) -> Vec<u8> {
+    let ended_runs = ended
+        .iter()
+        .map(|(r, t)| contract::EndedRun {
+            run_id: r.to_string(),
+            trace_id: t.to_string(),
+        })
+        .collect();
+    json_body(&contract::ExchangeResponse {
+        v: 1,
+        frames,
+        ended_runs,
+    })
 }
 
 pub(crate) fn build_op_frame(frame_id: &str, op_id: &str) -> contract::Frame {

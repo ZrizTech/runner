@@ -14,7 +14,7 @@
   "inflight": 0,
   "health": {
     "boot-id": "b-7f3a9c1e2d4b",
-    "state": "ok",
+    "state": "silent",
     "refused": 0
   },
   "frames": []

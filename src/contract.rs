@@ -5,7 +5,10 @@
 mod frame;
 pub mod schema;
 
-pub use frame::{Error, ExchangeRequest, ExchangeResponse, Frame, Op, Result, Runner, Timing};
+pub use frame::{
+    BrowserLoad, CliLoad, EndedRun, Error, ExchangeRequest, ExchangeResponse, Frame, Health, Op,
+    Result, Runner, Timing,
+};
 pub use schema::{ContractError, Validator, deny_keys};
 
 use serde::de::DeserializeOwned;

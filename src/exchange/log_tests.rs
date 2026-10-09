@@ -68,7 +68,7 @@ async fn exchange_lines_follow_the_log_format() {
     );
     assert!(
         has(
-            " DEBUG trace_id=-                                    runner.exchange poll done http_status=200 sent=0 received=1 elapsed_ms="
+            " INFO  trace_id=-                                    runner.exchange poll done http_status=200 sent=0 received=1 elapsed_ms="
         ),
         "{out}"
     );

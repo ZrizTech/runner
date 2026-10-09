@@ -4,11 +4,17 @@
 //! the cloud rejects the token.
 
 mod frames;
+mod health;
+mod reply;
 mod token;
 
+pub use health::WorkerHealth;
+
 use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame};
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex, Once, RwLock};
 use std::time::Duration;
 use tokio::sync::Semaphore;
@@ -53,6 +59,16 @@ pub trait Handler: Send + Sync {
     fn refresh(&self) -> BoxFuture<'_, ()> {
         Box::pin(async {})
     }
+
+    /// The worker numbers for the health of the next request.
+    fn worker_health(&self) -> WorkerHealth {
+        WorkerHealth::default()
+    }
+
+    /// A run ended (run-end notice): free every resource it got.
+    fn run_ended(&self, _run_id: &str, _trace_id: &str) -> BoxFuture<'_, ()> {
+        Box::pin(async {})
+    }
 }
 
 impl Handler for crate::ops::Handler {
@@ -74,6 +90,15 @@ impl Handler for crate::ops::Handler {
 
     fn refresh(&self) -> BoxFuture<'_, ()> {
         Box::pin(async move { crate::ops::Handler::refresh_worker(self).await })
+    }
+
+    fn worker_health(&self) -> WorkerHealth {
+        crate::ops::Handler::worker_health(self)
+    }
+
+    fn run_ended(&self, run_id: &str, trace_id: &str) -> BoxFuture<'_, ()> {
+        let (run_id, trace_id) = (run_id.to_string(), trace_id.to_string());
+        Box::pin(async move { crate::ops::Handler::run_ended(self, &run_id, &trace_id).await })
     }
 }
 
@@ -219,6 +244,14 @@ struct Inner {
     backoff: Mutex<Duration>,
     token: RwLock<String>,
     connect_once: Once,
+    /// Made once at process start; sent in the health of each request.
+    boot_id: String,
+    /// Ops refused with `runner-at-capacity` since the last sent request.
+    refused: AtomicU64,
+    /// Ops ended with `runner-error` or `worker-error` since the last sent request.
+    errors: AtomicU64,
+    /// How often the cloud refused each queued frame (by frame id).
+    refusals: Mutex<HashMap<String, u32>>,
 }
 
 impl Inner {
@@ -239,6 +272,10 @@ impl Inner {
             backoff: Mutex::new(backoff),
             token: RwLock::new(token),
             connect_once: Once::new(),
+            boot_id: health::new_boot_id(),
+            refused: AtomicU64::new(0),
+            errors: AtomicU64::new(0),
+            refusals: Mutex::new(HashMap::new()),
             cfg,
             cancel,
         }
@@ -350,6 +387,9 @@ mod conformance_tests;
 #[cfg(test)]
 #[path = "log_tests.rs"]
 mod log_tests;
+#[cfg(test)]
+#[path = "notice_tests.rs"]
+mod notice_tests;
 
 #[cfg(test)]
 #[path = "exchange_tests.rs"]

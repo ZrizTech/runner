@@ -185,7 +185,7 @@ async fn missing_path_fails_and_stores_nothing() {
 }
 
 #[tokio::test]
-async fn idle_eviction() {
+async fn idle_vault_is_kept() {
     let server = MockServer::start().await;
     mount(&server).await;
     let (h, clock) = handler(&server).await;
@@ -205,7 +205,7 @@ async fn idle_eviction() {
         &[],
     )
     .await;
-    assert!(r.is_none());
-    assert!(e.expect("error").message.contains("TOKEN"));
-    assert_eq!(h.vault.run_count(), 0);
+    assert!(e.is_none(), "{e:?}");
+    assert!(r.is_some());
+    assert_eq!(h.vault.run_count(), 1);
 }

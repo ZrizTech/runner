@@ -18,6 +18,39 @@
       "additionalProperties": true
     },
     "inflight": {"type": "integer"},
+    "health": {
+      "type": "object",
+      "properties": {
+        "boot-id": {"type": "string"},
+        "state": {"enum": ["ok", "busy", "degraded"]},
+        "browser": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "resource": {"type": "string"},
+              "busy": {"type": "integer", "minimum": 0},
+              "limit": {"type": "integer", "minimum": 0}
+            },
+            "required": ["resource", "busy", "limit"],
+            "additionalProperties": false
+          }
+        },
+        "cli": {
+          "type": "object",
+          "properties": {
+            "busy": {"type": "integer", "minimum": 0},
+            "limit": {"type": "integer", "minimum": 0}
+          },
+          "required": ["busy", "limit"],
+          "additionalProperties": false
+        },
+        "worker": {"enum": ["up", "down"]},
+        "refused": {"type": "integer", "minimum": 0}
+      },
+      "required": ["boot-id", "state", "refused"],
+      "additionalProperties": false
+    },
     "frames": {
       "type": "array",
       "items": {
@@ -35,6 +68,6 @@
       }
     }
   },
-  "required": ["v", "runner", "inflight", "frames"],
+  "required": ["v", "runner", "inflight", "health", "frames"],
   "additionalProperties": true
 }

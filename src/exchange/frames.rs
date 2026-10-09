@@ -2,11 +2,14 @@
 //! the bounded pool, and building the result/error frames a finished op
 //! replies with.
 
-use super::{ErrorFrame, Inner, ResultFrame, StepError};
+use super::health::{self, Snapshot};
+use super::reply::{error_frame, reply_frame};
+use super::{ErrorFrame, Inner, StepError};
 use crate::contract;
 use futures::FutureExt;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
 use tracing::Instrument;
 
 /// One WARN `poll failed`; `error` is a short fixed word, never library text.
@@ -15,10 +18,27 @@ fn poll_failed(status: Option<u16>, error: &str, t0: Instant) {
     tracing::warn!(target: "runner.exchange", http_status = status, error = error, elapsed_ms = us, "poll failed");
 }
 
-/// One DEBUG `poll done` line. `status` is `None` when no HTTP answer came.
+/// A poll that took this long or longer is worth an INFO line.
+const SLOW_POLL: Duration = Duration::from_millis(35_000);
+
+/// The most refusals of one frame before the runner drops it.
+const MAX_REFUSALS: u32 = 3;
+
+/// One `poll done` line: INFO when frames came or the poll was slow, else
+/// DEBUG. `status` is `None` when no HTTP answer came.
 fn poll_done(status: Option<u16>, sent: usize, received: usize, t0: Instant) {
-    let us = crate::logfmt::micros(t0.elapsed());
-    tracing::debug!(target: "runner.exchange", http_status = status, sent = sent, received = received, elapsed_ms = us, "poll done");
+    let elapsed = t0.elapsed();
+    let us = crate::logfmt::micros(elapsed);
+    if received > 0 || elapsed >= SLOW_POLL {
+        tracing::info!(target: "runner.exchange", http_status = status, sent = sent, received = received, elapsed_ms = us, "poll done");
+    } else {
+        tracing::debug!(target: "runner.exchange", http_status = status, sent = sent, received = received, elapsed_ms = us, "poll done");
+    }
+}
+
+/// A refusal is a 4xx other than 401 (token) and 429 (rate limit).
+fn is_refusal(status: u16) -> bool {
+    (400..500).contains(&status) && status != 401 && status != 429
 }
 
 impl Inner {
@@ -45,8 +65,21 @@ impl Inner {
         q.push(frame);
     }
 
-    fn build_request(&self, frames: Vec<contract::Frame>) -> contract::ExchangeRequest {
-        let inflight = (self.capacity - self.semaphore.available_permits()) as i64;
+    fn snapshot(&self) -> Snapshot {
+        Snapshot {
+            inflight: (self.capacity - self.semaphore.available_permits()) as i64,
+            max_inflight: self.declared_max_inflight,
+            worker: self.cfg.handler.worker_health(),
+            refused: self.refused.swap(0, Ordering::SeqCst),
+            errors: self.errors.swap(0, Ordering::SeqCst),
+        }
+    }
+
+    fn build_request(
+        &self,
+        frames: Vec<contract::Frame>,
+        snap: &Snapshot,
+    ) -> contract::ExchangeRequest {
         contract::ExchangeRequest {
             v: 1,
             runner: contract::Runner {
@@ -57,9 +90,27 @@ impl Inner {
                 max_inflight: self.declared_max_inflight,
                 env: self.cfg.env.clone(),
             },
-            inflight,
+            inflight: snap.inflight,
+            health: health::health(&self.boot_id, snap),
             frames,
         }
+    }
+
+    /// The request got no HTTP answer: its counts go back, to be sent in
+    /// the next request. (A request that got an answer keeps them out: they
+    /// start over at 0 when the request is built.)
+    fn counts_unsent(&self, snap: &Snapshot) {
+        self.refused.fetch_add(snap.refused, Ordering::SeqCst);
+        self.errors.fetch_add(snap.errors, Ordering::SeqCst);
+    }
+
+    /// Counts the end of one op for the health of the next request.
+    fn count_reply(&self, reason: Option<&str>) {
+        match reason {
+            Some("runner-at-capacity") => self.refused.fetch_add(1, Ordering::SeqCst),
+            Some("runner-error" | "worker-error") => self.errors.fetch_add(1, Ordering::SeqCst),
+            _ => 0,
+        };
     }
 
     fn current_token(&self) -> String {
@@ -93,7 +144,8 @@ impl Inner {
     pub(super) async fn exchange(self: &Arc<Self>) -> std::result::Result<(), StepError> {
         self.cfg.handler.refresh().await;
         let sent = self.drain_queue();
-        let req = self.build_request(sent.clone());
+        let snap = self.snapshot();
+        let req = self.build_request(sent.clone(), &snap);
 
         let t0 = Instant::now();
         let post_result = tokio::select! {
@@ -103,11 +155,13 @@ impl Inner {
 
         let resp = match post_result {
             None => {
+                self.counts_unsent(&snap);
                 self.push_front(sent);
                 return Err(StepError::Cancelled);
             }
             Some(Ok(r)) => r,
             Some(Err(e)) => {
+                self.counts_unsent(&snap);
                 self.push_front(sent);
                 let why = if e.is_timeout() {
                     "timeout"
@@ -133,6 +187,7 @@ impl Inner {
         match resp.status() {
             reqwest::StatusCode::OK => self.handle_ok(resp, sent, t0).await,
             reqwest::StatusCode::NO_CONTENT => {
+                self.forget_refusals(&sent);
                 poll_done(Some(204), sent.len(), 0, t0);
                 self.connected();
                 Ok(())
@@ -145,11 +200,48 @@ impl Inner {
                 Err(StepError::Unauthorized)
             }
             other => {
-                self.push_front(sent);
-                poll_failed(Some(other.as_u16()), "bad-status", t0);
+                let status = other.as_u16();
+                let kept = if is_refusal(status) {
+                    self.drop_refused(status, sent)
+                } else {
+                    sent
+                };
+                self.push_front(kept);
+                poll_failed(Some(status), "bad-status", t0);
                 Err(StepError::Failed)
             }
         }
+    }
+
+    /// The cloud took `sent`: it is not refused any more.
+    fn forget_refusals(&self, sent: &[contract::Frame]) {
+        let mut m = self.refusals.lock().unwrap_or_else(|e| e.into_inner());
+        for f in sent {
+            m.remove(&f.id);
+        }
+    }
+
+    /// Counts one refusal for each of `sent`. A frame refused for the third
+    /// time is dropped, with one ERROR line (`count` is the number of tries) for all that drop; the rest is
+    /// returned to be queued again.
+    fn drop_refused(&self, status: u16, sent: Vec<contract::Frame>) -> Vec<contract::Frame> {
+        let mut m = self.refusals.lock().unwrap_or_else(|e| e.into_inner());
+        let mut kept = Vec::new();
+        let mut dropped = false;
+        for f in sent {
+            let n = m.entry(f.id.clone()).or_insert(0);
+            *n += 1;
+            if *n >= MAX_REFUSALS {
+                m.remove(&f.id);
+                dropped = true;
+            } else {
+                kept.push(f);
+            }
+        }
+        if dropped {
+            tracing::error!(target: "runner.exchange", http_status = status, count = MAX_REFUSALS, reason = "refused", "frames dropped");
+        }
+        kept
     }
 
     async fn handle_ok(
@@ -166,10 +258,33 @@ impl Inner {
                 return Err(StepError::Failed);
             }
         };
+        self.forget_refusals(&sent);
         poll_done(Some(200), sent.len(), body.frames.len(), t0);
         self.connected();
+        for run in body.ended_runs {
+            self.run_ended(run);
+        }
         self.dispatch(body.frames);
         Ok(())
+    }
+
+    /// One id of a run-end notice: one DEBUG line with the trace of the
+    /// notice, then the handler frees the resources off the loop.
+    fn run_ended(self: &Arc<Self>, run: contract::EndedRun) {
+        let trace = if run.trace_id.len() == 36 {
+            run.trace_id.as_str()
+        } else {
+            "-"
+        };
+        tracing::debug!(target: "runner.exchange", run_id = %run.run_id, trace_id = trace, "run closed");
+        let inner = Arc::clone(self);
+        tokio::spawn(async move {
+            inner
+                .cfg
+                .handler
+                .run_ended(&run.run_id, &run.trace_id)
+                .await;
+        });
     }
 
     /// Runs every op frame in the response, one task per op, on the bounded
@@ -208,7 +323,9 @@ impl Inner {
 
     fn reject(&self, frame_id: &str, op: &contract::Op) {
         let op_id = op.op_id.as_str();
-        tracing::error!(target: "runner.ops", run_id = %op.run_id, step = op.step_index, op_id = %op_id, kind = %op.kind, resource = %op.resource, status = "error", reason = "runner-at-capacity", error = "capacity", trace_id = op.valid_trace_id().unwrap_or("-"), "op failed");
+        let busy = self.capacity as u64;
+        self.count_reply(Some("runner-at-capacity"));
+        tracing::error!(target: "runner.ops", run_id = %op.run_id, step = op.step_index, op_id = %op_id, kind = %op.kind, resource = %op.resource, status = "error", reason = "runner-at-capacity", busy = busy, cap = busy, error = "capacity", trace_id = op.valid_trace_id().unwrap_or("-"), "op failed");
         match error_frame(
             frame_id,
             contract::Error {
@@ -262,6 +379,7 @@ impl Inner {
                     }),
                 ),
             };
+        self.count_reply(err.as_ref().map(|e| e.reason.as_str()));
         match reply_frame(&frame_id, result, err) {
             Ok(frame) => self.push_back(frame),
             Err(e) => {
@@ -292,68 +410,4 @@ impl Inner {
             }
         });
     }
-}
-
-/// Errors building a reply frame: either the handler broke its contract
-/// (returned neither a result nor an error), or the reply body failed to
-/// encode. Either way the op's reply is dropped and only logged, never sent
-/// as a synthesized frame.
-#[derive(Debug, thiserror::Error)]
-enum ReplyError {
-    #[error("exchange: handler returned neither result nor error")]
-    NeitherResultNorError,
-    #[error("exchange: marshal frame body: {0}")]
-    Marshal(#[source] serde_json::Error),
-}
-
-fn reply_frame(
-    frame_id: &str,
-    result: Option<ResultFrame>,
-    op_err: Option<ErrorFrame>,
-) -> std::result::Result<contract::Frame, ReplyError> {
-    if let Some(e) = op_err {
-        return error_frame(frame_id, e).map_err(ReplyError::Marshal);
-    }
-    if let Some(r) = result {
-        return result_frame(frame_id, r).map_err(ReplyError::Marshal);
-    }
-    Err(ReplyError::NeitherResultNorError)
-}
-
-fn result_frame(
-    frame_id: &str,
-    result: ResultFrame,
-) -> std::result::Result<contract::Frame, serde_json::Error> {
-    new_frame("result", frame_id, result)
-}
-
-fn error_frame(
-    frame_id: &str,
-    op_err: ErrorFrame,
-) -> std::result::Result<contract::Frame, serde_json::Error> {
-    new_frame("error", frame_id, op_err)
-}
-
-fn new_frame(
-    t: &str,
-    re: &str,
-    d: impl serde::Serialize,
-) -> std::result::Result<contract::Frame, serde_json::Error> {
-    let value = serde_json::to_value(d)?;
-    Ok(contract::Frame {
-        v: 1,
-        t: t.to_string(),
-        id: uuid::Uuid::new_v4().to_string(),
-        re: Some(re.to_string()),
-        ts: now_millis(),
-        d: value,
-    })
-}
-
-fn now_millis() -> i64 {
-    crate::logfmt::millis(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default(),
-    )
 }

@@ -14,6 +14,23 @@
     "env": "local"
   },
   "inflight": 0,
+  "health": {
+    "boot-id": "b-7f3a9c1e2d4b",
+    "state": "busy",
+    "browser": [
+      {
+        "resource": "myshop-api",
+        "busy": 2,
+        "limit": 2
+      }
+    ],
+    "cli": {
+      "busy": 0,
+      "limit": 16
+    },
+    "worker": "up",
+    "refused": 2
+  },
   "frames": [
     {
       "v": 1,

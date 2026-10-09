@@ -1,14 +1,14 @@
 //! Per-run cookie jars for http resources that set `"cookies": true`.
-//! A jar is keyed by (run-id, resource name), lives in memory only, and is
-//! dropped after [`IDLE_TTL`] without use; at most [`MAX_JARS`] jars exist
-//! (the longest idle goes first). Cookie values never leave this module
+//! A jar is keyed by (run-id, resource name) and lives in memory only. It
+//! stays until the run-end notice ([`Jars::forget_run`]) or the end of the
+//! process; at most [`MAX_JARS`] jars exist (the longest idle goes first,
+//! with one WARN `state dropped`). Cookie values never leave this module
 //! except as scrub-list entries and the outgoing `Cookie` header.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub(super) const IDLE_TTL: Duration = Duration::from_secs(30 * 60);
 pub(super) const MAX_JARS: usize = 1000;
 
 pub(crate) type JarKey = (String, String);
@@ -30,6 +30,18 @@ pub(crate) struct Jars {
 }
 
 impl Jars {
+    #[cfg(test)]
+    pub(crate) fn len(&self) -> usize {
+        self.inner.lock().map_or(0, |m| m.len())
+    }
+
+    /// Drops every jar of `run_id` (the run ended).
+    pub(crate) fn forget_run(&self, run_id: &str) {
+        if let Ok(mut map) = self.inner.lock() {
+            map.retain(|(run, _), _| run != run_id);
+        }
+    }
+
     /// The `Cookie` header value for a request to `url`, or `None` when the
     /// jar has nothing for that path.
     pub(crate) fn cookie_header(
@@ -39,7 +51,6 @@ impl Jars {
         now: SystemTime,
     ) -> Option<String> {
         let mut map = self.inner.lock().ok()?;
-        evict_idle(&mut map, now);
         let jar = map.get_mut(key)?;
         jar.last_used = now;
         let parts: Vec<String> = jar
@@ -62,7 +73,6 @@ impl Jars {
         let Ok(mut map) = self.inner.lock() else {
             return Vec::new();
         };
-        evict_idle(&mut map, now);
         if !map.contains_key(key) {
             if set_cookies.is_empty() {
                 return Vec::new();
@@ -74,6 +84,7 @@ impl Jars {
                     .map(|(k, _)| k.clone())
             {
                 map.remove(&oldest);
+                tracing::warn!(target: "runner.ops", run_id = %oldest.0, kind = "jar", "state dropped");
             }
             map.insert(
                 key.clone(),
@@ -102,13 +113,6 @@ impl Jars {
         values.retain(|v| !v.is_empty());
         values
     }
-}
-
-fn evict_idle(map: &mut HashMap<JarKey, Jar>, now: SystemTime) {
-    map.retain(|_, j| {
-        now.duration_since(j.last_used)
-            .map_or(true, |d| d <= IDLE_TTL)
-    });
 }
 
 fn path_matches(req: &str, cookie: &str) -> bool {

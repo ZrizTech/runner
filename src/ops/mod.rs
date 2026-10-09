@@ -6,6 +6,7 @@ mod announce;
 mod browser;
 mod capture;
 mod cli;
+mod ended;
 mod evidence;
 mod handles;
 mod http;
@@ -22,6 +23,7 @@ pub use sql::{DsnError, ParsedDsn, SqlConn, SqlOpError, parse_dsn};
 use crate::config::{self, Config};
 use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame};
 use crate::evidence::Store as EvidenceStore;
+use crate::exchange::WorkerHealth;
 use crate::placeholder::{self, PlaceholderError};
 use crate::scrub;
 use serde_json::{Map, Value};
@@ -124,6 +126,8 @@ pub struct Handler {
     handles: handles::Handles,
     worker_up: AtomicBool,
     last_ping: Mutex<Option<Instant>>,
+    /// The last good ping response of the worker; `None` while it is down.
+    ping_info: Mutex<Option<Value>>,
 }
 
 impl Handler {
@@ -167,6 +171,7 @@ impl Handler {
         Ok(Self {
             worker_up: AtomicBool::new(worker_up),
             last_ping: Mutex::new(Some(Instant::now())),
+            ping_info: Mutex::new(None),
             cfg,
             http_client,
             sql_conns,
@@ -389,3 +394,7 @@ fn default_now() -> NowFn {
 #[cfg(test)]
 #[path = "ops_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "state_tests.rs"]
+mod state_tests;

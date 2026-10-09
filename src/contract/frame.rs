@@ -106,7 +106,39 @@ pub struct ExchangeRequest {
     pub v: i64,
     pub runner: Runner,
     pub inflight: i64,
+    pub health: Health,
     pub frames: Vec<Frame>,
+}
+
+/// One browser resource in the health: contexts in use and the limit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrowserLoad {
+    pub resource: String,
+    pub busy: u64,
+    pub limit: u64,
+}
+
+/// The cli handles in use and the limit, for all cli resources.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CliLoad {
+    pub busy: u64,
+    pub limit: u64,
+}
+
+/// The health of the runner, in each exchange request. Only numbers, ids
+/// and fixed words.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Health {
+    #[serde(rename = "boot-id")]
+    pub boot_id: String,
+    pub state: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser: Option<Vec<BrowserLoad>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cli: Option<CliLoad>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worker: Option<String>,
+    pub refused: u64,
 }
 
 /// What the cloud sends back to the runner.
@@ -114,4 +146,15 @@ pub struct ExchangeRequest {
 pub struct ExchangeResponse {
     pub v: i64,
     pub frames: Vec<Frame>,
+    #[serde(rename = "ended-runs")]
+    pub ended_runs: Vec<EndedRun>,
+}
+
+/// A run that ended, in the run-end notice of an exchange response.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EndedRun {
+    #[serde(rename = "run-id")]
+    pub run_id: String,
+    #[serde(rename = "trace-id")]
+    pub trace_id: String,
 }

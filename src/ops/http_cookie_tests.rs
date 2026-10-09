@@ -176,7 +176,7 @@ async fn echoed_cookie_is_scrubbed() {
 }
 
 #[tokio::test]
-async fn idle_jar_is_evicted() {
+async fn idle_jar_is_kept() {
     let server = MockServer::start().await;
     mount_login(&server, &format!("sid={SID}; Path=/")).await;
     let (h, clock) = handler(&server, true).await;
@@ -186,7 +186,7 @@ async fn idle_jar_is_evicted() {
     assert!(cookie_of_last(&server).await.is_some());
     clock.fetch_add(31 * 60, Ordering::SeqCst);
     call(&h, "run-a", "/me", None).await;
-    assert_eq!(cookie_of_last(&server).await, None);
+    assert!(cookie_of_last(&server).await.is_some());
 }
 
 #[tokio::test]

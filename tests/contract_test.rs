@@ -136,6 +136,14 @@ fn exchange_request_encodes_empty_frames_as_array() {
             env: String::new(),
         },
         inflight: 0,
+        health: contract::Health {
+            boot_id: "b-0123456789ab".to_string(),
+            state: "ok".to_string(),
+            browser: None,
+            cli: None,
+            worker: None,
+            refused: 0,
+        },
         frames: vec![],
     };
     let data = serde_json::to_value(&req).expect("marshal");

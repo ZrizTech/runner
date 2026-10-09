@@ -15,7 +15,14 @@
   "health": {
     "boot-id": "b-7f3a9c1e2d4b",
     "state": "ok",
-    "refused": 0
+    "refused": 0,
+    "browser": [
+      {
+        "resource": "r",
+        "busy": -1,
+        "limit": 2
+      }
+    ]
   },
   "frames": []
 }

@@ -19,8 +19,21 @@
         "required": ["v", "t", "id", "re", "ts", "d"],
         "additionalProperties": true
       }
+    },
+    "ended-runs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "properties": {
+          "run-id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+          "trace-id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"}
+        },
+        "required": ["run-id", "trace-id"],
+        "additionalProperties": false
+      }
     }
   },
-  "required": ["v", "frames"],
+  "required": ["v", "frames", "ended-runs"],
   "additionalProperties": true
 }

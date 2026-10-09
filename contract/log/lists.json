@@ -1234,6 +1234,7 @@
    },
    "poll done": {
     "levels": [
+     "INFO",
      "DEBUG"
     ],
     "keys": [

@@ -11,6 +11,8 @@ const MAX_RESPONSE_BYTES: u64 = 4 << 20;
 
 const PING_TIMEOUT: Duration = Duration::from_secs(1);
 
+const CLOSE_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// The worker could not be reached or spoke garbage.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Unavailable;
@@ -42,11 +44,25 @@ pub(crate) async fn call(
         .map_err(|_| Unavailable)?
 }
 
+/// The ping response when the worker answers a good ping, else `None`.
+pub(crate) async fn ping_info(socket: &str) -> Option<Value> {
+    let req = json!({"v": 1, "kind": "ping"});
+    let v = call(socket, &req, PING_TIMEOUT).await.ok()?;
+    (v.get("ok") == Some(&Value::Bool(true)) && v.get("kind") == Some(&json!("ping"))).then_some(v)
+}
+
 /// True when the worker answers a ping.
 pub(crate) async fn ping(socket: &str) -> bool {
-    let req = json!({"v": 1, "kind": "ping"});
-    match call(socket, &req, PING_TIMEOUT).await {
-        Ok(v) => v.get("ok") == Some(&Value::Bool(true)) && v.get("kind") == Some(&json!("ping")),
-        Err(_) => false,
-    }
+    ping_info(socket).await.is_some()
+}
+
+/// Tells the worker that a run ended; it closes the contexts and handles of
+/// that run. `Err` when the worker is not reachable.
+pub(crate) async fn run_close(
+    socket: &str,
+    run_id: &str,
+    trace_id: &str,
+) -> Result<(), Unavailable> {
+    let req = json!({"v": 1, "kind": "run.close", "run": run_id, "trace-id": trace_id});
+    call(socket, &req, CLOSE_TIMEOUT).await.map(|_| ())
 }

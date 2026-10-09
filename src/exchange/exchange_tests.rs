@@ -346,7 +346,7 @@ async fn backoff_on_transport_error_keeps_looping() {
 async fn unparsable_frame_is_skipped_and_loop_continues() {
     let handler: Arc<dyn Handler> = Arc::new(FakeHandler::new(4));
     let bad_body =
-        br#"{"v":1,"frames":[{"v":1,"t":"op","id":"x","re":null,"ts":1,"d":{"op-id":"bad"}}]}"#
+        br#"{"v":1,"frames":[{"v":1,"t":"op","id":"x","re":null,"ts":1,"d":{"op-id":"bad"}}],"ended-runs":[]}"#
             .to_vec();
 
     let cloud = ImmediateCloud::new(move |n, _req| {

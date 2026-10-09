@@ -125,7 +125,7 @@ async fn run_recovers_from_unauthorized_after_token_rotates() {
             } else {
                 ResponseTemplate::new(200)
                     .insert_header("content-type", "application/json")
-                    .set_body_raw(r#"{"v":1,"frames":[]}"#, "application/json")
+                    .set_body_raw(r#"{"v":1,"frames":[],"ended-runs":[]}"#, "application/json")
             }
         })
         .mount(&server)
@@ -163,7 +163,7 @@ async fn run_clean_shutdown_exits_zero() {
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/json")
-                .set_body_raw(r#"{"v":1,"frames":[]}"#, "application/json"),
+                .set_body_raw(r#"{"v":1,"frames":[],"ended-runs":[]}"#, "application/json"),
         )
         .mount(&server)
         .await;

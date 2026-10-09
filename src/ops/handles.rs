@@ -4,10 +4,12 @@
 //! after [`IDLE_TTL`] without use, at most [`MAX_JARS`] entries (longest idle
 //! goes first).
 
-use super::jar::{IDLE_TTL, MAX_JARS};
+use super::jar::MAX_JARS;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
+
+const IDLE_TTL: Duration = Duration::from_secs(30 * 60);
 
 type Key = (String, String, String);
 
@@ -70,6 +72,13 @@ impl Handles {
                 last_used: now,
             },
         );
+    }
+
+    /// Drops every handle name of `run_id` (the run ended).
+    pub(crate) fn forget_run(&self, run_id: &str) {
+        if let Ok(mut map) = self.inner.lock() {
+            map.retain(|(run, _, _), _| run != run_id);
+        }
     }
 
     pub(crate) fn forget(&self, run: &str, resource: &str, handle: &str) {
