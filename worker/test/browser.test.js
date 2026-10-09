@@ -188,7 +188,7 @@ test('close API: closeContext, closeRun, sweep', async () => {
   assert.equal(host.has('r-close', 'a'), false)
   await host.closeRun('r-close')
   assert.equal(host.has('r-close', 'b'), false)
-  await run([goto('/cookie-get'), read('c', 'text', css('#c'))], { run: 'r-close', resource: 'a' })
+  await run([goto('/cookie-get'), read('c', 'text', css('#c'))], { run: 'r-close2', resource: 'a' })
   const before = host.size()
   await host.sweep(60000)
   assert.equal(host.size(), before)

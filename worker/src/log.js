@@ -4,7 +4,7 @@ import { DEFAULT_FILTER, enabled, formatLine, makeClock, parseFilter } from './l
 const ID = /^[A-Za-z0-9_.:-]{1,64}$/
 const TRACE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const KINDS = new Set(['browser.page', 'cli.exec'])
-const REASONS = new Set(['bad-json', 'bad-version', 'unknown-kind', 'bad-request', 'request-too-large', 'not-implemented', 'at-capacity', 'handle-busy', 'no-handle', 'too-many-handles', 'spawn-failed', 'internal', 'timeout'])
+const REASONS = new Set(['bad-json', 'bad-version', 'unknown-kind', 'bad-request', 'request-too-large', 'not-implemented', 'at-capacity', 'context-lost', 'handle-busy', 'no-handle', 'too-many-handles', 'spawn-failed', 'internal', 'timeout'])
 const MODES = new Set(['run', 'start', 'read', 'wait', 'stop'])
 const okId = (v) => (typeof v === 'string' && ID.test(v) ? v : undefined)
 const COMPONENT = { 'browser.page': 'worker.browser', 'cli.exec': 'worker.cli' }

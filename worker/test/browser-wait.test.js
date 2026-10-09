@@ -105,7 +105,7 @@ test('a waiter gets the place when run.close arrives inside the wait; first come
   const order = []
   const w1 = host.handle(req(1, 'b', 1)).then((r) => { order.push('b'); return r })
   await new Promise((r) => setTimeout(r, 20))
-  const w2 = host.handle(req(2, 'c', 1, 150)).then((r) => { order.push('c'); return r })
+  const w2 = host.handle(req(2, 'c', 1, 1150)).then((r) => { order.push('c'); return r })
   await new Promise((r) => setTimeout(r, 20))
   assert.equal(await host.closeRun('a'), 1)
   const [r1, r2] = await Promise.all([w1, w2])
@@ -146,8 +146,8 @@ test('context-lost with why idle exactly one time after the sweep; run.close for
   assert.equal(lost.why, 'idle')
   assert.equal(validateResponse(lost), true, JSON.stringify(validateResponse.errors))
   assert.equal((await host.handle(idle(3, 'a'))).ok, true) // only one time
-  await host.closeRun('b') // forgets the entry
-  assert.equal((await host.handle(idle(4, 'b'))).ok, true)
+  await host.closeRun('b') // forgets the entry; the run is ended, so its answer is run-closed, not idle
+  assert.equal((await host.handle(idle(4, 'b'))).why, 'run-closed')
   await host.closeAll()
 })
 
@@ -172,7 +172,7 @@ test('closeRun closes the contexts of one run only; a failed creation frees its 
   assert.equal(await host.closeRun('a'), 1)
   assert.equal(await host.closeRun('nobody'), 0)
   assert.equal(host.has('b', 'web'), true)
-  assert.equal((await host.handle(req(2, 'a', 2))).ok, true) // run.close forgot nothing to report
+  assert.equal((await host.handle(req(2, 'a', 2))).why, 'run-closed') // an ended run makes no new context
   await host.closeAll()
 
   const bad = fakeLaunch({ failNew: true })

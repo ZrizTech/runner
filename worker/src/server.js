@@ -11,15 +11,15 @@ const READ_TIMEOUT_MS = 10000
 const BOOT_ID = `b-${randomBytes(6).toString('hex')}`
 
 // ping, run.close, browser.page and cli.exec are answered.
-const makeHandler = (host, cli) => async (req) => {
+const makeHandler = (host, cli) => async (req, { signal } = {}) => {
   if (req.kind === 'ping') return { v: VERSION, kind: 'ping', ok: true, browser: host.stats(), cli: { busy: cli.size(), limit: cli.limit }, 'boot-id': BOOT_ID }
   if (req.kind === 'run.close') return { v: VERSION, kind: 'run.close', ok: true, closed: (await host.closeRun(req.run)) + (await cli.closeRun(req.run)) }
-  if (req.kind === 'browser.page') return host.handle(req)
-  if (req.kind === 'cli.exec') return cli.handle(req)
+  if (req.kind === 'browser.page') return host.handle(req, { signal })
+  if (req.kind === 'cli.exec') return cli.handle(req, { signal })
   return errorResponse('not-implemented', req['op-id'])
 }
 
-export function startServer(socketPath, { log, host = createBrowserHost({ log }), cli = createCliHost(), handler = makeHandler(host, cli) } = {}) {
+export function startServer(socketPath, { log, host = createBrowserHost({ log }), cli = createCliHost({ log }), handler = makeHandler(host, cli) } = {}) {
   if (existsSync(socketPath)) unlinkSync(socketPath)
   const server = net.createServer((sock) => {
     const t0 = process.hrtime.bigint()
@@ -29,6 +29,9 @@ export function startServer(socketPath, { log, host = createBrowserHost({ log })
     sock.setTimeout(READ_TIMEOUT_MS, () => sock.destroy())
     sock.on('error', () => sock.destroy())
 
+    // Aborts when the runner closes its end before the answer: nobody waits, so waiters and ops stop.
+    const gone = new AbortController()
+    sock.on('close', () => { if (!done) gone.abort() })
     let traceId
     const finish = (resp, meta) => {
       if (done) return
@@ -52,7 +55,7 @@ export function startServer(socketPath, { log, host = createBrowserHost({ log })
       const meta = { opId: p.req['op-id'], run: p.req.run, kind: p.req.kind }
       if (p.req.kind === 'cli.exec') { meta.mode = p.req.args.mode; meta.cmd = p.req.policy.command }
       try {
-        const resp = await handler(p.req)
+        const resp = await handler(p.req, { signal: gone.signal })
         // The numbers of a capacity refusal go to the log line.
         if (resp.reason === 'at-capacity') { meta.busy = resp.busy; meta.cap = resp['max-contexts'] }
         if (resp.reason === 'too-many-handles') { meta.busy = cli.size(); meta.cap = cli.limit }

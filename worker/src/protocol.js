@@ -21,6 +21,12 @@ export const ERRORS = {
   'internal': 'internal worker error',
 }
 
+// Messages for a reason with a `why`: the plain message of the reason would be false for these.
+const WHY_MESSAGES = {
+  'context-lost/run-closed': 'the run has ended; its browser context or command was closed',
+  'no-handle/idle': 'this handle was closed after it was idle',
+}
+
 const ID = /^[A-Za-z0-9_.:-]{1,64}$/
 
 // `numbers`: optional integer fields (max-contexts, busy, waited-ms) and `why`, data and never free text.
@@ -29,7 +35,7 @@ export function errorResponse(reason, opId, numbers = {}) {
   if (typeof opId === 'string' && ID.test(opId)) r['op-id'] = opId
   r.ok = false
   r.reason = reason
-  r.message = ERRORS[reason]
+  r.message = WHY_MESSAGES[`${reason}/${numbers.why}`] ?? ERRORS[reason]
   Object.assign(r, numbers)
   return r
 }

@@ -182,7 +182,8 @@
         },
         "why": {
           "enum": [
-            "idle"
+            "idle",
+            "run-closed"
           ]
         }
       }
