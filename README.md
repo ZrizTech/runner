@@ -115,7 +115,7 @@ Do not write `-e ZRIZ_RUNNER_TOKEN=value` on the command line. The shell keeps i
 
 ### Verify the image
 
-A release runs only after CI passes, and only from a commit on `main`. Each release image is signed without a key (Sigstore keyless) and has a build record (provenance) and an SBOM. The runner binary is built with `cargo-auditable`, so the SBOM lists its Rust crates. Replace `<version>` with the version you use, for example `0.1.0`.
+A release runs only after CI passes, and only from a commit on `main`. Each release image is signed without a key (Sigstore keyless) and has a build record (provenance) and an SBOM. The runner binary is built with `cargo-auditable`, so the SBOM lists its Rust crates. Replace `<version>` with the version you use, for example `0.2.0`.
 
 Check the signature. It must come from the release workflow of this repository, on a `v` tag:
 
