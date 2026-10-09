@@ -13,7 +13,7 @@ let n = 0
 before(async () => {
   a = await startSite()
   b = await startSite()
-  host = createBrowserHost({ now: () => clock })
+  host = createBrowserHost({ now: () => clock, maxWaitMs: 100 })
 })
 after(async () => {
   await host.closeAll()
@@ -174,6 +174,9 @@ test('3 busy contexts + a 4th -> at-capacity; the evicted run gets a fresh conte
   await out([goto('/')], { run: 'e3', policy })
   await out([goto('/')], { run: 'e4', policy })
   assert.equal(host.has('e1', 'web'), false)
+  // the host says so once, then the run gets a fresh context
+  const lost = await exec([goto('/')], { run: 'e1', policy })
+  assert.equal(lost.reason, 'context-lost')
   const fresh = await out([goto('/cookie-get'), { do: 'read', as: 'c', what: 'text', target: css('#c') }], { run: 'e1', policy })
   assert.equal(fresh.reads.c, 'cookie:none')
 })

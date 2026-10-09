@@ -191,7 +191,7 @@ At most 2 connections per resource. A query reads at most 1000 rows (`row-count`
 | `base-url` | Required. A bare origin: no path, query or fragment. |
 | `origins` | Extra allowed origins, bare, at most 15. Any other request the page makes is blocked. |
 | `secrets` | `${NAME}` is allowed in `fill` and `press-seq` values. |
-| `max-contexts` | Most live browser contexts in the worker (worker default 3). |
+| `max-contexts` | Most live browser contexts in the worker (worker default 3). When all are busy, an op waits up to 5 s (or its own timeout), then fails with `runner-at-capacity` and the numbers. A context closed to make room fails the next op of that run once (`context lost`). |
 | `idle-ms` | Idle time before a context is closed (worker default 10 minutes). |
 | `viewport` | `{"width": 1280, "height": 800}`. |
 

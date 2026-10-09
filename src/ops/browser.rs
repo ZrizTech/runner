@@ -61,7 +61,7 @@ impl Handler {
         })?;
         let exec_ms = duration_ms((self.now)(), start);
 
-        let out = worker_out(&op.op_id, &resp)?;
+        let out = worker_out(&op.op_id, &op.resource, &resp)?;
         let status = if out.get("ok") == Some(&Value::Bool(false)) {
             "fail"
         } else {
@@ -175,17 +175,38 @@ fn policy(name: &str, r: &Resource) -> Value {
 }
 
 /// The `out` object of a good response, or the error a bad one maps to.
-fn worker_out(op_id: &str, resp: &Value) -> std::result::Result<Map<String, Value>, ErrorFrame> {
+/// A refusal for capacity carries the worker's numbers into ONE sentence shape;
+/// a lost context says so. The worker's own text is never passed on.
+fn worker_out(
+    op_id: &str,
+    resource: &str,
+    resp: &Value,
+) -> std::result::Result<Map<String, Value>, ErrorFrame> {
     if resp.get("ok") == Some(&Value::Bool(true))
         && let Some(Value::Object(out)) = resp.get("out")
     {
         return Ok(out.clone());
     }
-    let reason = match resp.get("reason").and_then(Value::as_str) {
-        Some("at-capacity") => "runner-at-capacity",
-        _ => "runner-error",
-    };
-    Err(new_error(op_id, reason, "worker refused the op"))
+    let num = |k: &str| resp.get(k).and_then(Value::as_u64);
+    match resp.get("reason").and_then(Value::as_str) {
+        Some("at-capacity") => {
+            let message = match (num("busy"), num("max-contexts"), num("waited-ms")) {
+                (Some(busy), Some(max), Some(waited)) => format!(
+                    "browser contexts busy {busy} of {max} (max-contexts of resource {resource}), waited {waited} ms"
+                ),
+                _ => "worker refused the op".to_string(),
+            };
+            Err(new_error(op_id, "runner-at-capacity", &message))
+        }
+        Some("context-lost") => {
+            let message = match num("max-contexts") {
+                Some(max) => format!("context lost: closed to make room (max-contexts {max})"),
+                None => "context lost: closed to make room".to_string(),
+            };
+            Err(new_error(op_id, "runner-error", &message))
+        }
+        _ => Err(new_error(op_id, "runner-error", "worker refused the op")),
+    }
 }
 
 #[cfg(test)]

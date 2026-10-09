@@ -356,3 +356,35 @@ async fn browser_result_scrubs_secret_listed_on_another_resource() {
     assert!(!text.contains("other-secret"), "{text}");
     assert!(text.contains("[scrubbed]"), "{text}");
 }
+
+#[test]
+fn capacity_message_carries_the_numbers() {
+    let resp = json!({"v": 1, "op-id": "op", "ok": false, "reason": "at-capacity",
+        "message": "free text", "max-contexts": 8, "busy": 8, "waited-ms": 5000});
+    let e = super::worker_out("op", "ymy-browser", &resp).expect_err("error");
+    assert_eq!(e.reason, "runner-at-capacity");
+    assert_eq!(
+        e.message,
+        "browser contexts busy 8 of 8 (max-contexts of resource ymy-browser), waited 5000 ms"
+    );
+    // Without numbers: the fixed short text, never the worker's own.
+    let bare = json!({"ok": false, "reason": "at-capacity", "message": "free text"});
+    let e = super::worker_out("op", "web", &bare).expect_err("error");
+    assert_eq!(e.reason, "runner-at-capacity");
+    assert_eq!(e.message, "worker refused the op");
+}
+
+#[test]
+fn context_lost_is_mapped() {
+    let resp =
+        json!({"ok": false, "reason": "context-lost", "message": "free text", "max-contexts": 3});
+    let e = super::worker_out("op", "web", &resp).expect_err("error");
+    assert_eq!(e.reason, "runner-error");
+    assert_eq!(
+        e.message,
+        "context lost: closed to make room (max-contexts 3)"
+    );
+    let bare = json!({"ok": false, "reason": "context-lost"});
+    let e = super::worker_out("op", "web", &bare).expect_err("error");
+    assert_eq!(e.message, "context lost: closed to make room");
+}

@@ -13,6 +13,7 @@ export const ERRORS = {
   'request-too-large': 'request line is too large',
   'not-implemented': 'kind is not implemented yet',
   'at-capacity': 'worker is at its browser context limit',
+  'context-lost': 'the browser context of this run was closed to make room; its page state is gone',
   'handle-busy': 'handle is already running',
   'no-handle': 'no such handle',
   'too-many-handles': 'too many live handles',
@@ -22,12 +23,14 @@ export const ERRORS = {
 
 const ID = /^[A-Za-z0-9_.:-]{1,64}$/
 
-export function errorResponse(reason, opId) {
+// `numbers`: optional integer fields (max-contexts, busy, waited-ms), data and never free text.
+export function errorResponse(reason, opId, numbers = {}) {
   const r = { v: VERSION }
   if (typeof opId === 'string' && ID.test(opId)) r['op-id'] = opId
   r.ok = false
   r.reason = reason
   r.message = ERRORS[reason]
+  Object.assign(r, numbers)
   return r
 }
 

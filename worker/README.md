@@ -48,7 +48,15 @@ SIGTERM closes the socket and removes the file.
   no eval. After each op the worker replaces every value (length >= 4) of the context's own cookies with
   `[cookie]` in all strings it returns (reads, title, url). The runner cannot know these values, so only the
   worker can. Runner secrets are scrubbed by the runner.
-- `policy.max-contexts` (default 3): a new context beyond it gets response error `at-capacity`.
+- `policy.max-contexts` (default 3): the most live contexts. At the cap, a new context takes the slot of the least
+  recently used idle one; the slot is reserved before the old context is closed, so ops that arrive together never
+  share a victim. If every context is busy, the op waits for a slot (FIFO, woken when an op ends or a context
+  closes) for at most the smaller of its own `deadline-ms` and 5000 ms (`MAX_WAIT_MS`). The wait counts against the
+  op's deadline. After that: response error `at-capacity` with the integers `max-contexts`, `busy`, `waited-ms`.
+- Lost context: if a context of a run is closed to make room, the host remembers the (run, resource) until the
+  context's `idle-ms` ends. The next op of that pair is refused once with `context-lost` (integer `max-contexts`);
+  the op after that gets a fresh, empty context. Nothing is logged for this: the log event list is closed
+  (`contract/log/lists.json`), so there is no `context evicted` line and no numbers in log keys.
 - `policy.idle-ms` (default 10 min): contexts idle longer are closed by a sweep on every request and by an
   unref'd 60 s interval. Busy contexts are never swept. No run-ended message exists in the protocol yet, so
   `closeRun` is only an API; idle eviction covers it.

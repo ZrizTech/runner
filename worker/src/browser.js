@@ -7,6 +7,8 @@ const DEFAULT_TIMEOUT_MS = 10000
 const DEFAULT_VIEWPORT = { width: 1280, height: 800 }
 const DEFAULT_MAX_CONTEXTS = 3
 const DEFAULT_IDLE_MS = 10 * 60 * 1000
+// Longest wait for a free context slot; the op's own deadline can make it shorter.
+const MAX_WAIT_MS = 5000
 const SWEEP_EVERY_MS = 60 * 1000
 const LOCAL_SCHEMES = new Set(['data:', 'blob:', 'about:'])
 
@@ -14,11 +16,16 @@ const wsToHttp = (u) => u.replace(/^ws(s?):/, 'http$1:')
 
 // One Chromium per worker, launched lazily. One context (one page) per (run, resource),
 // kept across ops of the same run. Every request of the page is checked against the
-// policy origins. At most `policy.max-contexts` live contexts: at the cap the least recently used idle one is closed for the new one, `at-capacity` only if all are busy; a context
+// policy origins. At most `policy.max-contexts` live contexts: at the cap the least recently used idle one is closed for the new one (its slot is taken before the first await, so
+// racing ops never share a victim). If all are busy the op waits for a slot, at most min(its deadline, 5 s), then `at-capacity`
+// with the numbers. A context closed to make room is remembered until its idle time ends; the next op of that run gets
+// `context-lost` once. a context
 // idle longer than `policy.idle-ms` is closed by a sweep on each request and by an unref'd
 // timer. `now` is injectable for tests.
-export function createBrowserHost({ launch = () => chromium.launch({ headless: true }), now = Date.now } = {}) {
+export function createBrowserHost({ launch = () => chromium.launch({ headless: true }), now = Date.now, maxWaitMs = MAX_WAIT_MS } = {}) {
   let browserP = null
+  const waiters = []
+  const lost = new Map() // key -> expiry; contexts closed to make room, reported once to the next op
   let creating = 0
   let sweepTimer = null
   const sessions = new Map() // key -> { ctx, page, last, queue, st }
@@ -26,21 +33,38 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
 
   const browser = () => (browserP ??= launch())
 
-  async function session(run, policy) {
+  // Returns a session, or { refused } with the numbers for `at-capacity`.
+  async function session(run, policy, budgetMs) {
     const k = key(run, policy.resource)
+    const max = policy['max-contexts'] ?? DEFAULT_MAX_CONTEXTS
+    const bound = Math.min(budgetMs, maxWaitMs)
+    const t0 = now()
     let s = sessions.get(k)
-    if (s) { s.busy++; return s }
-    if (sessions.size + creating >= (policy['max-contexts'] ?? DEFAULT_MAX_CONTEXTS)) {
+    if (s) { s.busy++; return { s, waited: 0 } }
+    // Take a slot (creating++) before the first await, so that no other op can take the same one.
+    for (;;) {
+      s = sessions.get(k)
+      if (s) { s.busy++; return { s, waited: now() - t0 } }
+      if (sessions.size + creating < max) { creating++; break }
       // At the cap: reuse the slot of the least recently used context with no op in flight.
       let lru = null
       for (const [ek, e] of sessions) if (e.busy === 0 && (lru === null || e.last < lru[1].last)) lru = [ek, e]
-      if (lru === null) return null
-      await closeSession(lru[0])
-      if (sessions.size + creating >= (policy['max-contexts'] ?? DEFAULT_MAX_CONTEXTS)) return null
-      s = sessions.get(k)
-      if (s) { s.busy++; return s }
+      if (lru !== null) {
+        sessions.delete(lru[0])
+        creating++
+        lost.set(lru[0], now() + lru[1].idleMs)
+        await lru[1].ctx.close().catch(() => {})
+        break
+      }
+      // All busy or being created: wait for a slot, for a bounded time.
+      const left = bound - (now() - t0)
+      if (left <= 0 || !(await waitSlot(left))) {
+        let busy = creating
+        for (const e of sessions.values()) if (e.busy > 0) busy++
+        return { refused: { 'max-contexts': max, busy, 'waited-ms': Math.max(0, Math.round(now() - t0)) } }
+      }
     }
-    creating++
+    const waited = now() - t0
     let ctx
     try {
     const b = await browser()
@@ -106,18 +130,33 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
       throw e
     } finally {
       creating--
+      wakeAll()
     }
     sweepTimer ??= setInterval(() => { sweep().catch(() => {}) }, SWEEP_EVERY_MS)
     sweepTimer.unref?.()
-    return s
+    return { s, waited }
   }
 
   async function closeSession(k) {
     const s = sessions.get(k)
     if (!s) return
     sessions.delete(k)
+    lost.delete(k)
     await s.ctx.close().catch(() => {})
+    wakeAll()
   }
+
+  // Waiters for a free slot, in arrival order. Woken when an op ends or a context closes.
+  function waitSlot(ms) {
+    return new Promise((resolve) => {
+      const w = {}
+      const t = setTimeout(() => { waiters.splice(waiters.indexOf(w), 1); resolve(false) }, ms)
+      t.unref?.()
+      w.wake = () => { clearTimeout(t); resolve(true) }
+      waiters.push(w)
+    })
+  }
+  const wakeAll = () => { for (const w of waiters.splice(0)) w.wake() }
 
   // A blocked main-frame navigation, or a page left on a foreign origin, fails the command.
   function checkPolicy(page, st) {
@@ -132,6 +171,7 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
   }
 
   async function sweep(idleMs, at = now()) {
+    for (const [k, x] of [...lost]) if (x <= at) lost.delete(k)
     for (const [k, s] of [...sessions]) {
       if (s.busy === 0 && at - s.last >= (idleMs ?? s.idleMs)) await closeSession(k)
     }
@@ -207,17 +247,26 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
   // req is a validated browser.page request. Returns a worker response.
   async function handle(req) {
     await sweep()
-    const s = await session(req.run, req.policy)
-    if (s === null) return errorResponse('at-capacity', req['op-id'])
+    const k = key(req.run, req.policy.resource)
+    const expiry = lost.get(k)
+    if (expiry !== undefined && !sessions.has(k)) {
+      lost.delete(k)
+      if (expiry > now()) return errorResponse('context-lost', req['op-id'], { 'max-contexts': req.policy['max-contexts'] ?? DEFAULT_MAX_CONTEXTS })
+    }
+    const got = await session(req.run, req.policy, req['deadline-ms'])
+    if (got.refused) return errorResponse('at-capacity', req['op-id'], got.refused)
+    const { s } = got
+    // The wait counts against the op's own deadline.
+    const deadlineMs = Math.max(1, req['deadline-ms'] - Math.round(got.waited))
     s.idleMs = req.policy['idle-ms'] ?? DEFAULT_IDLE_MS
     // Ops on one context run one after the other.
     const job = s.queue.then(() => {
       s.last = now()
-      return execute(s, req.policy, req.args, req['deadline-ms'])
+      return execute(s, req.policy, req.args, deadlineMs)
     })
     s.queue = job.catch(() => {})
     let out
-    try { out = await job } finally { s.busy--; s.last = now() }
+    try { out = await job } finally { s.busy--; s.last = now(); wakeAll() }
     return { v: VERSION, 'op-id': req['op-id'], ok: true, out }
   }
 
@@ -228,12 +277,14 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
     closeContext: (run, resource) => closeSession(key(run, resource)),
     async closeRun(run) {
       for (const [k, s] of [...sessions]) if (s.run === run) await closeSession(k)
+      for (const k of [...lost.keys()]) if (JSON.parse(k)[0] === run) lost.delete(k)
     },
     sweep,
     async closeAll() {
       if (sweepTimer) clearInterval(sweepTimer)
       sweepTimer = null
       for (const k of [...sessions.keys()]) await closeSession(k)
+      lost.clear()
       const p = browserP
       browserP = null
       if (p) await (await p).close().catch(() => {})

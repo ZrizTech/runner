@@ -37,7 +37,9 @@ fn error_word(message: &str) -> &'static str {
         ("no capacity for this op", "capacity"),
         ("worker is at capacity", "capacity"),
     ];
-    const PREFIX: [(&str, &str); 5] = [
+    const PREFIX: [(&str, &str); 7] = [
+        ("browser contexts busy ", "capacity"),
+        ("context lost: ", "context-lost"),
         ("capture ", "capture"),
         ("environment variable ", "env-not-set"),
         ("secret ", "secret-not-allowed"),
@@ -99,6 +101,14 @@ mod tests {
             ),
             ("cli refused: spawn-failed", "cli-refused"),
             ("worker refused the op", "worker"),
+            (
+                "browser contexts busy 8 of 8 (max-contexts of resource web), waited 5000 ms",
+                "capacity",
+            ),
+            (
+                "context lost: closed to make room (max-contexts 3)",
+                "context-lost",
+            ),
             ("something new with sekrit", "other"),
         ] {
             assert_eq!(error_word(msg), want, "{msg}");
