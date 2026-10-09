@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/run-cancel-response.json",
+  "description": "The reply of POST /api/runs/{id}/cancel. The status is the status of the run after the call: a canceled run has error, a run that was not in work keeps its status.",
+  "type": "object",
+  "properties": {
+    "run-id": {"type": "string", "minLength": 1},
+    "status": {"type": "string", "minLength": 1}
+  },
+  "required": ["run-id", "status"],
+  "additionalProperties": false
+}

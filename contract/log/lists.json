@@ -887,7 +887,8 @@
      "not-allowed",
      "runner-error",
      "explicit-fail",
-     "interp-error"
+     "interp-error",
+     "canceled"
     ]
    },
    "run ended": {
@@ -907,7 +908,8 @@
      "not-allowed",
      "runner-error",
      "explicit-fail",
-     "interp-error"
+     "interp-error",
+     "canceled"
     ]
    },
    "runs recovered": {

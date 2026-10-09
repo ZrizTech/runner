@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/org.json",
+  "description": "The reply of GET /api/org. It is open for new keys at each level (additionalProperties true), so a later key does not break an old client.",
+  "type": "object",
+  "properties": {
+    "org-id": {"type": "string", "minLength": 1},
+    "org-name": {"type": "string", "minLength": 1},
+    "actor": {"type": "string", "minLength": 1, "description": "The id of the API key of the request. A run has the same value in actor when this key started it."},
+    "tier": {"type": ["string", "null"], "minLength": 1},
+    "limits": {
+      "type": "object",
+      "properties": {
+        "parallel-runs": {"type": ["integer", "null"], "minimum": 0},
+        "runs-per-day": {"type": ["integer", "null"], "minimum": 1}
+      },
+      "required": ["parallel-runs", "runs-per-day"],
+      "additionalProperties": true
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "runs-today": {"type": ["integer", "null"], "minimum": 0}
+      },
+      "required": ["runs-today"],
+      "additionalProperties": true
+    }
+  },
+  "required": ["org-id", "org-name", "tier", "limits", "usage"],
+  "additionalProperties": true
+}
