@@ -246,14 +246,7 @@ impl Handler {
         let (result, err) =
             match tokio::time::timeout(Duration::from_millis(millis), self.dispatch(&op)).await {
                 Ok(pair) => pair,
-                Err(_) => (
-                    None,
-                    Some(new_error(
-                        &op.op_id,
-                        "timeout",
-                        json!({"timeout-ms": millis}),
-                    )),
-                ),
+                Err(_) => (None, Some(deadline_error(&op, millis))),
             };
         // The run ended while this op ran: nothing it stored stays.
         if self.ended_runs.contains(&op.run_id) {
@@ -302,6 +295,16 @@ impl Handler {
                 json!({"resource": name}),
             )),
         }
+    }
+}
+
+/// The error of an op that ran to its deadline. Only a call the runner made
+/// itself (http, sql) is a target that gave no answer: `timeout`. For a
+/// worker op the runner does not know where the time went.
+fn deadline_error(op: &contract::Op, millis: u64) -> ErrorFrame {
+    match op.kind.as_str() {
+        "browser.page" | "cli.exec" => runner_error(&op.op_id, "worker-deadline"),
+        _ => new_error(&op.op_id, "timeout", json!({"timeout-ms": millis})),
     }
 }
 

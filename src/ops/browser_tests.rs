@@ -393,3 +393,45 @@ fn context_lost_is_idle() {
         json!({"resource": "ymy-browser", "why": "idle", "idle-ms": 600000})
     );
 }
+
+/// A worker that answers a ping and then never answers an op.
+fn hanging_worker(dir: &tempfile::TempDir) -> PathBuf {
+    let sock = dir.path().join("hang.sock");
+    let listener = UnixListener::bind(&sock).expect("bind");
+    tokio::spawn(async move {
+        loop {
+            let Ok((stream, _)) = listener.accept().await else {
+                return;
+            };
+            tokio::spawn(async move {
+                let (rd, mut wr) = stream.into_split();
+                let mut line = String::new();
+                let _ = BufReader::new(rd).read_line(&mut line).await;
+                if line.contains("\"ping\"") {
+                    let _ = wr
+                        .write_all(b"{\"v\":1,\"kind\":\"ping\",\"ok\":true}\n")
+                        .await;
+                } else {
+                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                }
+            });
+        }
+    });
+    sock
+}
+
+#[tokio::test]
+async fn no_worker_answer_by_the_deadline_is_worker_deadline_not_timeout() {
+    let dir = tempfile::tempdir().expect("dir");
+    let sock = hanging_worker(&dir);
+    let h = handler(sock.to_str().expect("path"), None, &[]).await;
+    let args: HashMap<String, Value> =
+        serde_json::from_value(json!({"commands": [{"do": "title"}]})).expect("args");
+    let (r, e) = h
+        .handle(test_op("op", "run1", "browser.page", "web", 300, args, vec![]))
+        .await;
+    assert!(r.is_none());
+    let e = e.expect("error");
+    assert_eq!(e.reason, "runner-error");
+    assert_eq!(e.details["where"], "worker-deadline");
+}

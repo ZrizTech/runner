@@ -83,7 +83,8 @@
       "http-client",
       "http-redirects",
       "http-response-size",
-      "browser-args"
+      "browser-args",
+      "worker-deadline"
     ],
     "worker-reasons": [
       "bad-json",
