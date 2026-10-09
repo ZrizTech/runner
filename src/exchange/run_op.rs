@@ -13,16 +13,14 @@ impl Inner {
     pub(super) fn reject(&self, frame_id: &str, op: &contract::Op) {
         let op_id = op.op_id.as_str();
         let busy = self.capacity as u64;
-        self.count_reply(Some("runner-at-capacity"));
+        let frame = ErrorFrame::new(
+            op_id,
+            "runner-at-capacity",
+            json!({"limit-name": "max-inflight", "limit": busy, "busy": busy, "waited-ms": 0}),
+        );
+        self.count_reply(Some(&frame));
         tracing::error!(target: "runner.ops", run_id = %op.run_id, step = op.step_index, op_id = %op_id, kind = %op.kind, resource = %op.resource, status = "error", reason = "runner-at-capacity", busy = busy, cap = busy, trace_id = op.valid_trace_id().unwrap_or("-"), "op failed");
-        match error_frame(
-            frame_id,
-            ErrorFrame::new(
-                op_id,
-                "runner-at-capacity",
-                json!({"limit-name": "max-inflight", "limit": busy, "busy": busy, "waited-ms": 0}),
-            ),
-        ) {
+        match error_frame(frame_id, frame) {
             Ok(frame) => self.push_back(frame),
             Err(e) => {
                 tracing::error!(target: "runner.exchange", frame = "capacity", error = %e, "frame failed")
@@ -68,7 +66,7 @@ impl Inner {
                     )),
                 ),
             };
-        self.count_reply(err.as_ref().map(|e| e.reason.as_str()));
+        self.count_reply(err.as_ref());
         match reply_frame(&frame_id, result, err) {
             Ok(frame) => self.push_back(frame),
             Err(e) => {

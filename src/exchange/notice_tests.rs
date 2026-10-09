@@ -26,7 +26,11 @@ impl Handler for NoticeHandler {
             match self.reason {
                 Some(r) => (
                     None,
-                    Some(ErrorFrame::new(&op.op_id, r, serde_json::json!({}))),
+                    Some(ErrorFrame::new(
+                        &op.op_id,
+                        r,
+                        serde_json::json!({"where": "op-handler"}),
+                    )),
                 ),
                 None => (
                     Some(ResultFrame {

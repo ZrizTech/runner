@@ -27,6 +27,28 @@ pub struct Snapshot {
     pub errors: u64,
 }
 
+/// The `where` words of a `runner-error` that is a fault of the runner
+/// itself. The others (a bad pipeline, a target fault) say nothing about the
+/// health of the runner.
+const RUNNER_FAULTS: [&str; 5] = [
+    "op-handler",
+    "response-encoding",
+    "worker-word",
+    "evidence-excerpt",
+    "worker-deadline",
+];
+
+/// True when an error frame with this reason (and `where` detail) counts
+/// toward `degraded`: a `worker-error`, or a `runner-error` with a runner
+/// fault word.
+pub fn is_runner_fault(reason: &str, place: Option<&str>) -> bool {
+    match reason {
+        "worker-error" => true,
+        "runner-error" => place.is_some_and(|w| RUNNER_FAULTS.contains(&w)),
+        _ => false,
+    }
+}
+
 fn full(busy: u64, limit: u64) -> bool {
     limit > 0 && busy >= limit
 }
@@ -141,5 +163,33 @@ mod tests {
         assert_eq!(id.len(), 14);
         assert!(id.starts_with("b-") && id[2..].bytes().all(|b| b.is_ascii_hexdigit()));
         assert_ne!(id, new_boot_id());
+    }
+}
+
+#[cfg(test)]
+mod fault_tests {
+    use super::is_runner_fault;
+
+    #[test]
+    fn only_real_runner_faults_count() {
+        let cases: [(&str, Option<&str>, bool); 14] = [
+            ("worker-error", None, true),
+            ("runner-error", Some("op-handler"), true),
+            ("runner-error", Some("response-encoding"), true),
+            ("runner-error", Some("worker-word"), true),
+            ("runner-error", Some("evidence-excerpt"), true),
+            ("runner-error", Some("worker-deadline"), true),
+            ("runner-error", Some("sql-driver"), false),
+            ("runner-error", Some("http-client"), false),
+            ("runner-error", Some("http-request"), false),
+            ("runner-error", Some("browser-args"), false),
+            ("runner-error", None, false),
+            ("connection-error", None, false),
+            ("timeout", None, false),
+            ("context-lost", None, false),
+        ];
+        for (reason, place, want) in cases {
+            assert_eq!(is_runner_fault(reason, place), want, "{reason} {place:?}");
+        }
     }
 }

@@ -33,6 +33,8 @@ enum SendErrorKind {
     HostNotAllowed,
     TooManyRedirects,
     TooLarge,
+    /// The connect to the target failed (refused, reset, DNS, TLS).
+    Connect,
     Runner,
 }
 
@@ -42,6 +44,7 @@ impl SendErrorKind {
             Self::HostNotAllowed => new_error(op_id, "host-not-allowed", json!({})),
             Self::TooLarge => runner_error(op_id, "http-response-size"),
             Self::TooManyRedirects => runner_error(op_id, "http-redirects"),
+            Self::Connect => new_error(op_id, "connection-error", json!({})),
             Self::Runner => runner_error(op_id, "http-client"),
         }
     }
@@ -138,7 +141,13 @@ impl Handler {
             if let Some(b) = &pending.body {
                 builder = builder.body(b.clone());
             }
-            let resp = builder.send().await.map_err(|_| SendErrorKind::Runner)?;
+            let resp = builder.send().await.map_err(|e| {
+                if e.is_connect() {
+                    SendErrorKind::Connect
+                } else {
+                    SendErrorKind::Runner
+                }
+            })?;
             let status = resp.status();
             if let Some(key) = jar_key {
                 let set: Vec<String> = resp

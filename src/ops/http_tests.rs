@@ -701,3 +701,23 @@ async fn ordinary_header_still_works() {
     assert!(err.is_none(), "{err:?}");
     assert_eq!(result.expect("result").status, "pass");
 }
+
+#[tokio::test]
+async fn a_refused_connect_is_connection_error_with_no_details() {
+    let dead = {
+        let l = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        format!("http://{}", l.local_addr().expect("addr"))
+    };
+    let h = fixture(&dead).await;
+    let mut args = HashMap::new();
+    args.insert("path".to_string(), Value::String("/x".to_string()));
+    let (result, err) = h
+        .handle(test_op("op-c", "run-c", "http.request", "api", 2000, args, vec![]))
+        .await;
+    assert!(result.is_none(), "{result:?}");
+    let err = err.expect("error");
+    assert_eq!(err.reason, "connection-error");
+    assert!(err.details.is_empty(), "{:?}", err.details);
+    let text = serde_json::to_string(&err).expect("json");
+    assert!(!text.contains("127.0.0.1"), "{text}");
+}

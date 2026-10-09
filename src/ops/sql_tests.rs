@@ -11,7 +11,7 @@ use std::time::SystemTime;
 /// an expectation on the fake connection.
 pub(crate) struct Expectation {
     pub want_read_only: bool,
-    pub rows: std::result::Result<Vec<Map<String, Value>>, ()>,
+    pub rows: std::result::Result<Vec<Map<String, Value>>, SqlOpError>,
 }
 
 /// A fake [`SqlConn`] used in place of a real database: each call to
@@ -56,7 +56,7 @@ impl SqlConn for FakeSqlConn {
                 guard.remove(0)
             };
             assert_eq!(exp.want_read_only, read_only, "read_only flag mismatch");
-            exp.rows.map_err(|()| SqlOpError)
+            exp.rows
         })
     }
 
@@ -391,7 +391,7 @@ async fn driver_error_hides_query_text() {
     let h = fixture(
         vec![Expectation {
             want_read_only: true,
-            rows: Err(()),
+            rows: Err(SqlOpError::Other),
         }],
         vec![],
     )
@@ -415,6 +415,42 @@ async fn driver_error_hides_query_text() {
     assert_eq!(err.reason, "runner-error");
     assert_eq!(err.details["where"], "sql-driver");
     assert!(!serde_json::to_string(&err).expect("json").contains(query));
+}
+
+async fn run_with_fault(fault: SqlOpError) -> (Option<ResultFrame>, Option<ErrorFrame>) {
+    let h = fixture(
+        vec![Expectation {
+            want_read_only: true,
+            rows: Err(fault),
+        }],
+        vec![],
+    )
+    .await;
+    let mut args = HashMap::new();
+    args.insert("query".to_string(), Value::String("SELECT 1".into()));
+    h.handle(test_op("op-f", "run-s", "sql.query", "db", 2000, args, vec![]))
+        .await
+}
+
+#[tokio::test]
+async fn a_database_error_is_a_failed_result_with_no_text() {
+    let (result, err) = run_with_fault(SqlOpError::Database).await;
+    assert!(err.is_none(), "{err:?}");
+    let r = result.expect("result");
+    assert_eq!(r.status, "fail");
+    assert_eq!(r.payload["rows"], serde_json::json!([]));
+    assert_eq!(r.payload["row-count"], 0);
+    assert_eq!(r.scrubbed, 0);
+}
+
+#[tokio::test]
+async fn a_failed_connect_is_connection_error_and_other_faults_stay_driver() {
+    let (r, err) = run_with_fault(SqlOpError::Connect).await;
+    let err = err.expect("error");
+    assert!(r.is_none());
+    assert_eq!((err.reason.as_str(), err.details.len()), ("connection-error", 0));
+    let (_, err) = run_with_fault(SqlOpError::Other).await;
+    assert_eq!(err.expect("error").details["where"], "sql-driver");
 }
 
 // --- pure unit tests: DSN parsing and value conversion ---

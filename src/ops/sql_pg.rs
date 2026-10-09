@@ -80,7 +80,7 @@ pub(crate) fn open(dsn: &str) -> Result<PgConn, SqlOpenError> {
 impl PgConn {
     async fn checkout(&self) -> Result<Client, SqlOpError> {
         loop {
-            let cached = self.idle.lock().map_err(|_| SqlOpError)?.pop();
+            let cached = self.idle.lock().map_err(|_| SqlOpError::Other)?.pop();
             match cached {
                 Some(c) if !c.is_closed() => return Ok(c),
                 Some(_) => continue,
@@ -92,14 +92,14 @@ impl PgConn {
                 .config
                 .connect(tokio_postgres::NoTls)
                 .await
-                .map_err(|_| SqlOpError)?;
+                .map_err(|_| SqlOpError::Connect)?;
             (c, tokio::spawn(async move { conn.await.ok() }))
         } else {
             let (c, conn) = self
                 .config
                 .connect(self.tls.clone())
                 .await
-                .map_err(|_| SqlOpError)?;
+                .map_err(|_| SqlOpError::Connect)?;
             (c, tokio::spawn(async move { conn.await.ok() }))
         };
         drop(connection);
@@ -120,9 +120,9 @@ impl PgConn {
                 .read_only(true)
                 .start()
                 .await
-                .map_err(|_| SqlOpError)?;
+                .map_err(|e| pg_fault(&e))?;
             let rows = exec(&tx, &sql, params).await?;
-            tx.commit().await.map_err(|_| SqlOpError)?;
+            tx.commit().await.map_err(|e| pg_fault(&e))?;
             Ok(rows)
         } else {
             exec(&*client, &sql, params).await
@@ -135,9 +135,9 @@ async fn exec(
     sql: &str,
     params: &[Value],
 ) -> Result<Vec<Map<String, Value>>, SqlOpError> {
-    let stmt = c.prepare(sql).await.map_err(|_| SqlOpError)?;
+    let stmt = c.prepare(sql).await.map_err(|e| pg_fault(&e))?;
     if stmt.params().len() != params.len() {
-        return Err(SqlOpError);
+        return Err(SqlOpError::Other);
     }
     let bound: Vec<Box<dyn ToSql + Sync + Send>> = stmt
         .params()
@@ -152,13 +152,13 @@ async fn exec(
     let stream = c
         .query_raw(&stmt, refs.iter().copied())
         .await
-        .map_err(|_| SqlOpError)?;
+        .map_err(|e| pg_fault(&e))?;
     futures::pin_mut!(stream);
     let mut out = Vec::new();
     while out.len() < super::sql::MAX_SQL_ROWS {
         match stream.next().await {
             Some(Ok(row)) => out.push(row_to_map(&row)),
-            Some(Err(_)) => return Err(SqlOpError),
+            Some(Err(e)) => return Err(pg_fault(&e)),
             None => break,
         }
     }
@@ -173,7 +173,7 @@ impl super::sql::SqlConn for PgConn {
         read_only: bool,
     ) -> BoxFuture<'a, Result<Vec<Map<String, Value>>, SqlOpError>> {
         Box::pin(async move {
-            let _permit = self.permits.acquire().await.map_err(|_| SqlOpError)?;
+            let _permit = self.permits.acquire().await.map_err(|_| SqlOpError::Other)?;
             let mut client = self.checkout().await?;
             let out = self.run(&mut client, query, params, read_only).await;
             if out.is_ok()
@@ -251,6 +251,18 @@ pub(crate) fn rewrite_placeholders(q: &str) -> String {
     out
 }
 
+/// The class of a `tokio_postgres` error: the database's own error is a
+/// `DbError` (typed; its text is never read).
+fn pg_fault(e: &tokio_postgres::Error) -> SqlOpError {
+    if e.as_db_error().is_some() {
+        SqlOpError::Database
+    } else if e.is_closed() {
+        SqlOpError::Connect
+    } else {
+        SqlOpError::Other
+    }
+}
+
 fn scalar_text(v: &Value) -> Option<String> {
     match v {
         Value::String(s) => Some(s.clone()),
@@ -264,7 +276,7 @@ fn to_param(t: &Type, v: &Value) -> Result<Box<dyn ToSql + Sync + Send>, SqlOpEr
     if v.is_null() {
         return Ok(Box::new(Option::<String>::None));
     }
-    let bad = || SqlOpError;
+    let bad = || SqlOpError::Other;
     let txt = scalar_text(v);
     Ok(match *t {
         Type::INT2 => Box::new(

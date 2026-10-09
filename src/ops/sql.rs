@@ -116,9 +116,28 @@ fn parse_host_port(host_port: &str) -> std::result::Result<(String, u16), DsnErr
 /// Errors executing a query through a [`SqlConn`]. The message never
 /// repeats the query text, so a driver error can't leak SQL (or values it
 /// might carry) into the reply.
-#[derive(Debug, thiserror::Error)]
-#[error("sql: query failed")]
-pub struct SqlOpError;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum SqlOpError {
+    /// The database answered with an error for the query (syntax, missing
+    /// table, permission): a fault of the query or the target.
+    #[error("sql: the database refused the query")]
+    Database,
+    /// The runner could not connect to the database.
+    #[error("sql: could not connect")]
+    Connect,
+    /// Anything else (driver, arguments, pool).
+    #[error("sql: query failed")]
+    Other,
+}
+
+/// The class of a `mysql_async` error. Typed: the text is never read.
+fn mysql_fault(e: &mysql_async::Error) -> SqlOpError {
+    match e {
+        mysql_async::Error::Server(_) => SqlOpError::Database,
+        mysql_async::Error::Io(_) => SqlOpError::Connect,
+        _ => SqlOpError::Other,
+    }
+}
 
 /// One live connection (or pool) against a sql resource. Implementations
 /// must run `query` inside a read-only transaction when `read_only` is
@@ -158,24 +177,24 @@ impl SqlConn for MysqlConn {
             use mysql_async::prelude::Queryable;
             let sql_params: Vec<mysql_async::Value> =
                 params.iter().map(json_to_sql_value).collect();
-            let mut conn = self.pool.get_conn().await.map_err(|_| SqlOpError)?;
+            let mut conn = self.pool.get_conn().await.map_err(|_| SqlOpError::Connect)?;
 
             if read_only {
                 let mut opts = mysql_async::TxOpts::default();
                 opts.with_readonly(true);
-                let mut tx = conn.start_transaction(opts).await.map_err(|_| SqlOpError)?;
+                let mut tx = conn.start_transaction(opts).await.map_err(|e| mysql_fault(&e))?;
                 let rows: Vec<mysql_async::Row> = tx
                     .exec(query, mysql_async::Params::Positional(sql_params))
                     .await
-                    .map_err(|_| SqlOpError)?;
+                    .map_err(|e| mysql_fault(&e))?;
                 let result = rows_to_maps(rows);
-                tx.commit().await.map_err(|_| SqlOpError)?;
+                tx.commit().await.map_err(|e| mysql_fault(&e))?;
                 Ok(result)
             } else {
                 let rows: Vec<mysql_async::Row> = conn
                     .exec(query, mysql_async::Params::Positional(sql_params))
                     .await
-                    .map_err(|_| SqlOpError)?;
+                    .map_err(|e| mysql_fault(&e))?;
                 Ok(rows_to_maps(rows))
             }
         })
@@ -390,7 +409,24 @@ impl Handler {
                 rows.truncate(MAX_SQL_ROWS);
                 self.shape_sql_result(op, rows, &secrets, exec_ms)
             }
-            Err(_) => (None, Some(runner_error(&op.op_id, "sql-driver"))),
+            Err(SqlOpError::Database) => (Some(self.sql_failed(op, exec_ms)), None),
+            Err(SqlOpError::Connect) => (None, Some(new_error(&op.op_id, "connection-error", json!({})))),
+            Err(SqlOpError::Other) => (None, Some(runner_error(&op.op_id, "sql-driver"))),
+        }
+    }
+
+    /// The result of a query the database refused: status `fail`, no rows,
+    /// no text. The cloud reads it as `sql-error`.
+    fn sql_failed(&self, op: &contract::Op, exec_ms: i64) -> ResultFrame {
+        let mut payload = std::collections::BTreeMap::new();
+        payload.insert("rows".to_string(), Value::Array(Vec::new()));
+        payload.insert("row-count".to_string(), Value::from(0));
+        ResultFrame {
+            op_id: op.op_id.clone(),
+            status: "fail".to_string(),
+            payload,
+            scrubbed: 0,
+            timing: contract::Timing { exec_ms },
         }
     }
 
