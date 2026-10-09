@@ -56,6 +56,8 @@
    "exit_code",
    "frame",
    "status",
+   "state",
+   "prev_state",
    "reason",
    "auth_method",
    "provider",
@@ -78,6 +80,10 @@
    "attempts",
    "writes",
    "timeout_ms",
+   "busy",
+   "cap",
+   "browser_busy",
+   "browser_cap",
    "location",
    "client",
    "client_trace_id",
@@ -119,6 +125,8 @@
    "exit_code",
    "frame",
    "status",
+   "state",
+   "prev_state",
    "reason",
    "auth_method",
    "provider",
@@ -141,6 +149,10 @@
    "attempts",
    "writes",
    "timeout_ms",
+   "busy",
+   "cap",
+   "browser_busy",
+   "browser_cap",
    "location",
    "client",
    "client_trace_id",
@@ -471,6 +483,15 @@
      "spawn-failed",
      "internal",
      "timeout"
+    ]
+   },
+   "run closed": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "run_id",
+     "count"
     ]
    }
   },
@@ -1056,6 +1077,52 @@
      "env",
      "client"
     ]
+   },
+   "run end sent": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "org_id",
+     "runner",
+     "count"
+    ]
+   },
+   "runner restarted": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "org_id",
+     "runner",
+     "env",
+     "count",
+     "runs"
+    ]
+   },
+   "runner health": {
+    "levels": [
+     "INFO",
+     "WARN"
+    ],
+    "keys": [
+     "org_id",
+     "runner",
+     "env",
+     "resource",
+     "state",
+     "prev_state",
+     "refused",
+     "busy",
+     "cap",
+     "browser_busy",
+     "browser_cap"
+    ],
+    "states": [
+     "ok",
+     "busy",
+     "degraded"
+    ]
    }
   },
   "cloud.db": {
@@ -1218,6 +1285,27 @@
      "frame",
      "error"
     ]
+   },
+   "frames dropped": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "http_status",
+     "reason",
+     "count"
+    ],
+    "reasons": [
+     "refused"
+    ]
+   },
+   "run closed": {
+    "levels": [
+     "DEBUG"
+    ],
+    "keys": [
+     "run_id"
+    ]
    }
   },
   "runner.ops": {
@@ -1247,6 +1335,8 @@
      "resource",
      "status",
      "reason",
+     "busy",
+     "cap",
      "error",
      "elapsed_ms"
     ],
@@ -1269,6 +1359,8 @@
      "resource",
      "status",
      "reason",
+     "busy",
+     "cap",
      "elapsed_ms"
     ],
     "reasons": [
@@ -1309,6 +1401,19 @@
      "WARN"
     ],
     "keys": []
+   },
+   "state dropped": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "run_id",
+     "kind"
+    ],
+    "kinds": [
+     "jar",
+     "vault"
+    ]
    }
   },
   "worker.browser": {
@@ -1340,6 +1445,8 @@
      "exit_code",
      "status",
      "reason",
+     "busy",
+     "cap",
      "elapsed_ms"
     ],
     "reasons": [
@@ -1364,6 +1471,19 @@
     ],
     "keys": [
      "elapsed_ms"
+    ]
+   },
+   "context closed": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "run_id",
+     "resource",
+     "reason"
+    ],
+    "reasons": [
+     "idle"
     ]
    }
   },
@@ -1396,6 +1516,8 @@
      "exit_code",
      "status",
      "reason",
+     "busy",
+     "cap",
      "elapsed_ms"
     ],
     "reasons": [

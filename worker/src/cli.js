@@ -279,13 +279,16 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
     }
   }
 
+  // Closes the handles and the work folders of the run; returns how many handles.
   async function closeRun(runId) {
+    let n = 0
     for (const p of [...procs.values()]) {
-      if (p.run === runId) { await terminate(p); await finishProc(p) }
+      if (p.run === runId) { await terminate(p); await finishProc(p); n++ }
     }
     for (const [k, d] of [...dirs]) {
       if (d.run === runId) { dirs.delete(k); rmSync(d.dir, { recursive: true, force: true }) }
     }
+    return n
   }
 
   return {
@@ -293,6 +296,7 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
     sweep,
     closeRun,
     size: () => procs.size,
+    limit: maxTotal,
     hasDir: (run, resource) => dirs.has(dkey(run, resource)),
     dirOf: (run, resource) => dirs.get(dkey(run, resource))?.dir,
     async closeAll() {

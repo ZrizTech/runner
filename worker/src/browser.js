@@ -16,52 +16,54 @@ const wsToHttp = (u) => u.replace(/^ws(s?):/, 'http$1:')
 
 // One Chromium per worker, launched lazily. One context (one page) per (run, resource),
 // kept across ops of the same run. Every request of the page is checked against the
-// policy origins. At most `policy.max-contexts` live contexts: at the cap the least recently used idle one is closed for the new one (its slot is taken before the first await, so
-// racing ops never share a victim). If all are busy the op waits for a slot, at most min(its deadline, 5 s), then `at-capacity`
-// with the numbers. A context closed to make room is remembered until its idle time ends; the next op of that run gets
-// `context-lost` once. a context
-// idle longer than `policy.idle-ms` is closed by a sweep on each request and by an unref'd
-// timer. `now` is injectable for tests.
-export function createBrowserHost({ launch = () => chromium.launch({ headless: true }), now = Date.now, maxWaitMs = MAX_WAIT_MS } = {}) {
+// policy origins. Each resource has its own limit, `policy.max-contexts`: only the contexts of
+// that resource count. The worker never closes a context to make room. When a new context is
+// necessary and all places of the resource are in use, the op waits for a place (first come first
+// served), at most min(its deadline, 5 s), then it gets `at-capacity` with the numbers. A place
+// is freed by `run.close` (closeRun) or by the idle sweep. A context closed by the sweep is
+// remembered (run, resource, 1000 entries at most): the next op of that run on that resource
+// gets `context-lost` once, with `why` `idle`. A context idle longer than `policy.idle-ms` is
+// closed by a sweep on each request and by an unref'd timer. `now` is injectable for tests.
+export const MAX_LOST = 1000
+
+export function createBrowserHost({ launch = () => chromium.launch({ headless: true }), now = Date.now, maxWaitMs = MAX_WAIT_MS, log } = {}) {
   let browserP = null
-  const waiters = []
-  const lost = new Map() // key -> expiry; contexts closed to make room, reported once to the next op
-  let creating = 0
+  const waiters = [] // { resource, wake }
+  const lost = new Set() // key; contexts closed by the idle sweep, reported once to the next op
+  const known = new Set() // resources seen in a request
+  const creating = new Map() // resource -> contexts being created
   let sweepTimer = null
-  const sessions = new Map() // key -> { ctx, page, last, queue, st }
+  const sessions = new Map() // key -> { ctx, page, last, queue, st, run, resource }
   const key = (run, resource) => JSON.stringify([run, resource])
 
   const browser = () => (browserP ??= launch())
 
+  // The places of a resource in use: its contexts and those being created.
+  const used = (resource) => {
+    let n = creating.get(resource) ?? 0
+    for (const e of sessions.values()) if (e.resource === resource) n++
+    return n
+  }
+
   // Returns a session, or { refused } with the numbers for `at-capacity`.
   async function session(run, policy, budgetMs) {
-    const k = key(run, policy.resource)
+    const resource = policy.resource
+    const k = key(run, resource)
     const max = policy['max-contexts'] ?? DEFAULT_MAX_CONTEXTS
     const bound = Math.min(budgetMs, maxWaitMs)
     const t0 = now()
+    known.add(resource)
     let s = sessions.get(k)
     if (s) { s.busy++; return { s, waited: 0 } }
-    // Take a slot (creating++) before the first await, so that no other op can take the same one.
+    // Take a place (creating) before the first await, so that no other op can take the same one.
     for (;;) {
       s = sessions.get(k)
       if (s) { s.busy++; return { s, waited: now() - t0 } }
-      if (sessions.size + creating < max) { creating++; break }
-      // At the cap: reuse the slot of the least recently used context with no op in flight.
-      let lru = null
-      for (const [ek, e] of sessions) if (e.busy === 0 && (lru === null || e.last < lru[1].last)) lru = [ek, e]
-      if (lru !== null) {
-        sessions.delete(lru[0])
-        creating++
-        lost.set(lru[0], now() + lru[1].idleMs)
-        await lru[1].ctx.close().catch(() => {})
-        break
-      }
-      // All busy or being created: wait for a slot, for a bounded time.
+      if (used(resource) < max) { creating.set(resource, (creating.get(resource) ?? 0) + 1); break }
+      // All places in use: wait for one, for a bounded time.
       const left = bound - (now() - t0)
-      if (left <= 0 || !(await waitSlot(left))) {
-        let busy = creating
-        for (const e of sessions.values()) if (e.busy > 0) busy++
-        return { refused: { 'max-contexts': max, busy, 'waited-ms': Math.max(0, Math.round(now() - t0)) } }
+      if (left <= 0 || !(await waitPlace(resource, left))) {
+        return { refused: { 'max-contexts': max, busy: used(resource), 'waited-ms': Math.max(0, Math.round(now() - t0)) } }
       }
     }
     const waited = now() - t0
@@ -76,7 +78,7 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
       timezoneId: 'UTC',
       viewport: policy.viewport ?? DEFAULT_VIEWPORT,
     })
-    s = { ctx, page: null, run, last: now(), idleMs: DEFAULT_IDLE_MS, allowed: new Set(), busy: 1, queue: Promise.resolve(), st: null }
+    s = { ctx, page: null, run, resource, last: now(), idleMs: DEFAULT_IDLE_MS, allowed: new Set(), busy: 1, queue: Promise.resolve(), st: null }
     // Every request (documents, subresources, fetch/XHR, iframes, redirects) must stay on an allowed origin.
     const refuse = (req, route) => {
       if (s.st) {
@@ -129,34 +131,41 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
       await ctx?.close().catch(() => {})
       throw e
     } finally {
-      creating--
-      wakeAll()
+      creating.set(resource, creating.get(resource) - 1)
+      wake(resource)
     }
     sweepTimer ??= setInterval(() => { sweep().catch(() => {}) }, SWEEP_EVERY_MS)
     sweepTimer.unref?.()
     return { s, waited }
   }
 
-  async function closeSession(k) {
+  async function closeSession(k, idle = false) {
     const s = sessions.get(k)
     if (!s) return
     sessions.delete(k)
     lost.delete(k)
+    if (idle) {
+      lost.add(k)
+      if (lost.size > MAX_LOST) lost.delete(lost.values().next().value)
+      log?.emit('WARN', 'worker.browser', 'context closed', [['run_id', s.run], ['resource', s.resource], ['reason', 'idle']])
+    }
     await s.ctx.close().catch(() => {})
-    wakeAll()
+    wake(s.resource)
   }
 
-  // Waiters for a free slot, in arrival order. Woken when an op ends or a context closes.
-  function waitSlot(ms) {
+  // Waiters for a place of one resource, in arrival order. Woken when an op ends or a context closes.
+  function waitPlace(resource, ms) {
     return new Promise((resolve) => {
-      const w = {}
+      const w = { resource }
       const t = setTimeout(() => { waiters.splice(waiters.indexOf(w), 1); resolve(false) }, ms)
       t.unref?.()
       w.wake = () => { clearTimeout(t); resolve(true) }
       waiters.push(w)
     })
   }
-  const wakeAll = () => { for (const w of waiters.splice(0)) w.wake() }
+  const wake = (resource) => {
+    for (const w of waiters.filter((x) => x.resource === resource)) { waiters.splice(waiters.indexOf(w), 1); w.wake() }
+  }
 
   // A blocked main-frame navigation, or a page left on a foreign origin, fails the command.
   function checkPolicy(page, st) {
@@ -171,9 +180,8 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
   }
 
   async function sweep(idleMs, at = now()) {
-    for (const [k, x] of [...lost]) if (x <= at) lost.delete(k)
     for (const [k, s] of [...sessions]) {
-      if (s.busy === 0 && at - s.last >= (idleMs ?? s.idleMs)) await closeSession(k)
+      if (s.busy === 0 && at - s.last >= (idleMs ?? s.idleMs)) await closeSession(k, true)
     }
   }
 
@@ -248,10 +256,8 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
   async function handle(req) {
     await sweep()
     const k = key(req.run, req.policy.resource)
-    const expiry = lost.get(k)
-    if (expiry !== undefined && !sessions.has(k)) {
-      lost.delete(k)
-      if (expiry > now()) return errorResponse('context-lost', req['op-id'], { 'max-contexts': req.policy['max-contexts'] ?? DEFAULT_MAX_CONTEXTS })
+    if (lost.delete(k) && !sessions.has(k)) {
+      return errorResponse('context-lost', req['op-id'], { why: 'idle', 'max-contexts': req.policy['max-contexts'] ?? DEFAULT_MAX_CONTEXTS })
     }
     const got = await session(req.run, req.policy, req['deadline-ms'])
     if (got.refused) return errorResponse('at-capacity', req['op-id'], got.refused)
@@ -266,7 +272,7 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
     })
     s.queue = job.catch(() => {})
     let out
-    try { out = await job } finally { s.busy--; s.last = now(); wakeAll() }
+    try { out = await job } finally { s.busy--; s.last = now() }
     return { v: VERSION, 'op-id': req['op-id'], ok: true, out }
   }
 
@@ -275,10 +281,15 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
     size: () => sessions.size,
     has: (run, resource) => sessions.has(key(run, resource)),
     closeContext: (run, resource) => closeSession(key(run, resource)),
+    // Closes every context of the run; returns how many.
     async closeRun(run) {
-      for (const [k, s] of [...sessions]) if (s.run === run) await closeSession(k)
-      for (const k of [...lost.keys()]) if (JSON.parse(k)[0] === run) lost.delete(k)
+      let n = 0
+      for (const [k, s] of [...sessions]) if (s.run === run) { await closeSession(k); n++ }
+      for (const k of [...lost]) if (JSON.parse(k)[0] === run) lost.delete(k)
+      return n
     },
+    // The places in use for each resource the worker knows.
+    stats: () => [...known].map((resource) => ({ resource, busy: used(resource) })),
     sweep,
     async closeAll() {
       if (sweepTimer) clearInterval(sweepTimer)

@@ -2,7 +2,7 @@ import { validateRequest } from './schema.js'
 
 export const VERSION = 1
 export const MAX_LINE_BYTES = 1024 * 1024
-export const KINDS = ['ping', 'browser.page', 'cli.exec']
+export const KINDS = ['ping', 'run.close', 'browser.page', 'cli.exec']
 
 // Fixed reason codes with fixed messages. No free text from any other source.
 export const ERRORS = {
@@ -13,7 +13,7 @@ export const ERRORS = {
   'request-too-large': 'request line is too large',
   'not-implemented': 'kind is not implemented yet',
   'at-capacity': 'worker is at its browser context limit',
-  'context-lost': 'the browser context of this run was closed to make room; its page state is gone',
+  'context-lost': 'the browser context of this run was closed after it was idle',
   'handle-busy': 'handle is already running',
   'no-handle': 'no such handle',
   'too-many-handles': 'too many live handles',
@@ -23,7 +23,7 @@ export const ERRORS = {
 
 const ID = /^[A-Za-z0-9_.:-]{1,64}$/
 
-// `numbers`: optional integer fields (max-contexts, busy, waited-ms), data and never free text.
+// `numbers`: optional integer fields (max-contexts, busy, waited-ms) and `why`, data and never free text.
 export function errorResponse(reason, opId, numbers = {}) {
   const r = { v: VERSION }
   if (typeof opId === 'string' && ID.test(opId)) r['op-id'] = opId

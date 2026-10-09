@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { startServer, stopServer } from '../src/server.js'
 import { makeLogger } from '../src/log.js'
+import { errorResponse } from '../src/protocol.js'
 import { parseFilter } from '../src/logfmt.js'
 import { validateResponse } from '../src/schema.js'
 
@@ -36,8 +37,50 @@ const op = (over = {}) =>
 test('ping round trip', async () => {
   const { path, server } = await setup()
   const r = JSON.parse(await call(path, '{"v":1,"kind":"ping"}'))
-  assert.deepEqual(r, { v: 1, kind: 'ping', ok: true })
+  assert.deepEqual(r.browser, [])
+  assert.deepEqual(r.cli, { busy: 0, limit: 8 })
+  assert.match(r['boot-id'], /^b-[0-9a-f]{12}$/)
+  assert.equal(validateResponse(r), true, JSON.stringify(validateResponse.errors))
+  const again = JSON.parse(await call(path, '{"v":1,"kind":"ping"}'))
+  assert.equal(again['boot-id'], r['boot-id'])
+  await stopServer(server, path)
+})
+
+test('run.close closes the contexts and the handles of one run only; ping has the numbers', async () => {
+  const path = join(mkdtempSync(join(tmpdir(), 'zw-')), 'w.sock')
+  const logs = []
+  const closed = []
+  const host = {
+    stats: () => [{ resource: 'web', busy: 2 }],
+    closeRun: async (run) => { closed.push(run); return run === 'r-1' ? 2 : 0 },
+    handle: async () => ({}),
+    closeAll: async () => {},
+  }
+  const cli = { size: () => 1, limit: 8, closeRun: async (run) => (run === 'r-1' ? 1 : 0), closeAll: async () => {} }
+  const server = await startServer(path, { host, cli, log: makeLogger({ write: (x) => logs.push(x), filter: parseFilter('debug') }) })
+  const TRACE = '6916eece-8a3c-43b0-8280-a90a4ff00b15'
+  const ping = JSON.parse(await call(path, '{"v":1,"kind":"ping"}'))
+  assert.deepEqual(ping.browser, [{ resource: 'web', busy: 2 }])
+  assert.deepEqual(ping.cli, { busy: 1, limit: 8 })
+  const close = (run) => call(path, JSON.stringify({ v: 1, kind: 'run.close', run, 'trace-id': TRACE }))
+  const r = JSON.parse(await close('r-1'))
+  assert.deepEqual(r, { v: 1, kind: 'run.close', ok: true, closed: 3 })
   assert.equal(validateResponse(r), true)
+  assert.deepEqual(JSON.parse(await close('r-unknown')), { v: 1, kind: 'run.close', ok: true, closed: 0 })
+  assert.deepEqual(closed, ['r-1', 'r-unknown'])
+  assert.match(logs.find((l) => l.includes('run closed')), new RegExp(` INFO  trace_id=${TRACE} worker.main {5}run closed run_id=r-1 count=3\n$`))
+  await stopServer(server, path)
+})
+
+test('a capacity refusal puts busy and cap on the op failed line', async () => {
+  const path = join(mkdtempSync(join(tmpdir(), 'zw-')), 'w.sock')
+  const logs = []
+  const handler = async (req) => errorResponse('at-capacity', req['op-id'], { 'max-contexts': 2, busy: 2, 'waited-ms': 5 })
+  const server = await startServer(path, { handler, log: makeLogger({ write: (x) => logs.push(x), filter: parseFilter('debug') }) })
+  const req = { v: 1, 'op-id': 'op-1', run: 'r-1', kind: 'browser.page', policy: { resource: 'web', 'base-url': 'http://x.test', origins: ['http://x.test'] }, args: { commands: [{ do: 'goto', path: '/' }], 'command-timeout-ms': 1000 }, 'deadline-ms': 1000 }
+  const r = JSON.parse(await call(path, JSON.stringify(req)))
+  assert.equal(r.reason, 'at-capacity')
+  assert.match(logs[0], / WARN .* worker.browser {2}op failed .* reason=at-capacity busy=2 cap=2 elapsed_ms=/)
   await stopServer(server, path)
 })
 

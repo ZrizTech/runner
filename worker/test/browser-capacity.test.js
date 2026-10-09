@@ -34,19 +34,19 @@ const req = (n, run, max) => ({
   args: { commands: [], 'command-timeout-ms': 1000 }, 'deadline-ms': 5000,
 })
 
-test('capacity: N concurrent first ops of new runs at a full host of idle contexts are not refused', async () => {
+test('capacity: 8 runs at once with limit 8 lose no context; a ninth gets at-capacity with the numbers', async () => {
   const max = 8
-  let t = 1000
   const { launch, log } = fakeLaunch(20)
-  const host = createBrowserHost({ launch, now: () => ++t })
-  // Fill with idle contexts of runs that ended.
-  for (let i = 0; i < max; i++) assert.equal((await host.handle(req(i, `old-${i}`, max))).ok, true)
+  const host = createBrowserHost({ launch, maxWaitMs: 100 })
+  const res = await Promise.all(Array.from({ length: max + 1 }, (_, i) => host.handle(req(i, `run-${i}`, max))))
+  assert.equal(res.filter((r) => r.ok).length, max)
+  const refused = res.find((r) => !r.ok)
+  assert.equal(refused.reason, 'at-capacity')
+  assert.equal(refused['max-contexts'], max)
+  assert.equal(refused.busy, max)
+  assert.ok(Number.isInteger(refused['waited-ms']))
+  assert.deepEqual(log.closed, [], 'a context was closed')
+  assert.equal(log.opened, max, 'two ops took the same last place')
   assert.equal(host.size(), max)
-  // 8 new runs start in the same moment.
-  const res = await Promise.all(Array.from({ length: max }, (_, i) => host.handle(req(100 + i, `new-${i}`, max))))
-  const refused = res.map((r, i) => (r.ok ? null : `new-${i}:${r.error?.code ?? r.error ?? JSON.stringify(r)}`)).filter(Boolean)
-  console.log('refused:', refused, 'closed ctx ids:', log.closed, 'size:', host.size())
-  assert.deepEqual(refused, [], 'refused with idle capacity available')
-  assert.equal(new Set(log.closed).size, log.closed.length, 'a context was closed twice')
   await host.closeAll()
 })

@@ -129,56 +129,22 @@ test('a short cookie value is scrubbed as a whole token only, never inside a wor
   assert.equal(o.reads.r, '[cookie] cab [cookie], [cookie]')
 })
 
-test('4 sequential runs with max-contexts 3 all succeed; LRU is evicted', async () => {
-  await host.closeAll()
-  const policy = { 'max-contexts': 3 }
-  for (const r of ['c1', 'c2', 'c3', 'c4', 'c5']) {
-    await out([goto('/')], { run: r, policy })
-    clock += 10
-  }
-  assert.equal(host.size(), 3)
-  assert.equal(host.has('c1', 'web'), false)
-  assert.equal(host.has('c2', 'web'), false)
-  assert.equal(host.has('c5', 'web'), true)
-})
-
-test('3 busy contexts + a 4th -> at-capacity; the evicted run gets a fresh context', async () => {
+test('a full resource refuses a 4th run; no context is closed to make room', async () => {
   await host.closeAll()
   const policy = { 'max-contexts': 3 }
   await out([goto('/cookie-set')], { run: 'e1', policy })
-  clock += 10
+  for (const r of ['e2', 'e3']) await out([goto('/')], { run: r, policy })
+  const resp = await exec([goto('/')], { run: 'e4', policy })
+  assert.equal(resp.reason, 'at-capacity')
+  assert.equal(resp.busy, 3)
+  assert.equal(host.size(), 3)
+  // the run in work keeps its context and its cookie
   const seen = await out([goto('/cookie-get'), { do: 'read', as: 'c', what: 'text', target: css('#c') }], { run: 'e1', policy })
   assert.equal(seen.reads.c, 'cookie:sid=[cookie]')
-  const busy = (run) => {
-    const r = req([goto('/hidden'), { do: 'wait-for', target: css('#hb'), state: 'visible' }], { run, policy })
-    r.args['command-timeout-ms'] = 20000
-    r['deadline-ms'] = 1500
-    return host.handle(r)
-  }
-  await host.closeAll()
-  const held = ['b1', 'b2', 'b3'].map(busy)
-  await new Promise((r) => setTimeout(r, 400))
-  const resp = await exec([goto('/')], { run: 'b4', policy })
-  assert.equal(resp.ok, false)
-  assert.equal(resp.reason, 'at-capacity')
+  // run.close frees a place for the 4th run
+  assert.equal(await host.closeRun('e2'), 1)
+  assert.equal((await exec([goto('/')], { run: 'e4', policy })).ok, true)
   assert.equal(host.size(), 3)
-  await Promise.all(held)
-  // all idle now: a 4th run evicts the LRU one
-  assert.equal((await exec([goto('/')], { run: 'b4', policy })).ok, true)
-  assert.equal(host.size(), 3)
-  // evicted run starts with a fresh context (no cookies)
-  await host.closeAll()
-  await out([goto('/cookie-set')], { run: 'e1', policy })
-  clock += 10
-  await out([goto('/')], { run: 'e2', policy })
-  await out([goto('/')], { run: 'e3', policy })
-  await out([goto('/')], { run: 'e4', policy })
-  assert.equal(host.has('e1', 'web'), false)
-  // the host says so once, then the run gets a fresh context
-  const lost = await exec([goto('/')], { run: 'e1', policy })
-  assert.equal(lost.reason, 'context-lost')
-  const fresh = await out([goto('/cookie-get'), { do: 'read', as: 'c', what: 'text', target: css('#c') }], { run: 'e1', policy })
-  assert.equal(fresh.reads.c, 'cookie:none')
 })
 
 test('idle contexts are evicted by the sweep on the next request (fake clock)', async () => {

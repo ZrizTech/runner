@@ -14,9 +14,10 @@ export function makeLogger({ write = (s) => process.stdout.write(s), filter = pa
     if (!enabled(filter, target, level)) return
     write(formatLine({ time_ns: now(), level, target, trace, event, fields }) + '\n')
   }
-  const log = ({ opId, run, kind, mode, cmd, exit, ok, reason, us, traceId }) => {
+  const log = ({ opId, run, kind, mode, cmd, exit, ok, reason, us, traceId, closed, busy, cap }) => {
     const trace = typeof traceId === 'string' && TRACE.test(traceId) ? traceId : undefined
     if (kind === 'ping') return emit('DEBUG', 'worker.main', 'ping done', [['elapsed_ms', { micros: us }]], trace)
+    if (kind === 'run.close' && ok) return emit('INFO', 'worker.main', 'run closed', [['run_id', okId(run)], ['count', closed]], trace)
     if (!KINDS.has(kind)) {
       // No known kind: worker.main lists only reason and elapsed_ms for op failed.
       return emit('WARN', 'worker.main', 'op failed', [['reason', REASONS.has(reason) ? reason : undefined], ['elapsed_ms', { micros: us }]], trace)
@@ -26,6 +27,7 @@ export function makeLogger({ write = (s) => process.stdout.write(s), filter = pa
       ['cmd', okId(cmd)], ['mode', MODES.has(mode) ? mode : undefined],
       ['exit_code', Number.isInteger(exit) ? exit : undefined],
       ['status', ok ? 'pass' : 'error'], ['reason', REASONS.has(reason) ? reason : undefined],
+      ['busy', Number.isInteger(busy) ? busy : undefined], ['cap', Number.isInteger(cap) ? cap : undefined],
       ['elapsed_ms', { micros: us }],
     ]
     const target = COMPONENT[kind]
