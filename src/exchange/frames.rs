@@ -2,6 +2,7 @@
 //! the bounded pool, and building the result/error frames a finished op
 //! replies with.
 
+use super::batch::{self, BATCH_CAP};
 use super::health::{self, Snapshot};
 use super::{Inner, StepError};
 use crate::contract;
@@ -17,9 +18,6 @@ fn poll_failed(status: Option<u16>, error: &str, t0: Instant) {
 
 /// A poll that took this long or longer is worth an INFO line.
 const SLOW_POLL: Duration = Duration::from_millis(35_000);
-
-/// The most refusals of one frame before the runner drops it.
-const MAX_REFUSALS: u32 = 3;
 
 /// One `poll done` line: INFO when frames came or the poll was slow, else
 /// DEBUG. `status` is `None` when no HTTP answer came.
@@ -39,9 +37,18 @@ fn is_refusal(status: u16) -> bool {
 }
 
 impl Inner {
+    /// Takes the frames of the next request from the queue (see
+    /// `batch::first_batch`); the rest stays queued.
     fn drain_queue(&self) -> Vec<contract::Frame> {
         let mut q = self.queue.lock().unwrap_or_else(|e| e.into_inner());
-        std::mem::take(&mut *q)
+        let sizes: Vec<usize> = q
+            .iter()
+            .map(|f| serde_json::to_vec(f).map_or(0, |b| b.len()))
+            .collect();
+        let r = self.refusals.lock().unwrap_or_else(|e| e.into_inner());
+        let lone: Vec<bool> = q.iter().map(|f| r.is_lone(&f.id)).collect();
+        let n = batch::first_batch(&sizes, &lone, BATCH_CAP);
+        q.drain(..n).collect()
     }
 
     /// Puts `frames` back at the head of the queue, ahead of anything
@@ -93,9 +100,9 @@ impl Inner {
         }
     }
 
-    /// The request got no HTTP answer: its counts go back, to be sent in
-    /// the next request. (A request that got an answer keeps them out: they
-    /// start over at 0 when the request is built.)
+    /// The cloud did not accept the request (no answer, 4xx, 5xx, a bad 200
+    /// body): its counts go back, to be sent in the next request. (A request
+    /// the cloud accepted keeps them out: they start at 0 when built.)
     fn counts_unsent(&self, snap: &Snapshot) {
         self.refused.fetch_add(snap.refused, Ordering::SeqCst);
         self.errors.fetch_add(snap.errors, Ordering::SeqCst);
@@ -172,7 +179,18 @@ impl Inner {
             }
         };
 
-        self.handle_response(resp, sent, t0).await
+        let result = self.handle_response(resp, sent, t0).await;
+        match result {
+            // The cloud did not accept the request: its counts go back.
+            Err(_) => self.counts_unsent(&snap),
+            Ok(()) => {
+                let more = !self.queue.lock().unwrap_or_else(|e| e.into_inner()).is_empty();
+                if more {
+                    self.trigger_exchange();
+                }
+            }
+        }
+        result
     }
 
     async fn handle_response(
@@ -198,12 +216,18 @@ impl Inner {
             }
             other => {
                 let status = other.as_u16();
-                let kept = if is_refusal(status) {
-                    self.drop_refused(status, sent)
+                if is_refusal(status) {
+                    let alone = sent.len() == 1;
+                    let kept = self.drop_refused(status, sent);
+                    // A frame refused alone goes behind the others.
+                    if alone {
+                        kept.into_iter().for_each(|f| self.push_back(f));
+                    } else {
+                        self.push_front(kept);
+                    }
                 } else {
-                    sent
-                };
-                self.push_front(kept);
+                    self.push_front(sent);
+                }
                 poll_failed(Some(status), "bad-status", t0);
                 Err(StepError::Failed)
             }
@@ -214,31 +238,27 @@ impl Inner {
     fn forget_refusals(&self, sent: &[contract::Frame]) {
         let mut m = self.refusals.lock().unwrap_or_else(|e| e.into_inner());
         for f in sent {
-            m.remove(&f.id);
+            m.forget(&f.id);
         }
     }
 
-    /// Counts one refusal for each of `sent`. A frame refused for the third
-    /// time is dropped, with one ERROR line (`count` is the number of tries) for all that drop; the rest is
+    /// The cloud refused the request of `sent` (see `Refusals::refused`).
+    /// One ERROR line says how many frames were dropped; the rest is
     /// returned to be queued again.
     fn drop_refused(&self, status: u16, sent: Vec<contract::Frame>) -> Vec<contract::Frame> {
-        let mut m = self.refusals.lock().unwrap_or_else(|e| e.into_inner());
-        let mut kept = Vec::new();
-        let mut dropped = false;
-        for f in sent {
-            let n = m.entry(f.id.clone()).or_insert(0);
-            *n += 1;
-            if *n >= MAX_REFUSALS {
-                m.remove(&f.id);
-                dropped = true;
-            } else {
-                kept.push(f);
-            }
+        let ids: Vec<&str> = sent.iter().map(|f| f.id.as_str()).collect();
+        let drop = {
+            let mut m = self.refusals.lock().unwrap_or_else(|e| e.into_inner());
+            m.refused(&ids, Instant::now(), self.cfg.backoff)
+        };
+        let dropped = drop.iter().filter(|d| **d).count();
+        if dropped > 0 {
+            tracing::error!(target: "runner.exchange", http_status = status, count = dropped as u64, reason = "refused", "frames dropped");
         }
-        if dropped {
-            tracing::error!(target: "runner.exchange", http_status = status, count = MAX_REFUSALS, reason = "refused", "frames dropped");
-        }
-        kept
+        sent.into_iter()
+            .zip(drop)
+            .filter_map(|(f, d)| (!d).then_some(f))
+            .collect()
     }
 
     async fn handle_ok(

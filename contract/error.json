@@ -9,6 +9,7 @@
     "reason": {
       "enum": [
         "timeout",
+        "connection-error",
         "capture-not-found",
         "host-not-allowed",
         "read-only",
@@ -20,6 +21,7 @@
         "unknown-resource",
         "secret-not-set",
         "context-lost",
+        "handle-lost",
         "runner-at-capacity",
         "too-many-handles",
         "spawn-failed",
@@ -88,7 +90,8 @@
         "why": {
           "enum": [
             "idle",
-            "worker-restarted"
+            "worker-restarted",
+            "run-closed"
           ]
         },
         "idle-ms": {

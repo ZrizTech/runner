@@ -61,8 +61,9 @@
       "state": "its state on the runner"
     },
     "why-of": {
-      "idle": "the context had no use for {idle-ms} ms",
-      "worker-restarted": "the worker restarted"
+      "idle": "it had no use for {idle-ms} ms",
+      "worker-restarted": "the worker restarted",
+      "run-closed": "the run ended"
     },
     "where": [
       "unknown-type",
@@ -106,6 +107,7 @@
     {"reason":"browser-error","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} ({action}) failed at browser command {command}: {code}","details":["command","code"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
     {"reason":"cli-error","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} ({action}) failed: the command ended with an error","details":[],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
     {"reason":"timeout","side":"target","retry":"no","by":["runner"],"state":"in-use","pattern":"step {step-index} ({action}) got no answer from the target in {timeout-ms} ms","details":["timeout-ms"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
+    {"reason":"connection-error","side":"target","retry":"no","by":["runner"],"state":"promoted","pattern":"step {step-index} ({action}) could not connect to the target","details":[],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
     {"reason":"poll-timeout","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} ({action}) did not get the expected state in {attempts} attempts","details":["attempts"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
     {"reason":"poll-deadline-exceeded","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"step {step-index} ({action}) did not get the expected state in {attempts} attempts and the pipeline limit of {timeout-ms} ms ended","details":["attempts","timeout-ms","wait-ms"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
     {"reason":"pipeline-timeout","side":"target","retry":"no","by":["cloud"],"state":"in-use","pattern":"the pipeline limit of {timeout-ms} ms ended at step {step-index} of {steps}","details":["timeout-ms","steps","wait-ms"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
@@ -134,6 +136,7 @@
     {"reason":"capture-lost","side":"runner","retry":"now","by":["cloud"],"state":"new","pattern":"the runner {runner} does not have the captured value {name} of this run at step {step-index}","details":["runner","name"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz run <p>","doc":"Run this pipeline again"}]},
     {"reason":"runner-restarted","side":"runner","retry":"now","by":["cloud"],"state":"new","pattern":"the runner {runner} restarted during the run and lost {lost}","details":["runner","lost","name"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz run <p>","doc":"Run this pipeline again"}]},
     {"reason":"context-lost","side":"runner","retry":"now","by":["runner","worker"],"state":"promoted","pattern":"step {step-index} ({action}) lost its browser context: {why}","details":["resource","why","idle-ms"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id> --timeline","doc":"Show the time of each step"}]},
+    {"reason":"handle-lost","side":"runner","retry":"now","by":["runner","worker"],"state":"new","pattern":"step {step-index} ({action}) lost its handle {handle}: {why}","details":["handle","why","idle-ms"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id> --timeline","doc":"Show the time of each step"}]},
     {"reason":"runner-at-capacity","side":"runner","retry":"later","by":["runner"],"state":"in-use","pattern":"step {step-index} ({action}) could not start: all {limit} {unit} of {scope} were busy for {waited-ms} ms","details":["limit-name","unit","limit","busy","waited-ms","resource","runner"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id> --timeline","doc":"Show the time of each step"}]},
     {"reason":"too-many-handles","side":"runner","retry":"later","by":["worker"],"state":"promoted","pattern":"step {step-index} ({action}) could not start a handle: the limit of {limit} handles is in use","details":["limit"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id> --timeline","doc":"Show the time of each step"}]},
     {"reason":"spawn-failed","side":"runner","retry":"no","by":["worker"],"state":"promoted","pattern":"step {step-index} ({action}) could not start its command on the runner {runner}","details":["runner"],"hints":[{"command":"zz runners","doc":"See the runners of the org"},{"command":"zz runs <id>","doc":"Show the failed step and its values"}]},
@@ -151,7 +154,7 @@
     {"reason":"run-error","side":"service","retry":"unknown","by":["cloud"],"state":"in-use","pattern":"the cloud could not do the run and does not know the cause: {where}","details":["where"],"hints":[{"command":"zz runs <id>","doc":"Show the failed step and its values"},{"command":"zz doctor","doc":"Check the connection to the cloud"}]},
     {"reason":"canceled","side":"limit","retry":"now","by":["cloud"],"state":"in-use","pattern":"a member canceled the run at step {step-index}","details":[],"hints":[{"command":"zz run <p>","doc":"Run this pipeline again"}]},
     {"reason":"net-refused","side":"network","retry":"later","by":["zz"],"state":"new","pattern":"the service at {host} refused the connection","details":["host","method","path"],"hints":[{"command":"zz doctor","doc":"Check the connection to the cloud"}]},
-    {"reason":"net-dns","side":"network","retry":"no","by":["zz"],"state":"new","pattern":"the name {host} did not resolve","details":["host","method","path"],"hints":[{"command":"zz doctor","doc":"Check the connection to the cloud"},{"command":"zz","doc":"Show the commands of zz"}]},
+    {"reason":"net-dns","side":"network","retry":"later","by":["zz"],"state":"new","pattern":"the name {host} did not resolve","details":["host","method","path"],"hints":[{"command":"zz doctor","doc":"Check the connection to the cloud"},{"command":"zz","doc":"Show the commands of zz"}]},
     {"reason":"net-timeout","side":"network","retry":"later","by":["zz"],"state":"new","pattern":"the service at {host} gave no answer in {timeout-ms} ms","details":["host","method","path","timeout-ms"],"hints":[{"command":"zz doctor","doc":"Check the connection to the cloud"}]},
     {"reason":"net-tls","side":"network","retry":"no","by":["zz"],"state":"new","pattern":"the TLS handshake with {host} failed","details":["host","method","path"],"hints":[{"command":"zz doctor","doc":"Check the connection to the cloud"},{"command":"zz","doc":"Show the commands of zz"}]},
     {"reason":"net-unknown","side":"network","retry":"unknown","by":["zz"],"state":"new","pattern":"the request to {host} failed and zz does not know the cause","details":["host","method","path"],"hints":[{"command":"zz doctor","doc":"Check the connection to the cloud"}]},

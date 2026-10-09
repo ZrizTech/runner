@@ -3,6 +3,7 @@
 //! back onto a bounded pool of tasks, and repeats forever until cancelled or
 //! the cloud rejects the token.
 
+mod batch;
 mod frames;
 mod health;
 mod reply;
@@ -12,7 +13,6 @@ mod token;
 pub use health::WorkerHealth;
 
 use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame};
-use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU64;
@@ -252,7 +252,7 @@ struct Inner {
     /// Ops ended with `runner-error` or `worker-error` since the last sent request.
     errors: AtomicU64,
     /// How often the cloud refused each queued frame (by frame id).
-    refusals: Mutex<HashMap<String, u32>>,
+    refusals: Mutex<batch::Refusals>,
 }
 
 impl Inner {
@@ -276,7 +276,7 @@ impl Inner {
             boot_id: health::new_boot_id(),
             refused: AtomicU64::new(0),
             errors: AtomicU64::new(0),
-            refusals: Mutex::new(HashMap::new()),
+            refusals: Mutex::new(batch::Refusals::default()),
             cfg,
             cancel,
         }
@@ -385,6 +385,9 @@ pub async fn run(
 #[cfg(test)]
 #[path = "conformance_tests.rs"]
 mod conformance_tests;
+#[cfg(test)]
+#[path = "batch_tests.rs"]
+mod batch_tests;
 #[cfg(test)]
 #[path = "log_tests.rs"]
 mod log_tests;
