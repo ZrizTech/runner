@@ -35,6 +35,22 @@ fn has(req: &contract::ExchangeRequest, id: &str) -> bool {
     req.frames.iter().any(|f| f.id == id)
 }
 
+/// Calls `exchange` by hand until `done` is true (a deadline of 30 s). A
+/// frame that goes out and comes back (a refusal) is in no state the test can
+/// see, so the test never looks at the queue alone to decide it is finished.
+async fn drive(i: &Arc<Inner>, mut done: impl FnMut() -> bool) {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !done() {
+        assert!(
+            Instant::now() < deadline,
+            "not done in time: {:?}",
+            queued(i)
+        );
+        let _ = i.exchange().await;
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn one_bad_frame_is_dropped_alone_and_the_good_ones_arrive() {
     let cloud = ImmediateCloud::new(|_, req| {
@@ -46,24 +62,37 @@ async fn one_bad_frame_is_dropped_alone_and_the_good_ones_arrive() {
     })
     .await;
     let mut rx = cloud.take_receiver();
-    let i = inner(&cloud.base_url, Duration::from_millis(1));
+    // No spacing: every refusal of a lone frame counts, so the number of
+    // tries does not depend on how fast the machine is. (The spacing rule has
+    // its own tests in `batch.rs`.)
+    let i = inner(&cloud.base_url, Duration::ZERO);
     for id in ["bad", "g1", "g2"] {
         i.push_back(frame(id, 0));
     }
-    for _ in 0..60 {
-        if queued(&i).is_empty() {
-            break;
-        }
-        let _ = i.exchange().await;
-        tokio::time::sleep(Duration::from_millis(3)).await;
-    }
-    tokio::time::sleep(Duration::from_millis(30)).await;
-    assert!(queued(&i).is_empty(), "{:?}", queued(&i));
     let mut got = Vec::new();
+    // The batch and three lone tries have arrived, and so have both good
+    // frames. Exchanges the loop itself triggers run in other tasks.
+    drive(&i, || {
+        while let Ok(a) = rx.try_recv() {
+            got.push(a.req);
+        }
+        let bad = got.iter().filter(|r| has(r, "bad")).count();
+        bad >= 4 && ["g1", "g2"].iter().all(|g| got.iter().any(|r| has(r, g)))
+    })
+    .await;
+    // The last try of "bad" may still be on its way back: wait for the end.
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !queued(&i).is_empty() {
+        assert!(Instant::now() < deadline, "{:?}", queued(&i));
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+    // A fifth try would be a frame kept; give a stray one time to show up.
+    tokio::time::sleep(Duration::from_millis(50)).await;
     while let Ok(a) = rx.try_recv() {
         got.push(a.req);
     }
-    let bad: Vec<_> = got.iter().filter(|r| has(r, "bad")).collect();
+    let mut bad: Vec<_> = got.iter().filter(|r| has(r, "bad")).collect();
+    bad.sort_by_key(|r| std::cmp::Reverse(r.frames.len()));
     assert_eq!(bad[0].frames.len(), 3, "the first request is the batch");
     assert!(bad[1..].iter().all(|r| r.frames.len() == 1), "then alone");
     assert_eq!(bad.len(), 4, "one batch and three lone tries");
@@ -91,12 +120,14 @@ async fn two_one_mib_frames_go_in_two_requests() {
     i.push_back(frame("big1", 1 << 20));
     i.push_back(frame("big2", 1 << 20));
     i.push_back(frame("small", 10));
-    for _ in 0..6 {
-        let _ = i.exchange().await;
-    }
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    drive(&i, || queued(&i).is_empty()).await;
+    // Exchanges the loop triggers run in other tasks, so a request may be
+    // still in flight; the arrivals are counted until all three frames came.
     let mut sizes = Vec::new();
-    while let Ok(a) = rx.try_recv() {
+    let mut seen = 0;
+    while seen < 3 {
+        let a = recv_timeout(&mut rx).await;
+        seen += a.req.frames.len();
         if !a.req.frames.is_empty() {
             sizes.push(
                 a.req
@@ -108,6 +139,8 @@ async fn two_one_mib_frames_go_in_two_requests() {
             );
         }
     }
+    // Two requests; the two can reach the cloud in either order.
+    sizes.sort();
     assert_eq!(sizes, ["big1", "big2,small"], "{sizes:?}");
 }
 

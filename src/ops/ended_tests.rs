@@ -64,7 +64,18 @@ async fn a_capture_in_flight_when_the_notice_comes_leaves_nothing() {
         ))
         .await
     });
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    // The notice comes while the target still holds the request.
+    tokio::time::timeout(Duration::from_secs(30), async {
+        while server
+            .received_requests()
+            .await
+            .is_none_or(|r| r.is_empty())
+        {
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+    })
+    .await
+    .expect("the target did not get the request");
     h.run_ended("run-z", NOTICE_TRACE).await;
     let (r, e) = running.await.unwrap();
     assert!(e.is_none(), "{e:?}");

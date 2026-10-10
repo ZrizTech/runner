@@ -123,7 +123,10 @@ async fn drains_by_max_inflight() {
     }
 
     let at_cap = handler.take_at_cap();
-    let _ = tokio::time::timeout(WAIT_TIMEOUT, at_cap).await; // two ops now genuinely running at once
+    // two ops now genuinely running at once
+    let _ = tokio::time::timeout(WAIT_TIMEOUT, at_cap)
+        .await
+        .expect("two ops were never running at once");
     handler.release();
 
     for id in ids {

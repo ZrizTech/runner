@@ -106,6 +106,21 @@ impl MutableEnv {
     }
 }
 
+/// Waits (up to 30 s) until the mock server has seen `n` requests.
+async fn wait_for_requests(server: &MockServer, n: usize) {
+    let seen = async {
+        loop {
+            if server.received_requests().await.map_or(0, |r| r.len()) >= n {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+        }
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(30), seen)
+        .await
+        .expect("the server did not see the requests in time");
+}
+
 #[tokio::test]
 async fn run_recovers_from_unauthorized_after_token_rotates() {
     let env = MutableEnv::new();
@@ -143,10 +158,9 @@ async fn run_recovers_from_unauthorized_after_token_rotates() {
         async move { run(cancel2, lookup, &mut std::io::sink()).await }
     });
 
-    // Give the retried (clean) exchange one round trip to land, then
-    // request shutdown, from inside the retried request's handler
-    // before it responds.
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    // Wait until the retried (clean) exchange has landed, then request
+    // shutdown.
+    wait_for_requests(&server, 2).await;
     cancel.cancel();
 
     let code = tokio::time::timeout(std::time::Duration::from_secs(2), done)
@@ -180,7 +194,7 @@ async fn run_clean_shutdown_exits_zero() {
     let cancel2 = cancel.clone();
     let done = tokio::spawn(async move { run(cancel2, lookup, &mut std::io::sink()).await });
 
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    wait_for_requests(&server, 1).await;
     cancel.cancel();
 
     let code = tokio::time::timeout(std::time::Duration::from_secs(2), done)

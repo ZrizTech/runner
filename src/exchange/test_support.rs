@@ -15,7 +15,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot};
 
 pub(crate) const TEST_TOKEN: &str = "test-token";
-pub(crate) const WAIT_TIMEOUT: Duration = Duration::from_secs(2);
+pub(crate) const WAIT_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// Waits for `rx` to yield a value within [`WAIT_TIMEOUT`], panicking (test
 /// failure) otherwise.
