@@ -226,8 +226,8 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
         resolve(v)
       }
       const onAbort = () => done('aborted')
+      // Not unref'd: an op waits on this timer, so it must keep the loop alive until it answers.
       const t = setTimeout(() => done('timeout'), ms)
-      t.unref?.()
       signal?.addEventListener('abort', onAbort)
       w.wake = () => done('placed')
       w.cancel = (v) => done(v)
@@ -286,8 +286,8 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
     let failedAt = null
     let timedOut = false
     const timer = new Promise((res) => {
+      // Not unref'd: the op awaits this deadline; s.cancel clears it when the op ends.
       const t = setTimeout(() => { timedOut = true; res() }, deadlineMs)
-      t.unref?.()
       // The runner closed the socket: nobody waits for the answer, stop at once.
       const onAbort = () => { timedOut = true; res() }
       signal?.addEventListener('abort', onAbort)

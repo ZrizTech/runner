@@ -164,7 +164,7 @@ async fn unknown_table_is_a_bare_error() {
         .await
         .err()
         .unwrap();
-    assert_eq!(err.to_string(), "sql: query failed");
+    assert_eq!(err.to_string(), "sql: the database refused the query");
     drop_schema(&c, &s).await;
 }
 
