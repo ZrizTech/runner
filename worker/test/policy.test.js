@@ -97,6 +97,8 @@ test('main-frame redirect off-origin fails with host-not-allowed', async () => {
   assert.equal(o.error, 'host-not-allowed')
   assert.equal(o['failed-at'], 0)
   assert.equal(o.blocked, 1)
+  // the op ends only when the page has settled on the browser's error page, not on a stale page
+  assert.equal(o.url, '')
   // the context still works
   const o2 = await out([goto('/')])
   assert.equal(o2.ok, true)
@@ -108,6 +110,10 @@ test('click on an off-origin link fails with host-not-allowed', async () => {
   assert.equal(o.error, 'host-not-allowed')
   assert.equal(o['failed-at'], 1)
   assert.equal(o.blocked, 1)
+  assert.equal(o.url, '')
+  // the next op's first navigation is not interrupted by the error page of the blocked one
+  const o2 = await out([goto('/')])
+  assert.equal(o2.ok, true, JSON.stringify(o2))
 })
 
 test('WebSocket to another origin is blocked and counted', async () => {

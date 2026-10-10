@@ -11,6 +11,8 @@ const DEFAULT_IDLE_MS = 10 * 60 * 1000
 // Longest wait for a free context slot; the op's own deadline can make it shorter.
 const MAX_WAIT_MS = 5000
 const SWEEP_EVERY_MS = 60 * 1000
+// Longest wait for the error page of a blocked main-frame navigation to commit.
+const SETTLE_MAX_MS = 5000
 const LOCAL_SCHEMES = new Set(['data:', 'blob:', 'about:'])
 
 const wsToHttp = (u) => u.replace(/^ws(s?):/, 'http$1:')
@@ -256,6 +258,12 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
     }
   }
 
+  async function settleBlocked(page, timeout) {
+    try {
+      await page.waitForURL((u) => u.protocol === 'chrome-error:', { waitUntil: 'commit', timeout: Math.min(timeout, SETTLE_MAX_MS) })
+    } catch { /* the page is gone or stayed put: the reason stands */ }
+  }
+
   // One sweep at a time: a sweep that runs is not started again. A session is closed only if it is
   // still the one in the table and still idle when its turn comes.
   function sweep(idleMs, at = now()) {
@@ -310,6 +318,10 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
     })()
     await Promise.race([loop, timer])
     s.cancel?.()
+    // A blocked main-frame navigation leaves Chromium committing its error page after the abort is
+    // reported. Wait for that commit, or the next op's first navigation is interrupted by it and
+    // fails as navigation-failed. The wait never changes the result: the reason is already decided.
+    if (st.navBlocked && !timedOut) await settleBlocked(page, timeout)
     if (timedOut && error === null) { error = 'timeout'; failedAt = Math.min(idx, args.commands.length - 1) }
     let title = ''
     try { title = await page.title() } catch { /* page gone */ }
