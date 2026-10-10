@@ -139,8 +139,13 @@ async fn a_notice_with_no_frame_is_a_normal_200() {
     .await;
     let (h, mut ended) = handler(None, WorkerHealth::default());
     arrivals_until(&cloud, config(&cloud.base_url, h), |a| a.len() >= 3).await;
-    assert_eq!(recv_timeout(&mut ended).await.0, "run-1");
-    assert_eq!(recv_timeout(&mut ended).await.0, "run-2");
+    // Each run is freed in its own task, so the two can arrive in any order.
+    let mut freed = vec![
+        recv_timeout(&mut ended).await.0,
+        recv_timeout(&mut ended).await.0,
+    ];
+    freed.sort();
+    assert_eq!(freed, ["run-1", "run-2"]);
 }
 
 #[tokio::test(flavor = "multi_thread")]
