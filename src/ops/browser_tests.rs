@@ -460,7 +460,7 @@ async fn no_worker_answer_by_the_deadline_is_worker_deadline_not_timeout() {
 
 #[test]
 fn worker_target_ms_reads_a_top_level_integer_only() {
-    use crate::ops::browser::worker_target_ms;
+    use crate::ops::target::worker_target_ms;
     let cases = [
         (json!({"ok": true, "target-ms": 37}), Some(37)),
         (json!({"ok": true, "target-ms": 0}), Some(0)),

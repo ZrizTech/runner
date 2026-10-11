@@ -3130,6 +3130,8 @@ dependencies = [
  "chrono",
  "flate2",
  "futures",
+ "http",
+ "hyper-util",
  "jsonschema",
  "mysql_async",
  "reqwest",

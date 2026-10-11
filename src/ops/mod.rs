@@ -18,6 +18,7 @@ mod log;
 mod sql;
 mod sql_pg;
 mod subst;
+mod target;
 mod vault;
 mod worker;
 mod worker_map;
@@ -80,8 +81,6 @@ pub enum NewError {
     DenyKeys(#[source] contract::ContractError),
     #[error("ops: open resource {0}: {1}")]
     OpenSql(String, #[source] SqlOpenError),
-    #[error("ops: build http client: {0}")]
-    HttpClient(#[source] reqwest::Error),
 }
 
 /// The only arg keys each op kind accepts; any other key present in an op's
@@ -170,9 +169,6 @@ impl Handler {
                 }
             }
         }
-
-        // Fail early if a client cannot be built; ops build their own.
-        http_client::build_measured().map_err(NewError::HttpClient)?;
 
         let worker_up = announce::startup(&cfg).await;
         let lookup = opts.lookup.unwrap_or_else(default_lookup);

@@ -2,7 +2,8 @@
 //! argv tail against its shapes, resolve env secrets, hand the op to the
 //! worker sidecar, then capture, project and scrub what comes back.
 
-use super::browser::{DEFAULT_IDLE_MS, unavailable, worker_out, worker_target_ms};
+use super::browser::{DEFAULT_IDLE_MS, unavailable, worker_out};
+use super::target::worker_target_ms;
 use super::worker_map::{handle_restarted, no_handle};
 use super::{Handler, capture, duration_ms, new_error, runner_error, scrub_payload, worker};
 use crate::config::Resource;

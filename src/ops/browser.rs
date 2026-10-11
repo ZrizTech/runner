@@ -2,6 +2,7 @@
 //! hand them to the worker sidecar, then capture, project and scrub what
 //! comes back, in the same order as http.
 
+use super::target::worker_target_ms;
 use super::worker_map::{from_worker, restarted};
 use super::{Handler, capture, duration_ms, new_error, runner_error, scrub_payload, worker};
 use crate::config::Resource;
@@ -184,14 +185,6 @@ fn policy(name: &str, r: &Resource) -> Value {
         p.insert("idle-ms".into(), json!(n));
     }
     Value::Object(p)
-}
-
-/// The `target-ms` the worker measured: a top-level integer >= 0 of its ok
-/// answer. Anything else, or absent, is `None`.
-pub(super) fn worker_target_ms(resp: &Value) -> Option<i64> {
-    resp.get("target-ms")
-        .and_then(Value::as_i64)
-        .filter(|n| *n >= 0)
 }
 
 /// The `out` object of a good response, or the error a bad one maps to.
