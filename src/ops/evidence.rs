@@ -52,7 +52,10 @@ impl Handler {
                 status: "pass".to_string(),
                 payload,
                 scrubbed: 0,
-                timing: Timing { exec_ms: 0 },
+                timing: Timing {
+                    exec_ms: 0,
+                    target_ms: None,
+                },
             }),
             None,
         )

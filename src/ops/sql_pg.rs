@@ -26,7 +26,7 @@
 //!
 //! Errors never carry text: a failed query is a bare [`SqlOpError`].
 
-use super::sql::SqlOpError;
+use super::sql::{SqlOpError, SqlReply, timed};
 use super::{BoxFuture, SqlOpenError};
 use futures::StreamExt;
 use serde_json::{Map, Value};
@@ -78,6 +78,33 @@ pub(crate) fn open(dsn: &str) -> Result<PgConn, SqlOpenError> {
 }
 
 impl PgConn {
+    /// The wait for a place, the checkout (may open a connection) and the
+    /// give-back are outside the span that `target_ms` measures.
+    async fn query_inner(
+        &self,
+        query: &str,
+        params: &[Value],
+        read_only: bool,
+        target_ms: &mut Option<i64>,
+    ) -> Result<Vec<Map<String, Value>>, SqlOpError> {
+        let _permit = self
+            .permits
+            .acquire()
+            .await
+            .map_err(|_| SqlOpError::Other)?;
+        let mut client = self.checkout().await?;
+        let out = self
+            .run(&mut client, query, params, read_only, target_ms)
+            .await;
+        if out.is_ok()
+            && !client.is_closed()
+            && let Ok(mut idle) = self.idle.lock()
+        {
+            idle.push(client);
+        }
+        out
+    }
+
     async fn checkout(&self) -> Result<Client, SqlOpError> {
         loop {
             let cached = self.idle.lock().map_err(|_| SqlOpError::Other)?.pop();
@@ -112,6 +139,7 @@ impl PgConn {
         query: &str,
         params: &[Value],
         read_only: bool,
+        target_ms: &mut Option<i64>,
     ) -> Result<Vec<Map<String, Value>>, SqlOpError> {
         let sql = rewrite_placeholders(query);
         if read_only {
@@ -121,11 +149,11 @@ impl PgConn {
                 .start()
                 .await
                 .map_err(|e| pg_fault(&e))?;
-            let rows = exec(&tx, &sql, params).await?;
+            let rows = exec(&tx, &sql, params, target_ms).await?;
             tx.commit().await.map_err(|e| pg_fault(&e))?;
             Ok(rows)
         } else {
-            exec(&*client, &sql, params).await
+            exec(&*client, &sql, params, target_ms).await
         }
     }
 }
@@ -134,7 +162,10 @@ async fn exec(
     c: &impl tokio_postgres::GenericClient,
     sql: &str,
     params: &[Value],
+    target_ms: &mut Option<i64>,
 ) -> Result<Vec<Map<String, Value>>, SqlOpError> {
+    // The prepare above the measured span is a set-up round trip: not in
+    // the target time. The span is the statement and the read of the rows.
     let stmt = c.prepare(sql).await.map_err(|e| pg_fault(&e))?;
     if stmt.params().len() != params.len() {
         return Err(SqlOpError::Other);
@@ -149,20 +180,23 @@ async fn exec(
         .iter()
         .map(|b| b.as_ref() as &(dyn ToSql + Sync))
         .collect();
-    let stream = c
-        .query_raw(&stmt, refs.iter().copied())
-        .await
-        .map_err(|e| pg_fault(&e))?;
-    futures::pin_mut!(stream);
-    let mut out = Vec::new();
-    while out.len() < super::sql::MAX_SQL_ROWS {
-        match stream.next().await {
-            Some(Ok(row)) => out.push(row_to_map(&row)),
-            Some(Err(e)) => return Err(pg_fault(&e)),
-            None => break,
+    timed(target_ms, async {
+        let stream = c
+            .query_raw(&stmt, refs.iter().copied())
+            .await
+            .map_err(|e| pg_fault(&e))?;
+        futures::pin_mut!(stream);
+        let mut out = Vec::new();
+        while out.len() < super::sql::MAX_SQL_ROWS {
+            match stream.next().await {
+                Some(Ok(row)) => out.push(row_to_map(&row)),
+                Some(Err(e)) => return Err(pg_fault(&e)),
+                None => break,
+            }
         }
-    }
-    Ok(out)
+        Ok(out)
+    })
+    .await
 }
 
 impl super::sql::SqlConn for PgConn {
@@ -171,22 +205,13 @@ impl super::sql::SqlConn for PgConn {
         query: &'a str,
         params: &'a [Value],
         read_only: bool,
-    ) -> BoxFuture<'a, Result<Vec<Map<String, Value>>, SqlOpError>> {
+    ) -> BoxFuture<'a, SqlReply> {
         Box::pin(async move {
-            let _permit = self
-                .permits
-                .acquire()
-                .await
-                .map_err(|_| SqlOpError::Other)?;
-            let mut client = self.checkout().await?;
-            let out = self.run(&mut client, query, params, read_only).await;
-            if out.is_ok()
-                && !client.is_closed()
-                && let Ok(mut idle) = self.idle.lock()
-            {
-                idle.push(client);
-            }
-            out
+            let mut target_ms = None;
+            let rows = self
+                .query_inner(query, params, read_only, &mut target_ms)
+                .await;
+            SqlReply { rows, target_ms }
         })
     }
 

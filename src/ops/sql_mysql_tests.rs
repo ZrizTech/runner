@@ -23,6 +23,7 @@ async fn setup() -> Option<(MysqlConn, String)> {
     match c
         .query(&format!("CREATE TABLE {table} (id int)"), &[], false)
         .await
+        .rows
     {
         Ok(_) => Some((c, table)),
         Err(_) => {
@@ -43,22 +44,25 @@ async fn write_on_read_only_is_refused_and_nothing_written() {
         format!("UPDATE {t} SET id = 3"),
         format!("DELETE FROM {t}"),
     ] {
-        assert!(c.query(&write, &[], true).await.is_err(), "{write}");
+        assert!(c.query(&write, &[], true).await.rows.is_err(), "{write}");
     }
     // the same write is accepted on a read-write connection: the refusal was the transaction
     assert!(
         c.query(&format!("INSERT INTO {t} VALUES (?)"), &[json!(9)], false)
             .await
+            .rows
             .is_ok()
     );
     let rows = c
         .query(&format!("SELECT id FROM {t}"), &[], true)
         .await
+        .rows
         .unwrap();
     assert_eq!(rows, vec![json!({"id": 9}).as_object().unwrap().clone()]);
     // the pool still works after the failures
-    assert!(c.query("SELECT 1 AS one", &[], true).await.is_ok());
+    assert!(c.query("SELECT 1 AS one", &[], true).await.rows.is_ok());
     c.query(&format!("DROP TABLE {t}"), &[], false)
         .await
+        .rows
         .unwrap();
 }

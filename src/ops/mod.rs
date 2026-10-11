@@ -21,7 +21,7 @@ mod vault;
 mod worker;
 mod worker_map;
 
-pub use sql::{DsnError, ParsedDsn, SqlConn, SqlOpError, parse_dsn};
+pub use sql::{DsnError, ParsedDsn, SqlConn, SqlOpError, SqlReply, parse_dsn};
 
 use crate::config::{self, Config};
 use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame};

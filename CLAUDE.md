@@ -34,7 +34,8 @@ every secret. Public, Apache 2 (LICENSE). Never imports from the cloud.
   a shell) and its closed, versioned protocol; it holds no runner secret. `npm test` there.
 - http.request's own redirect loop checks `origin::check_origin` on every hop (the client is
   always built with `redirect::Policy::none()`); sql.query goes through the `SqlConn` trait (tests
-  use a fake connection).
+  use a fake connection). `SqlConn::query` returns a `SqlReply`: rows plus
+  `target_ms`, the round trip of the statement and the row read only (not the wait for a place, connect, BEGIN/COMMIT, prepare), which becomes `timing.target-ms`; `exec-ms` stays the whole op.
 - `exchange` (`mod.rs`, `frames.rs`, `token.rs`, `test_support.rs`, `conformance_tests.rs`) —
   long-poll loop, bounded pool, extra exchange on op completion, `ExchangeError::Unauthorized` on
   a second consecutive 401, never `process::exit`; `Config::on_connected`, if set, fires exactly

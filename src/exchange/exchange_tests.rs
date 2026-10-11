@@ -93,7 +93,10 @@ async fn op_round_trip_delivers_result() {
                     .into_iter()
                     .collect(),
                 scrubbed: 0,
-                timing: contract::Timing { exec_ms: 1 },
+                timing: contract::Timing {
+                    exec_ms: 1,
+                    target_ms: None,
+                },
             },
         )
     });
@@ -243,7 +246,10 @@ async fn pool_full_rejects_with_capacity_error() {
                 status: "pass".to_string(),
                 payload: std::collections::BTreeMap::new(),
                 scrubbed: 0,
-                timing: contract::Timing { exec_ms: 1 },
+                timing: contract::Timing {
+                    exec_ms: 1,
+                    target_ms: None,
+                },
             },
         )
     });
@@ -304,7 +310,10 @@ async fn backoff_on_transport_error_keeps_looping() {
             status: "pass".to_string(),
             payload: std::collections::BTreeMap::new(),
             scrubbed: 0,
-            timing: contract::Timing { exec_ms: 1 },
+            timing: contract::Timing {
+                exec_ms: 1,
+                target_ms: None,
+            },
         },
     ));
 

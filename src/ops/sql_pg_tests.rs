@@ -19,6 +19,7 @@ async fn setup() -> Option<(PgConn, String)> {
     match conn
         .query(&format!("CREATE SCHEMA {schema}"), &[], false)
         .await
+        .rows
     {
         Ok(_) => Some((conn, schema)),
         Err(_) => {
@@ -31,6 +32,7 @@ async fn setup() -> Option<(PgConn, String)> {
 async fn drop_schema(conn: &PgConn, schema: &str) {
     conn.query(&format!("DROP SCHEMA {schema} CASCADE"), &[], false)
         .await
+        .rows
         .unwrap();
 }
 
@@ -66,6 +68,7 @@ async fn select_two_params_and_literal_question_mark() {
         false,
     )
     .await
+    .rows
     .unwrap();
     c.query(
         &format!("INSERT INTO {s}.t VALUES (1,'a?'),(2,'b'),(3,'c')"),
@@ -73,6 +76,7 @@ async fn select_two_params_and_literal_question_mark() {
         false,
     )
     .await
+    .rows
     .unwrap();
     let rows = c
         .query(
@@ -83,6 +87,7 @@ async fn select_two_params_and_literal_question_mark() {
             true,
         )
         .await
+        .rows
         .unwrap();
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0]["id"], json!(1));
@@ -97,6 +102,7 @@ async fn select_two_params_and_literal_question_mark() {
             true,
         )
         .await
+        .rows
         .unwrap();
     assert_eq!(rows.len(), 1);
     drop_schema(&c, &s).await;
@@ -111,7 +117,7 @@ async fn types_mapping() {
              '6f1c1c7e-3a5b-4d3e-9a55-0b2f5d3b7c11'::uuid AS u, \
              '2026-01-02 03:04:05+00'::timestamptz AS tz, '2026-01-02 03:04:05.5'::timestamp AS ts, \
              '2026-01-02'::date AS d, NULL::text AS nul, '\\xdead'::bytea AS by";
-    let rows = c.query(q, &[], true).await.unwrap();
+    let rows = c.query(q, &[], true).await.rows.unwrap();
     let r = &rows[0];
     assert_eq!(r["i2"], json!(7));
     assert_eq!(r["i4"], json!(8));
@@ -137,22 +143,25 @@ async fn write_on_read_only_is_refused_and_nothing_written() {
     let Some((c, s)) = setup().await else { return };
     c.query(&format!("CREATE TABLE {s}.t (id int)"), &[], false)
         .await
+        .rows
         .unwrap();
     // A data-modifying CTE gets past a keyword pre-check; the transaction stops it.
     let sneaky = format!("WITH x AS (INSERT INTO {s}.t VALUES (1) RETURNING id) SELECT id FROM x");
-    assert!(c.query(&sneaky, &[], true).await.is_err());
+    assert!(c.query(&sneaky, &[], true).await.rows.is_err());
     assert!(
         c.query(&format!("INSERT INTO {s}.t VALUES (2)"), &[], true)
             .await
+            .rows
             .is_err()
     );
     let rows = c
         .query(&format!("SELECT count(*) AS n FROM {s}.t"), &[], false)
         .await
+        .rows
         .unwrap();
     assert_eq!(rows[0]["n"], json!(0));
     // the pool still works after the failures
-    assert!(c.query("SELECT 1 AS one", &[], true).await.is_ok());
+    assert!(c.query("SELECT 1 AS one", &[], true).await.rows.is_ok());
     drop_schema(&c, &s).await;
 }
 
@@ -162,6 +171,7 @@ async fn unknown_table_is_a_bare_error() {
     let err = c
         .query(&format!("SELECT * FROM {s}.nope"), &[], true)
         .await
+        .rows
         .err()
         .unwrap();
     assert_eq!(err.to_string(), "sql: the database refused the query");
@@ -171,13 +181,13 @@ async fn unknown_table_is_a_bare_error() {
 #[tokio::test]
 async fn bad_credentials_and_dead_host_never_leak_the_secret() {
     let conn = open("postgres://zriz:s3cretpw@localhost:1/zriz?sslmode=disable").unwrap();
-    let err = conn.query("SELECT 1", &[], true).await.err().unwrap();
+    let err = conn.query("SELECT 1", &[], true).await.rows.err().unwrap();
     let text = format!("{err} {err:?}");
     assert!(!text.contains("s3cretpw"), "{text}");
     // wrong password against the real server
     let dsn = dsn().replace("zriz:zriz@", "zriz:s3cretpw@");
     let conn = open(&dsn).unwrap();
-    let err = conn.query("SELECT 1", &[], true).await.err().unwrap();
+    let err = conn.query("SELECT 1", &[], true).await.rows.err().unwrap();
     let text = format!("{err} {err:?}");
     assert!(!text.contains("s3cretpw"), "{text}");
 }
@@ -193,6 +203,7 @@ async fn result_is_capped_at_max_sql_rows_while_reading() {
                 read_only,
             )
             .await
+            .rows
             .unwrap();
         assert_eq!(rows.len(), crate::ops::sql::MAX_SQL_ROWS);
     }

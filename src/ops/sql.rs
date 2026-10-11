@@ -15,6 +15,7 @@ use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame, Timing};
 use crate::{project, readonly};
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
+use std::time::Instant;
 
 /// Errors parsing a MySQL DSN
 /// (`user[:pass]@tcp(host[:port])/db[?params]`).
@@ -139,19 +140,47 @@ fn mysql_fault(e: &mysql_async::Error) -> SqlOpError {
     }
 }
 
+/// What a [`SqlConn::query`] gives back: the rows (or the fault) and the
+/// target time. `target_ms` is `None` when the statement was never sent
+/// (no connection, no transaction), so there is nothing to report.
+#[derive(Debug)]
+pub struct SqlReply {
+    pub rows: std::result::Result<Vec<Map<String, Value>>, SqlOpError>,
+    pub target_ms: Option<i64>,
+}
+
+/// Whole milliseconds between two readings of the monotonic clock, cut.
+pub(crate) fn elapsed_ms(start: Instant, end: Instant) -> i64 {
+    crate::logfmt::millis(end.saturating_duration_since(start))
+}
+
+/// Runs `fut` and stores its monotonic duration in `target`. A driver wraps
+/// only the round trip of the statement and the read of the rows in it.
+pub(crate) async fn timed<T>(
+    target: &mut Option<i64>,
+    fut: impl std::future::Future<Output = T>,
+) -> T {
+    let start = Instant::now();
+    let out = fut.await;
+    *target = Some(elapsed_ms(start, Instant::now()));
+    out
+}
+
 /// One live connection (or pool) against a sql resource. Implementations
 /// must run `query` inside a read-only transaction when `read_only` is
 /// true, so the driver itself
 /// refuses any write the readonly pre-check missed.
 pub trait SqlConn: Send + Sync {
     /// Returns at most [`MAX_SQL_ROWS`] rows. Real drivers stop reading at
-    /// the cap and release the rest of the result.
+    /// the cap and release the rest of the result. `target_ms` is the round
+    /// trip of the statement and the read of the rows only: not the wait for
+    /// a place, the connection, BEGIN, COMMIT or a prepare.
     fn query<'a>(
         &'a self,
         query: &'a str,
         params: &'a [Value],
         read_only: bool,
-    ) -> BoxFuture<'a, std::result::Result<Vec<Map<String, Value>>, SqlOpError>>;
+    ) -> BoxFuture<'a, SqlReply>;
 
     /// Closes this connection/pool, once per sql
     /// resource when the handler closes. Returns whether
@@ -166,44 +195,64 @@ pub struct MysqlConn {
     pool: mysql_async::Pool,
 }
 
+impl MysqlConn {
+    async fn run(
+        &self,
+        query: &str,
+        params: &[Value],
+        read_only: bool,
+        target_ms: &mut Option<i64>,
+    ) -> std::result::Result<Vec<Map<String, Value>>, SqlOpError> {
+        use mysql_async::prelude::Queryable;
+        let sql_params: Vec<mysql_async::Value> = params.iter().map(json_to_sql_value).collect();
+        let mut conn = self
+            .pool
+            .get_conn()
+            .await
+            .map_err(|_| SqlOpError::Connect)?;
+
+        // `exec` prepares and executes in one driver call; the two cannot be
+        // split without an extra round trip, so the prepare is inside the
+        // target time here (spec 3.2 note 1).
+        if read_only {
+            let mut opts = mysql_async::TxOpts::default();
+            opts.with_readonly(true);
+            let mut tx = conn
+                .start_transaction(opts)
+                .await
+                .map_err(|e| mysql_fault(&e))?;
+            let rows: Vec<mysql_async::Row> = timed(
+                target_ms,
+                tx.exec(query, mysql_async::Params::Positional(sql_params)),
+            )
+            .await
+            .map_err(|e| mysql_fault(&e))?;
+            let result = rows_to_maps(rows);
+            tx.commit().await.map_err(|e| mysql_fault(&e))?;
+            Ok(result)
+        } else {
+            let rows: Vec<mysql_async::Row> = timed(
+                target_ms,
+                conn.exec(query, mysql_async::Params::Positional(sql_params)),
+            )
+            .await
+            .map_err(|e| mysql_fault(&e))?;
+            Ok(rows_to_maps(rows))
+        }
+    }
+}
+
 impl SqlConn for MysqlConn {
     fn query<'a>(
         &'a self,
         query: &'a str,
         params: &'a [Value],
         read_only: bool,
-    ) -> BoxFuture<'a, std::result::Result<Vec<Map<String, Value>>, SqlOpError>> {
+    ) -> BoxFuture<'a, SqlReply> {
         Box::pin(async move {
-            use mysql_async::prelude::Queryable;
-            let sql_params: Vec<mysql_async::Value> =
-                params.iter().map(json_to_sql_value).collect();
-            let mut conn = self
-                .pool
-                .get_conn()
-                .await
-                .map_err(|_| SqlOpError::Connect)?;
-
-            if read_only {
-                let mut opts = mysql_async::TxOpts::default();
-                opts.with_readonly(true);
-                let mut tx = conn
-                    .start_transaction(opts)
-                    .await
-                    .map_err(|e| mysql_fault(&e))?;
-                let rows: Vec<mysql_async::Row> = tx
-                    .exec(query, mysql_async::Params::Positional(sql_params))
-                    .await
-                    .map_err(|e| mysql_fault(&e))?;
-                let result = rows_to_maps(rows);
-                tx.commit().await.map_err(|e| mysql_fault(&e))?;
-                Ok(result)
-            } else {
-                let rows: Vec<mysql_async::Row> = conn
-                    .exec(query, mysql_async::Params::Positional(sql_params))
-                    .await
-                    .map_err(|e| mysql_fault(&e))?;
-                Ok(rows_to_maps(rows))
-            }
+            let mut target_ms = None;
+            let rows = self.run(query, params, read_only, &mut target_ms).await;
+            SqlReply { rows, target_ms }
         })
     }
 
@@ -408,15 +457,19 @@ impl Handler {
         };
 
         let start = (self.now)();
-        let rows = conn.query(&query, &params, resource.read_only).await;
+        let reply = conn.query(&query, &params, resource.read_only).await;
         let exec_ms = duration_ms((self.now)(), start);
+        let timing = Timing {
+            exec_ms,
+            target_ms: reply.target_ms,
+        };
 
-        match rows {
+        match reply.rows {
             Ok(mut rows) => {
                 rows.truncate(MAX_SQL_ROWS);
-                self.shape_sql_result(op, rows, &secrets, exec_ms)
+                self.shape_sql_result(op, rows, &secrets, timing)
             }
-            Err(SqlOpError::Database) => (Some(self.sql_failed(op, exec_ms)), None),
+            Err(SqlOpError::Database) => (Some(self.sql_failed(op, timing)), None),
             Err(SqlOpError::Connect) => (
                 None,
                 Some(new_error(&op.op_id, "connection-error", json!({}))),
@@ -427,7 +480,7 @@ impl Handler {
 
     /// The result of a query the database refused: status `fail`, no rows,
     /// no text. The cloud reads it as `sql-error`.
-    fn sql_failed(&self, op: &contract::Op, exec_ms: i64) -> ResultFrame {
+    fn sql_failed(&self, op: &contract::Op, timing: Timing) -> ResultFrame {
         let mut payload = std::collections::BTreeMap::new();
         payload.insert("rows".to_string(), Value::Array(Vec::new()));
         payload.insert("row-count".to_string(), Value::from(0));
@@ -436,7 +489,7 @@ impl Handler {
             status: "fail".to_string(),
             payload,
             scrubbed: 0,
-            timing: contract::Timing { exec_ms },
+            timing,
         }
     }
 
@@ -445,7 +498,7 @@ impl Handler {
         op: &contract::Op,
         rows: Vec<Map<String, Value>>,
         secrets: &[String],
-        exec_ms: i64,
+        timing: Timing,
     ) -> (Option<ResultFrame>, Option<ErrorFrame>) {
         let mut secrets = secrets.to_vec();
         let mut source = Map::new();
@@ -488,7 +541,7 @@ impl Handler {
                 status: "pass".to_string(),
                 payload: scrubbed,
                 scrubbed: count,
-                timing: Timing { exec_ms },
+                timing,
             }),
             None,
         )

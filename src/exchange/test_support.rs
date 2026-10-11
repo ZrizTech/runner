@@ -360,7 +360,10 @@ fn pass_result(op_id: &str) -> ResultFrame {
         status: "pass".to_string(),
         payload: std::collections::BTreeMap::new(),
         scrubbed: 0,
-        timing: contract::Timing { exec_ms: 1 },
+        timing: contract::Timing {
+            exec_ms: 1,
+            target_ms: None,
+        },
     }
 }
 

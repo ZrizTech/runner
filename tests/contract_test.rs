@@ -195,3 +195,28 @@ fn an_error_frame_has_details_and_no_message() {
     with_message["message"] = serde_json::json!("x");
     assert!(v.validate("error", &with_message).is_err());
 }
+
+#[test]
+fn target_ms_is_serialised_only_when_set_and_validates() {
+    let mk = |target_ms| contract::Result {
+        op_id: "op-1".into(),
+        status: "pass".into(),
+        payload: Default::default(),
+        scrubbed: 0,
+        timing: contract::Timing {
+            exec_ms: 5,
+            target_ms,
+        },
+    };
+    let with = serde_json::to_value(mk(Some(3))).unwrap();
+    assert_eq!(with["timing"]["target-ms"], 3);
+    let without = serde_json::to_value(mk(None)).unwrap();
+    assert!(without["timing"].get("target-ms").is_none());
+    let back: contract::Result = serde_json::from_value(with.clone()).unwrap();
+    assert_eq!(back.timing.target_ms, Some(3));
+    let v = Validator::new().expect("validator");
+    assert!(v.validate("result", &with).is_ok());
+    let mut bad = with;
+    bad["timing"]["target-ms"] = serde_json::json!(-1);
+    assert!(v.validate("result", &bad).is_err());
+}

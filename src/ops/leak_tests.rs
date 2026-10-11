@@ -39,12 +39,14 @@ impl crate::ops::SqlConn for Failing {
         _q: &'a str,
         _p: &'a [Value],
         _ro: bool,
-    ) -> crate::exchange::BoxFuture<
-        'a,
-        std::result::Result<Vec<serde_json::Map<String, Value>>, crate::ops::SqlOpError>,
-    > {
+    ) -> crate::exchange::BoxFuture<'a, crate::ops::sql::SqlReply> {
         let e = self.0;
-        Box::pin(async move { Err(e) })
+        Box::pin(async move {
+            crate::ops::sql::SqlReply {
+                rows: Err(e),
+                target_ms: None,
+            }
+        })
     }
     fn close<'a>(&'a self) -> crate::exchange::BoxFuture<'a, bool> {
         Box::pin(async { true })

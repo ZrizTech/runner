@@ -64,6 +64,10 @@ pub fn is_trace_id(t: &str) -> bool {
 pub struct Timing {
     #[serde(rename = "exec-ms")]
     pub exec_ms: i64,
+    /// The time the op waited for the target, without set-up the runner
+    /// opens once and uses again. Absent when the op type has none.
+    #[serde(rename = "target-ms", skip_serializing_if = "Option::is_none", default)]
+    pub target_ms: Option<i64>,
 }
 
 /// The decoded body of a frame with `t == "result"`.

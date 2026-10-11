@@ -4,7 +4,7 @@ use crate::ops::tests::{fixed_now, test_lookup, test_op};
 use crate::ops::{Handler, Options};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 /// A canned answer for one expected call to [`FakeSqlConn::query`], plus
 /// the assertions to run against what was actually asked for — the
@@ -22,6 +22,15 @@ pub(crate) struct Expectation {
 pub(crate) struct FakeSqlConn {
     expectations: Mutex<Vec<Expectation>>,
     close_count: Arc<std::sync::atomic::AtomicUsize>,
+    /// A virtual clock the fake advances by `get_ready + statement` on each
+    /// query, and the statement time it reports as the target time.
+    script: Option<Script>,
+}
+
+pub(crate) struct Script {
+    pub clock: Arc<Mutex<std::time::Duration>>,
+    pub get_ready: std::time::Duration,
+    pub statement: std::time::Duration,
 }
 
 impl FakeSqlConn {
@@ -29,6 +38,15 @@ impl FakeSqlConn {
         Arc::new(Self {
             expectations: Mutex::new(expectations),
             close_count: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            script: None,
+        })
+    }
+
+    pub(crate) fn scripted(expectations: Vec<Expectation>, script: Script) -> Arc<Self> {
+        Arc::new(Self {
+            expectations: Mutex::new(expectations),
+            close_count: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            script: Some(script),
         })
     }
 
@@ -36,6 +54,7 @@ impl FakeSqlConn {
         Arc::new(Self {
             expectations: Mutex::new(Vec::new()),
             close_count,
+            script: None,
         })
     }
 }
@@ -46,7 +65,7 @@ impl SqlConn for FakeSqlConn {
         _query: &'a str,
         _params: &'a [Value],
         read_only: bool,
-    ) -> BoxFuture<'a, std::result::Result<Vec<Map<String, Value>>, SqlOpError>> {
+    ) -> BoxFuture<'a, SqlReply> {
         Box::pin(async move {
             let exp = {
                 let mut guard = self.expectations.lock().unwrap_or_else(|e| e.into_inner());
@@ -56,7 +75,19 @@ impl SqlConn for FakeSqlConn {
                 guard.remove(0)
             };
             assert_eq!(exp.want_read_only, read_only, "read_only flag mismatch");
-            exp.rows
+            let target_ms = match &self.script {
+                Some(sc) => {
+                    let mut clock = sc.clock.lock().unwrap_or_else(|e| e.into_inner());
+                    *clock += sc.get_ready + sc.statement;
+                    let t0 = Instant::now();
+                    Some(elapsed_ms(t0, t0 + sc.statement))
+                }
+                None => Some(0),
+            };
+            SqlReply {
+                rows: exp.rows,
+                target_ms,
+            }
         })
     }
 
@@ -813,4 +844,76 @@ pub(crate) fn database_unreachable(name: &str, env_var: &str) {
         "{name} not reachable at ${env_var} and ZRIZ_TEST_DB_REQUIRED=1: the test may not skip"
     );
     eprintln!("note: {name} not reachable, test skipped");
+}
+
+/// Spec 8.1, SQL row R1: S = 1000 ms of get-ready time and D = 200 ms of
+/// statement time. The target time is D; the exec time holds both.
+#[tokio::test]
+async fn target_time_leaves_out_the_get_ready_part() {
+    let clock = Arc::new(Mutex::new(Duration::ZERO));
+    let conn = FakeSqlConn::scripted(
+        vec![Expectation {
+            want_read_only: true,
+            rows: Ok(vec![]),
+        }],
+        Script {
+            clock: Arc::clone(&clock),
+            get_ready: Duration::from_millis(1000),
+            statement: Duration::from_millis(200),
+        },
+    );
+    let open_sql: super::super::OpenSql = Arc::new(move |_dsn: &str| {
+        let conn = Arc::clone(&conn) as Arc<dyn SqlConn>;
+        Box::pin(async move { Ok(conn) })
+            as BoxFuture<'static, std::result::Result<Arc<dyn SqlConn>, SqlOpenError>>
+    });
+    let clock_now = Arc::clone(&clock);
+    let now: crate::ops::NowFn = Arc::new(move || {
+        SystemTime::UNIX_EPOCH + *clock_now.lock().unwrap_or_else(|e| e.into_inner())
+    });
+    let h = Handler::new(
+        sql_config(),
+        Options {
+            open_sql: Some(open_sql),
+            lookup: Some(test_lookup(HashMap::new())),
+            now: Some(now),
+        },
+    )
+    .await
+    .expect("Handler::new");
+    let mut args = HashMap::new();
+    args.insert("query".to_string(), Value::String("SELECT 1".into()));
+    let (result, err) = h
+        .handle(test_op(
+            "op-t",
+            "run-t",
+            "sql.query",
+            "db",
+            2000,
+            args,
+            vec![],
+        ))
+        .await;
+    assert!(err.is_none());
+    let t = result.expect("result").timing;
+    let target = t.target_ms.expect("target-ms");
+    assert!((200..700).contains(&target), "target {target}");
+    assert!(t.exec_ms >= 1200, "exec {}", t.exec_ms);
+}
+
+#[test]
+fn elapsed_ms_cuts_and_never_goes_negative() {
+    let t0 = Instant::now();
+    for (d, want) in [(0, 0), (999_999, 0), (1_000_000, 1), (1_999_999, 1)] {
+        assert_eq!(elapsed_ms(t0, t0 + Duration::from_nanos(d)), want, "{d}");
+    }
+    assert_eq!(elapsed_ms(t0 + Duration::from_secs(1), t0), 0);
+}
+
+#[tokio::test]
+async fn timed_stores_the_span_even_when_the_future_fails() {
+    let mut target = None;
+    let out: Result<(), ()> = timed(&mut target, async { Err(()) }).await;
+    assert!(out.is_err());
+    assert!(target.is_some());
 }

@@ -90,7 +90,10 @@ impl Handler {
             status: status.to_string(),
             payload: scrubbed,
             scrubbed: count,
-            timing: Timing { exec_ms },
+            timing: Timing {
+                exec_ms,
+                target_ms: None,
+            },
         })
     }
 
