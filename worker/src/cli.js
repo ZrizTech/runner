@@ -29,7 +29,11 @@ const sig = (name) => 128 + (osConst.signals[name] ?? 0)
 // and `why` `run-closed`, and its processes (handles and `run` ops in flight) are stopped.
 // A handle that the idle sweep removed is remembered (1000 at most): a later op on it gets
 // `no-handle` with `why` `idle`. A folder that cannot be removed is retried by the next sweep.
-export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = DEFAULT_MAX_TOTAL, rm = (d) => rmSync(d, { recursive: true, force: true }), log } = {}) {
+// `target-ms` of an ok answer (top level, not in `out`): the time the op waited for the command, by mode
+// (run: spawn to end; start: spawn to the marker, or the spawn only; read: the wait for the marker, else 0;
+// wait: the wait for the end; stop: stop signal to end). It uses `mono`, a monotonic clock in ms
+// (`performance.now`), injectable for tests. Refusals have none.
+export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, mono = () => performance.now(), maxTotal = DEFAULT_MAX_TOTAL, rm = (d) => rmSync(d, { recursive: true, force: true }), log } = {}) {
   const procs = new Map() // handleKey -> proc
   const live = new Set() // every process started and not yet finished
   const dirs = new Map() // run + resource -> { dir, last, idleMs, users }
@@ -173,7 +177,7 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
   }
 
   const endedResponse = (req) => errorResponse('context-lost', req['op-id'], { why: 'run-closed' })
-  const ok = (req, out) => ({ v: VERSION, 'op-id': req['op-id'], ok: true, out })
+  const ok = (req, out, t0) => ({ v: VERSION, 'op-id': req['op-id'], ok: true, out, ...(t0 === undefined ? {} : { 'target-ms': Math.max(0, Math.floor(t0)) }) })
 
   async function finishProc(p) {
     if (p.finished) return // run.close and the op itself may both finish a process
@@ -187,6 +191,7 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
   async function run(req, dir, signal) {
     const { policy, args } = req
     let p
+    const t0 = mono()
     try { p = launch(policy, args, dir, req.run) } catch { return errorResponse('spawn-failed', req['op-id']) }
     await until(() => p.child.pid !== undefined || p.error, 200)
     if (p.error || p.child.pid === undefined) {
@@ -199,11 +204,12 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
     await until(() => p.endedRun || signal?.aborted || (p.exited && p.closed), ms)
     let timedOut = false
     if (!p.endedRun && !(p.exited && p.closed)) { timedOut = true; await terminate(p) }
+    const target = mono() - t0
     await finishProc(p)
     if (p.endedRun) return endedResponse(req)
     const o = { 'exit-code': timedOut ? -1 : exitCode(p), ...payload(p, args, { advance: false }) }
     if (timedOut) o['timed-out'] = true
-    return ok(req, o)
+    return ok(req, o, target)
   }
 
   async function start(req, dir) {
@@ -217,6 +223,7 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
       return errorResponse('too-many-handles', req['op-id'], { limit: mine >= mineMax ? mineMax : maxTotal })
     }
     let p
+    const t0 = mono()
     try { p = launch(policy, args, dir, runId) } catch { return errorResponse('spawn-failed', req['op-id']) }
     await until(() => p.child.pid !== undefined || p.error, 200)
     if (p.error || p.child.pid === undefined) {
@@ -230,33 +237,43 @@ export function createCliHost({ root = DEFAULT_ROOT, now = Date.now, maxTotal = 
     if (args.until) {
       await until(() => p.exited || markerReady(p, args.until), Math.min(policy['timeout-ms'], req['deadline-ms']))
       p.lastUse = now()
-      return ok(req, { running: !p.exited, 'pid-alive': !p.exited, ...payload(p, args, { advance: true }) })
+      const target = mono() - t0
+      return ok(req, { running: !p.exited, 'pid-alive': !p.exited, ...payload(p, args, { advance: true }) }, target)
     }
-    return ok(req, { running: true, 'pid-alive': true })
+    return ok(req, { running: true, 'pid-alive': true }, mono() - t0)
   }
 
   async function read(req, p) {
     const { policy, args } = req
-    if (args.until) await until(() => p.exited || markerReady(p, args.until), Math.min(policy['timeout-ms'], req['deadline-ms']))
+    let target = 0
+    if (args.until) {
+      const t0 = mono()
+      await until(() => p.exited || markerReady(p, args.until), Math.min(policy['timeout-ms'], req['deadline-ms']))
+      target = mono() - t0
+    }
     const o = { running: !p.exited, ...payload(p, args, { advance: true }) }
     if (p.exited) o['exit-code'] = exitCode(p)
-    return ok(req, o)
+    return ok(req, o, target)
   }
 
   async function wait(req, p) {
     const { policy, args } = req
+    const t0 = mono()
     const done = await until(() => p.exited && p.closed, Math.min(policy['timeout-ms'], req['deadline-ms']))
-    if (!done) return ok(req, { running: true, 'timed-out': true, ...payload(p, args, { advance: true }) })
+    const target = mono() - t0
+    if (!done) return ok(req, { running: true, 'timed-out': true, ...payload(p, args, { advance: true }) }, target)
     const o = { 'exit-code': exitCode(p), ...payload(p, args, { advance: true }) }
     await finishProc(p)
-    return ok(req, o)
+    return ok(req, o, target)
   }
 
   async function stop(req, p) {
+    const t0 = mono()
     await terminate(p)
+    const target = mono() - t0
     const o = { 'exit-code': exitCode(p) }
     await finishProc(p)
-    return ok(req, o)
+    return ok(req, o, target)
   }
 
   async function sweep() {

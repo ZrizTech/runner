@@ -92,7 +92,7 @@ impl Handler {
             scrubbed: count,
             timing: Timing {
                 exec_ms,
-                target_ms: None,
+                target_ms: worker_target_ms(&resp),
             },
         })
     }
@@ -184,6 +184,14 @@ fn policy(name: &str, r: &Resource) -> Value {
         p.insert("idle-ms".into(), json!(n));
     }
     Value::Object(p)
+}
+
+/// The `target-ms` the worker measured: a top-level integer >= 0 of its ok
+/// answer. Anything else, or absent, is `None`.
+pub(super) fn worker_target_ms(resp: &Value) -> Option<i64> {
+    resp.get("target-ms")
+        .and_then(Value::as_i64)
+        .filter(|n| *n >= 0)
 }
 
 /// The `out` object of a good response, or the error a bad one maps to.

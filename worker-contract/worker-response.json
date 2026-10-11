@@ -117,6 +117,10 @@
         },
         "out": {
           "type": "object"
+        },
+        "target-ms": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },

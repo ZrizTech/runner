@@ -36,6 +36,7 @@ every secret. Public, Apache 2 (LICENSE). Never imports from the cloud.
   always built with `redirect::Policy::none()`); `http_client.rs`: one measured client for each op in work (idle set per resource; a connector layer counts connect time), so `timing.target-ms` = send to end of body read per hop minus the op's connects; sql.query goes through the `SqlConn` trait (tests
   use a fake connection). `SqlConn::query` returns a `SqlReply`: rows plus
   `target_ms`, the round trip of the statement and the row read only (not the wait for a place, connect, BEGIN/COMMIT, prepare), which becomes `timing.target-ms`; `exec-ms` stays the whole op.
+- browser.page / cli.exec: the worker measures and returns a top-level `target-ms` in its ok answer (`worker-response.json`, not in `out`; monotonic, whole ms; browser = the command loop only, cli = by mode); `ops/browser.rs` `worker_target_ms` passes it on (non-integer, negative or absent gives `None`).
 - `exchange` (`mod.rs`, `frames.rs`, `token.rs`, `test_support.rs`, `conformance_tests.rs`) —
   long-poll loop, bounded pool, extra exchange on op completion, `ExchangeError::Unauthorized` on
   a second consecutive 401, never `process::exit`; `Config::on_connected`, if set, fires exactly

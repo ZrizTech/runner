@@ -420,3 +420,22 @@ fn config_validation() {
     r.commands.clear();
     assert!(config_cli::validate("shopctl", &r).is_err());
 }
+
+#[tokio::test]
+async fn cli_result_carries_the_worker_target_ms() {
+    let cases = [
+        (json!(37), Some(37)),
+        (json!(0), Some(0)),
+        (json!("37"), None),
+        (json!(-5), None),
+        (Value::Null, None),
+    ];
+    for (given, want) in cases {
+        let (_dir, h, _seen, reply) = up().await;
+        if !given.is_null() {
+            reply.lock().expect("lock")["target-ms"] = given;
+        }
+        let r = run(&h, json!({"command": "shopctl", "args": ["version"]}), &[]).await;
+        assert_eq!(r.0.expect("result").timing.target_ms, want);
+    }
+}

@@ -30,9 +30,13 @@ const wsToHttp = (u) => u.replace(/^ws(s?):/, 'http$1:')
 // closed by a sweep on each request and by an unref'd timer. `run.close` remembers the run as
 // ended (1000 ids at most): its new ops, its waiters and its contexts still being made are
 // refused or closed, with `context-lost` and `why` `run-closed`. `now` is injectable for tests.
+// The ok answer has a top-level `target-ms`: the time from the start of the first command to the end of the
+// last one (or of the failed one), measured with `mono`, a monotonic clock in ms (`performance.now`),
+// injectable for tests. Queue wait, sweep, context and browser start, and the work after the commands
+// (settle, title, cookies) are not in it.
 export const MAX_LOST = 1000
 
-export function createBrowserHost({ launch = () => chromium.launch({ headless: true }), now = Date.now, maxWaitMs = MAX_WAIT_MS, log } = {}) {
+export function createBrowserHost({ launch = () => chromium.launch({ headless: true }), now = Date.now, mono = () => performance.now(), maxWaitMs = MAX_WAIT_MS, log } = {}) {
   let browserP = null
   const waiters = [] // { resource, run, max, wake, cancel }, oldest first
   const lost = new Map() // key -> 'idle' | 'browser'; contexts lost, reported once to the next op
@@ -301,14 +305,19 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
       signal?.addEventListener('abort', onAbort)
       s.cancel = () => { clearTimeout(t); signal?.removeEventListener('abort', onAbort) }
     })
+    let tStart = null
+    let tEnd = null
     const loop = (async () => {
       for (; idx < args.commands.length; idx++) {
         if (timedOut) return
         const cmd = args.commands[idx]
+        tStart ??= mono()
         try {
           await runCommand(page, cmd, st)
           checkPolicy(page, st)
+          if (!timedOut) tEnd = mono()
         } catch (e) {
+          if (!timedOut) tEnd = mono()
           if (timedOut) return
           error = st.navBlocked ? 'host-not-allowed' : await classify(e, cmd, page)
           failedAt = idx
@@ -317,6 +326,9 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
       }
     })()
     await Promise.race([loop, timer])
+    if (timedOut) tEnd = mono() // the deadline or an abort ended the commands
+    tEnd ??= tStart ?? 0
+    const targetMs = tStart === null ? 0 : Math.max(0, Math.floor(tEnd - tStart))
     s.cancel?.()
     // A blocked main-frame navigation leaves Chromium committing its error page after the abort is
     // reported. Wait for that commit, or the next op's first navigation is interrupted by it and
@@ -334,14 +346,17 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
     const page1 = cookies === null ? null : scrubPage({ url: pathOf(page.url()), title, reads: st.reads }, cookies)
     if (page1 === null) return { unreadable: true }
     return {
-      ok: error === null,
-      url: page1.url,
-      title: page1.title,
-      status: st.status,
-      reads: page1.reads,
-      blocked: st.blocked,
-      'failed-at': failedAt,
-      error,
+      targetMs,
+      out: {
+        ok: error === null,
+        url: page1.url,
+        title: page1.title,
+        status: st.status,
+        reads: page1.reads,
+        blocked: st.blocked,
+        'failed-at': failedAt,
+        error,
+      },
     }
   }
 
@@ -380,7 +395,7 @@ export function createBrowserHost({ launch = () => chromium.launch({ headless: t
       // The page data cannot be scrubbed, so none leaves. run.close closed it: the run has ended.
       return s.closedBy === 'run' ? refusedEnded(opId) : errorResponse('internal', opId)
     }
-    return { v: VERSION, 'op-id': opId, ok: true, out }
+    return { v: VERSION, 'op-id': opId, ok: true, out: out.out, 'target-ms': out.targetMs }
   }
 
   return {

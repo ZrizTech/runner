@@ -9,6 +9,9 @@ A unix socket on a shared tmpfs volume. The path comes from `ZRIZ_WORKER_SOCKET`
 One request per connection: the runner writes one JSON line, the worker answers one JSON line and
 closes. Max request line: 1 MiB. Schema: `../worker-contract/` (`worker-request.json`,
 `worker-response.json`, fixtures). Field `v` is the protocol version (now `1`).
+An ok answer of `browser.page` / `cli.exec` has an optional top-level integer `target-ms` (not in `out`): the time
+the op waited for the target (browser: the commands only; cli: by mode, see `src/cli.js`). The runner passes it on as
+`timing.target-ms`. It is measured with a monotonic clock and cut to whole ms. Refusals have none. Adding it did not change `v`.
 
 ## Error codes
 

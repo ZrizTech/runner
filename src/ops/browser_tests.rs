@@ -21,6 +21,16 @@ fn fake_worker_named(dir: &tempfile::TempDir, name: &str) -> (PathBuf, Seen) {
 }
 
 fn fake_worker_out(dir: &tempfile::TempDir, name: &str, out: Value) -> (PathBuf, Seen) {
+    fake_worker_extra(dir, name, out, json!({}))
+}
+
+/// As `fake_worker_out`; `extra` holds top-level keys of the ok answer.
+fn fake_worker_extra(
+    dir: &tempfile::TempDir,
+    name: &str,
+    out: Value,
+    extra: Value,
+) -> (PathBuf, Seen) {
     let sock = dir.path().join(name);
     let listener = UnixListener::bind(&sock).expect("bind");
     let seen: Seen = Arc::default();
@@ -40,7 +50,11 @@ fn fake_worker_out(dir: &tempfile::TempDir, name: &str, out: Value) -> (PathBuf,
                 json!({"v": 1, "kind": "ping", "ok": true})
             } else {
                 log.lock().expect("lock").push(req.clone());
-                json!({"v": 1, "op-id": req["op-id"], "ok": true, "out": out})
+                let mut r = json!({"v": 1, "op-id": req["op-id"], "ok": true, "out": out});
+                if let (Some(m), Some(e)) = (r.as_object_mut(), extra.as_object()) {
+                    m.extend(e.clone());
+                }
+                r
             };
             let _ = wr.write_all(format!("{resp}\n").as_bytes()).await;
         }
@@ -442,4 +456,38 @@ async fn no_worker_answer_by_the_deadline_is_worker_deadline_not_timeout() {
     let e = e.expect("error");
     assert_eq!(e.reason, "runner-error");
     assert_eq!(e.details["where"], "worker-deadline");
+}
+
+#[test]
+fn worker_target_ms_reads_a_top_level_integer_only() {
+    use crate::ops::browser::worker_target_ms;
+    let cases = [
+        (json!({"ok": true, "target-ms": 37}), Some(37)),
+        (json!({"ok": true, "target-ms": 0}), Some(0)),
+        (json!({"ok": true}), None),
+        (json!({"ok": true, "target-ms": -1}), None),
+        (json!({"ok": true, "target-ms": "37"}), None),
+        (json!({"ok": true, "target-ms": 3.5}), None),
+        (json!({"ok": true, "out": {"target-ms": 37}}), None),
+    ];
+    for (resp, want) in cases {
+        assert_eq!(worker_target_ms(&resp), want, "{resp}");
+    }
+}
+
+#[tokio::test]
+async fn browser_result_carries_the_worker_target_ms() {
+    let cases = [
+        (json!({"target-ms": 37}), Some(37)),
+        (json!({}), None),
+        (json!({"target-ms": "37"}), None),
+    ];
+    for (extra, want) in cases {
+        let dir = tempfile::tempdir().expect("dir");
+        let (sock, _) = fake_worker_extra(&dir, "t.sock", json!({"ok": true}), extra);
+        let h = handler(sock.to_str().expect("p"), None, ENV).await;
+        let r = run(&h, json!({"commands": [{"do": "goto", "path": "/"}]}), &[]).await;
+        let t = r.0.expect("result").timing;
+        assert_eq!(t.target_ms, want);
+    }
 }
