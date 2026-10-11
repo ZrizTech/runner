@@ -12,6 +12,7 @@ mod errors;
 mod evidence;
 mod handles;
 mod http;
+mod http_client;
 mod jar;
 mod log;
 mod sql;
@@ -119,7 +120,7 @@ pub struct Options {
 /// Executes ops against the resources declared in a runner config.
 pub struct Handler {
     cfg: Config,
-    http_client: reqwest::Client,
+    clients: http_client::Clients,
     sql_conns: HashMap<String, Arc<dyn SqlConn>>,
     lookup: Lookup,
     /// Values of every env name listed in any resource's `secrets`,
@@ -170,11 +171,8 @@ impl Handler {
             }
         }
 
-        let http_client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .no_proxy()
-            .build()
-            .map_err(NewError::HttpClient)?;
+        // Fail early if a client cannot be built; ops build their own.
+        http_client::build_measured().map_err(NewError::HttpClient)?;
 
         let worker_up = announce::startup(&cfg).await;
         let lookup = opts.lookup.unwrap_or_else(default_lookup);
@@ -185,7 +183,7 @@ impl Handler {
             last_ping: Mutex::new(Some(Instant::now())),
             ping_info: Mutex::new(None),
             cfg,
-            http_client,
+            clients: http_client::Clients::default(),
             sql_conns,
             lookup,
             listed_secrets,

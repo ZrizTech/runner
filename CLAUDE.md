@@ -33,7 +33,7 @@ every secret. Public, Apache 2 (LICENSE). Never imports from the cloud.
 - `worker/` + `worker-contract/` — the Node sidecar (Playwright 1.63.0 Chromium, cli spawn without
   a shell) and its closed, versioned protocol; it holds no runner secret. `npm test` there.
 - http.request's own redirect loop checks `origin::check_origin` on every hop (the client is
-  always built with `redirect::Policy::none()`); sql.query goes through the `SqlConn` trait (tests
+  always built with `redirect::Policy::none()`); `http_client.rs`: one measured client for each op in work (idle set per resource; a connector layer counts connect time), so `timing.target-ms` = send to end of body read per hop minus the op's connects; sql.query goes through the `SqlConn` trait (tests
   use a fake connection). `SqlConn::query` returns a `SqlReply`: rows plus
   `target_ms`, the round trip of the statement and the row read only (not the wait for a place, connect, BEGIN/COMMIT, prepare), which becomes `timing.target-ms`; `exec-ms` stays the whole op.
 - `exchange` (`mod.rs`, `frames.rs`, `token.rs`, `test_support.rs`, `conformance_tests.rs`) —

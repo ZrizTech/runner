@@ -3142,6 +3142,8 @@ dependencies = [
  "tokio-postgres",
  "tokio-postgres-rustls",
  "tokio-util",
+ "tower-layer",
+ "tower-service",
  "tracing",
  "tracing-subscriber",
  "url",

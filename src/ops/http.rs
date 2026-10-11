@@ -9,11 +9,13 @@
 //! the same fail-closed guarantee, made structural rather than
 //! per-request.
 
+use super::http_client::Lease;
 use super::{Handler, capture, duration_ms, new_error, runner_error, scrub_payload, string_value};
 use crate::config::Resource;
 use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame, Timing};
 use crate::{origin, project};
 use serde_json::{Map, Value, json};
+use std::time::Instant;
 
 /// Bounds how much of a response body is read; a response larger than this
 /// is refused rather than buffered in full.
@@ -85,6 +87,10 @@ impl Handler {
             }
         };
 
+        let mut lease = match self.clients.lease(&op.resource) {
+            Ok(l) => l,
+            Err(_) => return (None, Some(runner_error(&op.op_id, "http-client"))),
+        };
         let start = (self.now)();
         let jar_key = resource
             .cookies
@@ -97,8 +103,11 @@ impl Handler {
                 jar_key.as_ref(),
                 follow,
                 &mut secrets,
+                &mut lease,
             )
             .await;
+        lease.finish();
+        let target_ms = crate::logfmt::millis(lease.target());
         let exec_ms = duration_ms((self.now)(), start);
 
         match sent {
@@ -107,7 +116,10 @@ impl Handler {
                 (status, &content_type, headers),
                 body,
                 &secrets,
-                exec_ms,
+                Timing {
+                    exec_ms,
+                    target_ms: Some(target_ms),
+                },
             ),
             Err(kind) => (None, Some(kind.frame(&op.op_id))),
         }
@@ -124,6 +136,7 @@ impl Handler {
         jar_key: Option<&(String, String)>,
         follow: bool,
         secrets: &mut Vec<String>,
+        lease: &mut Lease<'_>,
     ) -> std::result::Result<(u16, String, Map<String, Value>, Vec<u8>), SendErrorKind> {
         for hop in 0..=MAX_REDIRECTS {
             let mut headers = pending.headers.clone();
@@ -134,14 +147,19 @@ impl Handler {
             {
                 headers.insert(reqwest::header::COOKIE, v);
             }
-            let mut builder = self
-                .http_client
+            let client = lease.client().ok_or(SendErrorKind::Runner)?;
+            let mut builder = client
                 .request(pending.method.clone(), pending.url.clone())
                 .headers(headers);
             if let Some(b) = &pending.body {
                 builder = builder.body(b.clone());
             }
-            let resp = builder.send().await.map_err(|e| {
+            // The clock of target time: from the send, not before it, so
+            // the cookie lookup and the origin check stay out.
+            let sent_at = Instant::now();
+            let sent = builder.send().await;
+            lease.waited += sent_at.elapsed();
+            let resp = sent.map_err(|e| {
                 if e.is_connect() {
                     SendErrorKind::Connect
                 } else {
@@ -167,7 +185,10 @@ impl Handler {
                     .unwrap_or("")
                     .to_string();
                 let headers = response_headers(resp.headers());
-                let body = read_capped_body(resp).await?;
+                let read_at = Instant::now();
+                let body = read_capped_body(resp).await;
+                lease.waited += read_at.elapsed();
+                let body = body?;
                 return Ok((status.as_u16(), content_type, headers, body));
             }
             if hop == MAX_REDIRECTS {
@@ -203,7 +224,7 @@ impl Handler {
         (status, content_type, headers): (u16, &str, Map<String, Value>),
         body: Vec<u8>,
         secrets: &[String],
-        exec_ms: i64,
+        timing: Timing,
     ) -> (Option<ResultFrame>, Option<ErrorFrame>) {
         let decoded_body = decode_http_body(&body, content_type);
         let status_str = if status >= 400 { "fail" } else { "pass" };
@@ -260,10 +281,7 @@ impl Handler {
                 status: status_str.to_string(),
                 payload: scrubbed,
                 scrubbed: count,
-                timing: Timing {
-                    exec_ms,
-                    target_ms: None,
-                },
+                timing,
             }),
             None,
         )
@@ -491,3 +509,7 @@ mod cookie_tests;
 #[cfg(test)]
 #[path = "http_capture_tests.rs"]
 mod capture_tests;
+
+#[cfg(test)]
+#[path = "http_time_tests.rs"]
+mod time_tests;
