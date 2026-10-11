@@ -10,8 +10,8 @@
     "timing": {
       "type": "object",
       "properties": {
-        "exec-ms": {"type": "integer"},
-        "target-ms": {"type": "integer", "minimum": 0}
+        "exec-ms": {"type": "integer", "description": "The time of the op in the runner, in ms."},
+        "target-ms": {"type": "integer", "minimum": 0, "description": "The time that the op waited for the target, in ms. The runner or the worker measures it. Optional."}
       },
       "required": ["exec-ms"],
       "additionalProperties": true
