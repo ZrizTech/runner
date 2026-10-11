@@ -79,8 +79,7 @@ impl SqlConn for FakeSqlConn {
                 Some(sc) => {
                     let mut clock = sc.clock.lock().unwrap_or_else(|e| e.into_inner());
                     *clock += sc.get_ready + sc.statement;
-                    let t0 = Instant::now();
-                    Some(elapsed_ms(t0, t0 + sc.statement))
+                    Some(crate::logfmt::millis(sc.statement))
                 }
                 None => Some(0),
             };
@@ -846,10 +845,12 @@ pub(crate) fn database_unreachable(name: &str, env_var: &str) {
     eprintln!("note: {name} not reachable, test skipped");
 }
 
-/// Spec 8.1, SQL row R1: S = 1000 ms of get-ready time and D = 200 ms of
+/// The handler gives the driver's `target_ms` to the result and does not add
+/// the permit wait or the checkout. (That the driver itself measures only the
+/// statement is proved by the live tests.) S = 1000 ms of get-ready time and D = 200 ms of
 /// statement time. The target time is D; the exec time holds both.
 #[tokio::test]
-async fn target_time_leaves_out_the_get_ready_part() {
+async fn handler_passes_the_driver_number_on_and_leaves_out_checkout() {
     let clock = Arc::new(Mutex::new(Duration::ZERO));
     let conn = FakeSqlConn::scripted(
         vec![Expectation {
@@ -901,19 +902,10 @@ async fn target_time_leaves_out_the_get_ready_part() {
     assert!(t.exec_ms >= 1200, "exec {}", t.exec_ms);
 }
 
-#[test]
-fn elapsed_ms_cuts_and_never_goes_negative() {
-    let t0 = Instant::now();
-    for (d, want) in [(0, 0), (999_999, 0), (1_000_000, 1), (1_999_999, 1)] {
-        assert_eq!(elapsed_ms(t0, t0 + Duration::from_nanos(d)), want, "{d}");
-    }
-    assert_eq!(elapsed_ms(t0 + Duration::from_secs(1), t0), 0);
-}
-
 #[tokio::test]
-async fn timed_stores_the_span_even_when_the_future_fails() {
-    let mut target = None;
-    let out: Result<(), ()> = timed(&mut target, async { Err(()) }).await;
-    assert!(out.is_err());
-    assert!(target.is_some());
+async fn span_target_ms_is_none_until_a_statement_is_timed() {
+    let mut span = Span::default();
+    assert_eq!(span_target_ms(&span), None);
+    let _ = span.time(async { 1 }).await;
+    assert_eq!(span_target_ms(&span), Some(0));
 }

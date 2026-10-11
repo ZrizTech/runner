@@ -11,7 +11,7 @@
       "type": "object",
       "properties": {
         "exec-ms": {"type": "integer", "description": "The time of the op in the runner, in ms."},
-        "target-ms": {"type": "integer", "minimum": 0, "description": "The time that the op waited for the target, in ms. The runner or the worker measures it. Optional."}
+        "target-ms": {"type": "integer", "minimum": 0, "description": "The time that the op waited for the target, in ms. Not in it: the open of a connection or a session, a wait in a queue, and the work of the runner."}
       },
       "required": ["exec-ms"],
       "additionalProperties": true

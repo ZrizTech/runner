@@ -26,7 +26,8 @@
 //!
 //! Errors never carry text: a failed query is a bare [`SqlOpError`].
 
-use super::sql::{SqlOpError, SqlReply, timed};
+use super::sql::{SqlOpError, SqlReply};
+use super::target::Span;
 use super::{BoxFuture, SqlOpenError};
 use futures::StreamExt;
 use serde_json::{Map, Value};
@@ -85,7 +86,7 @@ impl PgConn {
         query: &str,
         params: &[Value],
         read_only: bool,
-        target_ms: &mut Option<i64>,
+        span: &mut Span,
     ) -> Result<Vec<Map<String, Value>>, SqlOpError> {
         let _permit = self
             .permits
@@ -93,9 +94,7 @@ impl PgConn {
             .await
             .map_err(|_| SqlOpError::Other)?;
         let mut client = self.checkout().await?;
-        let out = self
-            .run(&mut client, query, params, read_only, target_ms)
-            .await;
+        let out = self.run(&mut client, query, params, read_only, span).await;
         if out.is_ok()
             && !client.is_closed()
             && let Ok(mut idle) = self.idle.lock()
@@ -139,7 +138,7 @@ impl PgConn {
         query: &str,
         params: &[Value],
         read_only: bool,
-        target_ms: &mut Option<i64>,
+        span: &mut Span,
     ) -> Result<Vec<Map<String, Value>>, SqlOpError> {
         let sql = rewrite_placeholders(query);
         if read_only {
@@ -149,11 +148,11 @@ impl PgConn {
                 .start()
                 .await
                 .map_err(|e| pg_fault(&e))?;
-            let rows = exec(&tx, &sql, params, target_ms).await?;
+            let rows = exec(&tx, &sql, params, span).await?;
             tx.commit().await.map_err(|e| pg_fault(&e))?;
             Ok(rows)
         } else {
-            exec(&*client, &sql, params, target_ms).await
+            exec(&*client, &sql, params, span).await
         }
     }
 }
@@ -162,7 +161,7 @@ async fn exec(
     c: &impl tokio_postgres::GenericClient,
     sql: &str,
     params: &[Value],
-    target_ms: &mut Option<i64>,
+    span: &mut Span,
 ) -> Result<Vec<Map<String, Value>>, SqlOpError> {
     // The prepare above the measured span is a set-up round trip: not in
     // the target time. The span is the statement and the read of the rows.
@@ -180,23 +179,26 @@ async fn exec(
         .iter()
         .map(|b| b.as_ref() as &(dyn ToSql + Sync))
         .collect();
-    timed(target_ms, async {
-        let stream = c
-            .query_raw(&stmt, refs.iter().copied())
-            .await
-            .map_err(|e| pg_fault(&e))?;
-        futures::pin_mut!(stream);
-        let mut out = Vec::new();
-        while out.len() < super::sql::MAX_SQL_ROWS {
-            match stream.next().await {
-                Some(Ok(row)) => out.push(row_to_map(&row)),
-                Some(Err(e)) => return Err(pg_fault(&e)),
-                None => break,
+    // Only the wait for the rows is timed; turning rows into maps is not.
+    let rows = span
+        .time(async {
+            let stream = c
+                .query_raw(&stmt, refs.iter().copied())
+                .await
+                .map_err(|e| pg_fault(&e))?;
+            futures::pin_mut!(stream);
+            let mut out = Vec::new();
+            while out.len() < super::sql::MAX_SQL_ROWS {
+                match stream.next().await {
+                    Some(Ok(row)) => out.push(row),
+                    Some(Err(e)) => return Err(pg_fault(&e)),
+                    None => break,
+                }
             }
-        }
-        Ok(out)
-    })
-    .await
+            Ok(out)
+        })
+        .await?;
+    Ok(rows.iter().map(row_to_map).collect())
 }
 
 impl super::sql::SqlConn for PgConn {
@@ -207,11 +209,12 @@ impl super::sql::SqlConn for PgConn {
         read_only: bool,
     ) -> BoxFuture<'a, SqlReply> {
         Box::pin(async move {
-            let mut target_ms = None;
-            let rows = self
-                .query_inner(query, params, read_only, &mut target_ms)
-                .await;
-            SqlReply { rows, target_ms }
+            let mut span = Span::default();
+            let rows = self.query_inner(query, params, read_only, &mut span).await;
+            SqlReply {
+                rows,
+                target_ms: super::sql::span_target_ms(&span),
+            }
         })
     }
 

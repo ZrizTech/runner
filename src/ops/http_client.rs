@@ -224,7 +224,7 @@ impl Lease<'_> {
     /// Charges the op for the connect of the connection `resp` came on, if
     /// that connect was new. `sent_at` is when the hop started: a connect
     /// that ended before it was not waited for. The charge is at most the
-    /// time since `sent_at`.
+    /// time from `sent_at` to the end of the connect.
     pub(super) fn charge(&mut self, resp: &reqwest::Response, sent_at: Instant) {
         let Some(info) = resp.extensions().get::<HttpInfo>() else {
             return;
@@ -239,7 +239,7 @@ impl Lease<'_> {
         if let Some((took, ended)) = note
             && ended >= sent_at
         {
-            self.charged += took.min(sent_at.elapsed());
+            self.charged += took.min(ended.duration_since(sent_at));
         }
     }
 

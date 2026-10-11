@@ -35,7 +35,7 @@ every secret. Public, Apache 2 (LICENSE). Never imports from the cloud.
 - http.request's own redirect loop checks `origin::check_origin` on every hop (the client is
   always built with `redirect::Policy::none()`); `http_client.rs`: one measured client for each op in work (idle set per resource; a connector layer notes each new connection's addresses and connect time; the op is charged only for connections its own responses came on, read from `HttpInfo`), so `timing.target-ms` = send to end of body read per hop (`target.rs` `Span`) minus those connects; sql.query goes through the `SqlConn` trait (tests
   use a fake connection). `SqlConn::query` returns a `SqlReply`: rows plus
-  `target_ms`, the round trip of the statement and the row read only (not the wait for a place, connect, BEGIN/COMMIT, prepare), which becomes `timing.target-ms`; `exec-ms` stays the whole op.
+  `target_ms`, the round trip of the statement and the row read only (not the wait for a place, connect, BEGIN/COMMIT, prepare; a query that fails at prepare has no `target-ms`), which becomes `timing.target-ms`; `exec-ms` stays the whole op.
 - browser.page / cli.exec: the worker measures and returns a top-level `target-ms` in its ok answer (`worker-response.json`, not in `out`; monotonic, whole ms; browser = the command loop only, cli = by mode); `ops/target.rs` `worker_target_ms` passes it on (non-integer, negative or absent gives `None`).
 - `exchange` (`mod.rs`, `frames.rs`, `token.rs`, `test_support.rs`, `conformance_tests.rs`) —
   long-poll loop, bounded pool, extra exchange on op completion, `ExchangeError::Unauthorized` on

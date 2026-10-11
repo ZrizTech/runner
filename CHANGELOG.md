@@ -2,7 +2,7 @@
 
 ## time budget, 2026-10-11
 - `timing.target-ms` (optional integer, `Timing::target_ms`) in the result frame; vendored `contract/result.json` has the key
-- sql.query (MySQL and Postgres): `SqlConn::query` returns `SqlReply { rows, target_ms }`; the number is the round trip of the statement and the row read, without the wait for a place, the connection, BEGIN/COMMIT and the Postgres prepare; MySQL `exec` prepares and executes in one call, so its prepare is inside; `exec-ms` is unchanged
+- sql.query (MySQL and Postgres): `SqlConn::query` returns `SqlReply { rows, target_ms }`; the number is the round trip of the statement and the row read, without the wait for a place, the connection, BEGIN/COMMIT and the prepare (both drivers prepare first, then time only the execute; Postgres also turns rows into maps after the span); a query that fails at prepare has no `target-ms`; `exec-ms` is unchanged
 - http.request: `timing.target-ms` = send to end of the body read, summed over redirect hops, without the connect (DNS, TCP, TLS); one measured `reqwest::Client` for each op in work (`ops/http_client.rs`, per-resource idle set, connector layer notes each new connection's addresses and connect time); the op is charged only for the connect of a connection one of its own responses came on (`HttpInfo` in the response extensions), so a connect that hyper-util races in the background no longer lowers `target-ms`; `exec-ms` is unchanged
 - new crates (direct): `hyper-util` (feature `client-legacy` only) and `http`, both already in the tree through reqwest
 - `ops/target.rs`: `worker_target_ms` (moved from `browser.rs`) and `Span`, a sum of timed waits; `Handler::new` no longer builds a throw-away client; `NewError::HttpClient` removed

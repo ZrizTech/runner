@@ -7,6 +7,7 @@
 //! and dispatch cases against a small fake connection instead of a real
 //! database.
 
+use super::target::Span;
 use super::{
     BoxFuture, Handler, OpenSql, SqlOpenError, capture, duration_ms, new_error, runner_error,
     scrub_payload,
@@ -15,7 +16,6 @@ use crate::contract::{self, Error as ErrorFrame, Result as ResultFrame, Timing};
 use crate::{project, readonly};
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
-use std::time::Instant;
 
 /// Errors parsing a MySQL DSN
 /// (`user[:pass]@tcp(host[:port])/db[?params]`).
@@ -149,21 +149,11 @@ pub struct SqlReply {
     pub target_ms: Option<i64>,
 }
 
-/// Whole milliseconds between two readings of the monotonic clock, cut.
-pub(crate) fn elapsed_ms(start: Instant, end: Instant) -> i64 {
-    crate::logfmt::millis(end.saturating_duration_since(start))
-}
-
-/// Runs `fut` and stores its monotonic duration in `target`. A driver wraps
-/// only the round trip of the statement and the read of the rows in it.
-pub(crate) async fn timed<T>(
-    target: &mut Option<i64>,
-    fut: impl std::future::Future<Output = T>,
-) -> T {
-    let start = Instant::now();
-    let out = fut.await;
-    *target = Some(elapsed_ms(start, Instant::now()));
-    out
+/// The `target_ms` of a reply: the span's sum, or `None` when no statement
+/// was timed (it was never sent, so there is nothing to report).
+pub(crate) fn span_target_ms(span: &Span) -> Option<i64> {
+    span.last_start()
+        .map(|_| crate::logfmt::millis(span.total()))
 }
 
 /// One live connection (or pool) against a sql resource. Implementations
@@ -174,7 +164,8 @@ pub trait SqlConn: Send + Sync {
     /// Returns at most [`MAX_SQL_ROWS`] rows. Real drivers stop reading at
     /// the cap and release the rest of the result. `target_ms` is the round
     /// trip of the statement and the read of the rows only: not the wait for
-    /// a place, the connection, BEGIN, COMMIT or a prepare.
+    /// a place, the connection, BEGIN, COMMIT or the prepare (both drivers
+    /// prepare first). A query that fails at prepare has no `target_ms`.
     fn query<'a>(
         &'a self,
         query: &'a str,
@@ -201,7 +192,7 @@ impl MysqlConn {
         query: &str,
         params: &[Value],
         read_only: bool,
-        target_ms: &mut Option<i64>,
+        span: &mut Span,
     ) -> std::result::Result<Vec<Map<String, Value>>, SqlOpError> {
         use mysql_async::prelude::Queryable;
         let sql_params: Vec<mysql_async::Value> = params.iter().map(json_to_sql_value).collect();
@@ -211,34 +202,29 @@ impl MysqlConn {
             .await
             .map_err(|_| SqlOpError::Connect)?;
 
-        // `exec` prepares and executes in one driver call; the two cannot be
-        // split without an extra round trip, so the prepare is inside the
-        // target time here (spec 3.2 note 1).
-        if read_only {
+        // `prep` is a set-up round trip: outside the span. `exec` with the
+        // prepared statement then sends only the execute, which is timed.
+        let rows = if read_only {
             let mut opts = mysql_async::TxOpts::default();
             opts.with_readonly(true);
             let mut tx = conn
                 .start_transaction(opts)
                 .await
                 .map_err(|e| mysql_fault(&e))?;
-            let rows: Vec<mysql_async::Row> = timed(
-                target_ms,
-                tx.exec(query, mysql_async::Params::Positional(sql_params)),
-            )
-            .await
-            .map_err(|e| mysql_fault(&e))?;
-            let result = rows_to_maps(rows);
+            let stmt = tx.prep(query).await.map_err(|e| mysql_fault(&e))?;
+            let rows: Vec<mysql_async::Row> = span
+                .time(tx.exec(&stmt, mysql_async::Params::Positional(sql_params)))
+                .await
+                .map_err(|e| mysql_fault(&e))?;
             tx.commit().await.map_err(|e| mysql_fault(&e))?;
-            Ok(result)
+            rows
         } else {
-            let rows: Vec<mysql_async::Row> = timed(
-                target_ms,
-                conn.exec(query, mysql_async::Params::Positional(sql_params)),
-            )
-            .await
-            .map_err(|e| mysql_fault(&e))?;
-            Ok(rows_to_maps(rows))
-        }
+            let stmt = conn.prep(query).await.map_err(|e| mysql_fault(&e))?;
+            span.time(conn.exec(&stmt, mysql_async::Params::Positional(sql_params)))
+                .await
+                .map_err(|e| mysql_fault(&e))?
+        };
+        Ok(rows_to_maps(rows))
     }
 }
 
@@ -250,9 +236,12 @@ impl SqlConn for MysqlConn {
         read_only: bool,
     ) -> BoxFuture<'a, SqlReply> {
         Box::pin(async move {
-            let mut target_ms = None;
-            let rows = self.run(query, params, read_only, &mut target_ms).await;
-            SqlReply { rows, target_ms }
+            let mut span = Span::default();
+            let rows = self.run(query, params, read_only, &mut span).await;
+            SqlReply {
+                rows,
+                target_ms: span_target_ms(&span),
+            }
         })
     }
 

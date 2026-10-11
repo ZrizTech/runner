@@ -66,3 +66,28 @@ async fn write_on_read_only_is_refused_and_nothing_written() {
         .rows
         .unwrap();
 }
+
+/// Spec 8.1 R1, R2: a statement that sleeps 300 ms on the server gives
+/// 300 <= target-ms < 450, also on the first use of a new connection (it pays
+/// connect and prepare, which are not in the number). A failed prepare has none.
+#[tokio::test]
+async fn target_ms_holds_the_wait_and_not_the_set_up() {
+    let c = conn();
+    for use_no in 1..=2 {
+        let r = c.query("SELECT SLEEP(0.3) AS s", &[], false).await;
+        if r.rows.is_err() {
+            super::tests::database_unreachable("mysql", "ZRIZ_TEST_MYSQL");
+            return;
+        }
+        let ms = r.target_ms.unwrap();
+        eprintln!("mysql use {use_no}: target_ms {ms}");
+        assert!((300..450).contains(&ms), "use {use_no}: {ms}");
+    }
+    let r = c.query("SELECT SLEEP(0.3)", &[], true).await;
+    assert!((300..450).contains(&r.target_ms.unwrap()), "read-only");
+    for bad in ["SELEC 1", "SELECT * FROM no_such_table_zriz"] {
+        let r = c.query(bad, &[], false).await;
+        assert_eq!(r.rows.unwrap_err(), SqlOpError::Database, "{bad}");
+        assert_eq!(r.target_ms, None, "{bad}");
+    }
+}
