@@ -1,7 +1,8 @@
 name: release
 
-# On a tag v1.2.3: build, push, sign and attest the runner and worker images.
-# workflow_dispatch is a dry run: it builds both images and pushes nothing.
+# On a tag v1.2.3: build, push, sign and attest the runner and worker images,
+# and attach static Linux binaries with a SHA256SUMS file to the GitHub release.
+# workflow_dispatch is a dry run: it builds everything and publishes nothing.
 
 on:
   push:
@@ -20,6 +21,57 @@ jobs:
   # The same checks as CI, on this commit. Images are built only after they pass.
   ci:
     uses: ./.github/workflows/ci.yml
+
+  # Static Linux binaries (musl) for the install.sh shape: no Docker, no libc.
+  binary:
+    needs: ci
+    name: binary
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Tag must equal the Cargo.toml version
+        if: github.event_name == 'push'
+        run: |
+          cargo_version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n1)
+          if [ "v${cargo_version}" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match Cargo.toml version $cargo_version"
+            exit 1
+          fi
+
+      - name: Install the targets and cargo-zigbuild
+        run: |
+          rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
+          pip install cargo-zigbuild==0.20.1 ziglang==0.14.1
+
+      - name: Build
+        run: |
+          short=$(printf '%.12s' "$GITHUB_SHA")
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n1)
+          mkdir dist
+          for arch in x86_64 aarch64; do
+            ZRIZ_BUILD_SHA="$short" cargo zigbuild --locked --release \
+              --target "${arch}-unknown-linux-musl" --bin zriz-runner
+            cp "target/${arch}-unknown-linux-musl/release/zriz-runner" \
+              "dist/zriz-runner-${version}-${arch}-linux"
+          done
+          (cd dist && sha256sum zriz-runner-* > SHA256SUMS && cat SHA256SUMS)
+
+      - name: Attach to the GitHub release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pre=""
+          case "$GITHUB_REF_NAME" in *-*) pre="--prerelease" ;; esac
+          if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            # shellcheck disable=SC2086
+            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes $pre
+          fi
+          gh release upload "$GITHUB_REF_NAME" dist/* --clobber
 
   image:
     needs: ci

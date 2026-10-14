@@ -86,6 +86,30 @@ What the runner does not protect against:
 - A secret you pass to the worker (a `fill` value, a cli `env` value) is visible to that worker process and to the cli command you allowed.
 - The runner trusts the config you write. A wide `base-url`, a loose cli `shapes` list, or a binary that does more than you think, widens what the cloud can do.
 
+## Install
+
+Two shapes. Pick by the resources in your config.
+
+### Binary (resources `http` and `sql`)
+
+One static Linux binary. No Docker. It opens no port. Put `config.json` and `runner.env` (the runner key and the passwords, `chmod 600`) with `install.sh` and `zriz-runner.service` (from `ops/`) on the server, then:
+
+    sudo sh install.sh
+    sudo mkdir -p /etc/zriz-runner && sudo install -m 600 config.json runner.env /etc/zriz-runner/ && sudo cp zriz-runner.service /etc/systemd/system/
+    sudo systemctl enable --now zriz-runner
+
+`runner.env` holds one `NAME=value` per line, for example `ZRIZ_RUNNER_KEY=zrt_...`. Write it with an editor, not on a command line.
+
+`install.sh` downloads the binary of the latest release from GitHub, checks its SHA-256 sum, and puts it in `/usr/local/bin/zriz-runner`. It stops with one line on any error, and it installs nothing if the sum is wrong or missing. It asks no question. To install one version, set `ZRIZ_RUNNER_VERSION=v0.2.3`. To use a different folder, set `ZRIZ_RUNNER_BIN_DIR`.
+
+To upgrade, run `sudo sh install.sh` again, then `sudo systemctl restart zriz-runner`. The runner never changes by itself.
+
+The unit (`ops/zriz-runner.service`) uses `DynamicUser=yes`, reads `/etc/zriz-runner/runner.env` and `/etc/zriz-runner/config.json`, and has `ProtectSystem=strict` and `NoNewPrivileges=yes`. The release gives `x86_64` and `aarch64` binaries, `zriz-runner-<version>-<arch>-linux`, and a `SHA256SUMS` file.
+
+### Docker (resources `browser` and `cli`)
+
+These need the worker, a second container (the browser never holds a runner secret). Use the images below and `ops/docker-compose.yml`.
+
 ## Container image
 
 The image is `ghcr.io/zriztech/runner`. It is public. You do not need to log in to pull it. The worker image, for `browser` and `cli` resources, is `ghcr.io/zriztech/worker`.
