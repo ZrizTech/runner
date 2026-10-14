@@ -39,8 +39,8 @@ every secret. Public, Apache 2 (LICENSE). Never imports from the cloud.
 - browser.page / cli.exec: the worker measures and returns a top-level `target-ms` in its ok answer (`worker-response.json`, not in `out`; monotonic, whole ms; browser = the command loop only, cli = by mode); `ops/target.rs` `worker_target_ms` passes it on (non-integer, negative or absent gives `None`).
 - `embed` — `start(Config{runner,key,lookup,runner_id}, on_connected) -> Result<Handle, StartError>`, `Handle::stop()`: the exchange loop in a task, key as a value, no worker, no port (zz uses it). `exchange_config` is shared with `main`.
 - `exchange` (`mod.rs`, `frames.rs`, `key.rs`, `test_support.rs`, `conformance_tests.rs`) —
-  long-poll loop, bounded pool, extra exchange on op completion, `ExchangeError::Unauthorized`/`Forbidden` on
-  a second consecutive 401, never `process::exit`; `Config::on_connected`, if set, fires exactly
+  long-poll loop, bounded pool, extra exchange on op completion, `ExchangeError::Unauthorized` on
+  a second consecutive 401, `Forbidden` on a 403, never `process::exit`; `Config::on_connected`, if set, fires exactly
   once, after the first successful exchange; backoff doubles from 1s to a default max of 10s;
   `conformance_tests.rs` drives the runner against a fake cloud with the real slot semantics
   (immediate first exchange, hold, drain by max-inflight, late frame dropped, restart with a

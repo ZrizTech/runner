@@ -54,7 +54,7 @@ async fn run_key_env_unset() {
 }
 
 #[tokio::test]
-async fn run_unauthorized_exits_two() {
+async fn run_unauthorized_waits_idle_until_cancelled() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .respond_with(ResponseTemplate::new(401))
@@ -63,12 +63,35 @@ async fn run_unauthorized_exits_two() {
 
     let dir = tempfile::tempdir().expect("tempdir");
     let path = write_config(&dir, &config_body(&server.uri()));
-    let path_str = path.to_string_lossy().to_string();
     let mut env = HashMap::new();
-    env.insert("ZRIZ_RUNNER_CONFIG", path_str);
+    env.insert("ZRIZ_RUNNER_CONFIG", path.to_string_lossy().to_string());
     env.insert("ZRIZ_KEY", "test-token".to_string());
+    let lookup = lookup_map(env);
 
-    let code = run(CancellationToken::new(), lookup_map(env), &mut Vec::new()).await;
+    let cancel = CancellationToken::new();
+    let cancel2 = cancel.clone();
+    let mut done = tokio::spawn(async move { run(cancel2, lookup, &mut Vec::new()).await });
+
+    // The loop ends after the retry (2 requests). Then no more requests.
+    wait_for_requests(&server, 2).await;
+    let pause = std::time::Duration::from_millis(300);
+    tokio::time::sleep(pause).await;
+    let seen = server.received_requests().await.map_or(0, |r| r.len());
+    tokio::time::sleep(pause).await;
+    assert_eq!(
+        server.received_requests().await.map_or(0, |r| r.len()),
+        seen
+    );
+    assert!(
+        tokio::time::timeout(pause, &mut done).await.is_err(),
+        "the runner must wait, not exit"
+    );
+
+    cancel.cancel();
+    let code = tokio::time::timeout(std::time::Duration::from_secs(2), done)
+        .await
+        .expect("run did not return in time")
+        .expect("join");
     assert_eq!(code, 2);
 }
 

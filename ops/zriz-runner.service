@@ -19,7 +19,8 @@ Environment=ZRIZ_RUNNER_CONFIG=/etc/zriz-runner/config.json
 ExecStart=/usr/local/bin/zriz-runner
 Restart=on-failure
 RestartSec=10
-# Exit 2 = the cloud refused the key (401), the key has no right (403), or the config is bad. A restart would repeat it for ever.
+# Exit 2 at start = the config is bad. A restart would repeat it for ever.
+# A refused key (401) or no right (403): the runner waits and makes no requests; exit 2 comes only after a stop.
 RestartPreventExitStatus=2
 
 NoNewPrivileges=yes

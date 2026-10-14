@@ -142,14 +142,28 @@ async fn run_exchange(
     }));
 
     tracing::info!(target: "runner.main", runner = %exchange_cfg.runner_id, cloud = %exchange_cfg.cloud_url, build = zriz_runner::exchange::VERSION, "started");
-    match exchange::run(exchange_cfg, cancel).await {
+    match exchange::run(exchange_cfg, cancel.clone()).await {
         Ok(()) => 0,
-        Err(
-            exchange::ExchangeError::Unauthorized
-            | exchange::ExchangeError::Forbidden
-            | exchange::ExchangeError::Panicked,
-        ) => 2,
+        Err(e @ (exchange::ExchangeError::Unauthorized | exchange::ExchangeError::Forbidden)) => {
+            wait_refused(&e, &cancel).await;
+            2
+        }
+        Err(exchange::ExchangeError::Panicked) => 2,
     }
+}
+
+/// The cloud refused the key (401) or the key has no right (403). Writes one
+/// error line (kind only, never the key), then makes no more requests: it waits
+/// until `cancel` fires (TERM or INT). So Docker and systemd do not restart it in
+/// a loop, and the cloud sees no more bad requests.
+async fn wait_refused(e: &exchange::ExchangeError, cancel: &CancellationToken) {
+    let kind = if matches!(e, exchange::ExchangeError::Forbidden) {
+        "the key has no right (403)"
+    } else {
+        "the key was refused (401)"
+    };
+    tracing::error!(target: "runner.main", error = %format!("{kind}; the runner makes no more requests and waits until it is stopped; revoke the key, make a new one, then restart the runner"), "refused");
+    cancel.cancelled().await;
 }
 
 #[cfg(test)]
