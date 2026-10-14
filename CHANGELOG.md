@@ -1,5 +1,9 @@
 # Changelog
 
+## simplify clean-up, 2026-10-14
+- No more start WARN `no allowlist` for an http resource without `secrets`: `secrets` is optional (nothing to scrub), and the origin check always applies.
+- Contract copy synced.
+
 ## simplify D3, 2026-10-14
 - README: the runner key comes from `zz runners init` or the page `/app/runners`.
 

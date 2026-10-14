@@ -1,6 +1,5 @@
 //! What the runner announces to the cloud (op kinds, resources), the worker
-//! liveness check behind it, and the startup warning for http resources
-//! without a `secrets` allowlist.
+//! liveness check behind it.
 
 use super::*;
 
@@ -11,12 +10,8 @@ const PING_EVERY: Duration = Duration::from_secs(1);
 /// Contexts a browser resource may hold when its config sets no `max-contexts`.
 const DEFAULT_MAX_CONTEXTS: u64 = 3;
 
-/// Startup checks. Warns about secretless http resources and pings the
-/// worker; returns whether the worker is up.
+/// Startup checks. Pings the worker; returns whether the worker is up.
 pub(super) async fn startup(cfg: &Config) -> bool {
-    for id in secretless_http_resources(cfg) {
-        tracing::warn!(target: "runner.ops", resource = %id, "no allowlist");
-    }
     let up = needs_worker(cfg) && worker::ping(&cfg.worker_socket).await;
     if needs_worker(cfg) {
         if up {
@@ -160,16 +155,4 @@ fn has_type(cfg: &Config, ty: &str) -> bool {
 /// True when some resource needs the worker sidecar.
 fn needs_worker(cfg: &Config) -> bool {
     has_type(cfg, "browser") || has_type(cfg, "cli")
-}
-
-/// Ids of http resources that declare no `secrets` allowlist, sorted.
-pub(super) fn secretless_http_resources(cfg: &Config) -> Vec<String> {
-    let mut ids: Vec<String> = cfg
-        .resources
-        .iter()
-        .filter(|(_, r)| r.r#type == "http" && r.secrets.is_none())
-        .map(|(id, _)| id.clone())
-        .collect();
-    ids.sort();
-    ids
 }

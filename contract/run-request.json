@@ -160,6 +160,10 @@
     },
     "environment": {
       "$ref": "environment.json"
+    },
+    "runner": {
+      "type": "string",
+      "pattern": "^local:[a-z0-9-]{8,40}$"
     }
   },
   "required": [

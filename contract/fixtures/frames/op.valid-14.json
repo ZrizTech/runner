@@ -16,7 +16,7 @@
     ],
     "stdout": "json",
     "env": {
-      "ZZ_API_KEY": "${KEY}"
+      "ZZ_KEY": "${KEY}"
     }
   },
   "project": [

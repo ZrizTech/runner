@@ -8,7 +8,7 @@
         "{file}"
       ],
       "env": [
-        "ZZ_API_KEY",
+        "ZZ_KEY",
         "ZZ_API_URL"
       ]
     }
