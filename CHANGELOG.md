@@ -1,6 +1,6 @@
 # Changelog
 
-## simplify review fixes (s-fix1), 2026-10-14
+## 0.3.0 (unreleased): simplify review fixes (s-fix1), 2026-10-14
 - `config::check(&Config, insecure_ok)` is the one config check (cloud URL scheme, resources, key-name guard); `config::load` and `embed::start` both call it.
 - `embed::start` returns `embed::StartError` (`Config` or `Handler`) and no longer accepts a config that `config::load` would refuse. It never lets a lookup return the runner key as a secret value.
 - `Handle::stop` maps a panic of the exchange task to the new `ExchangeError::Panicked` (was `Ok`).

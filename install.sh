@@ -1,6 +1,6 @@
 #!/bin/sh
 # Install the zriz runner binary from a GitHub release. It asks nothing and reads no stdin.
-#   ZRIZ_RUNNER_VERSION   tag to install, for example v0.2.3 (default: the latest release)
+#   ZRIZ_RUNNER_VERSION   tag to install, for example v0.3.0 or 0.3.0 (default: the latest release)
 #   ZRIZ_RUNNER_BIN_DIR   target folder (default: /usr/local/bin)
 #   ZRIZ_RUNNER_BASE_URL  release download base (default: the GitHub releases of ZrizTech/runner).
 #                         Only https is allowed. A file:// base is a test seam: it allows file and nothing else.
