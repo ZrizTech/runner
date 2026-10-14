@@ -1,5 +1,9 @@
 # Changelog
 
+## simplify R1b, 2026-10-14
+- `embed::Config` has `lookup: Option<ops::Lookup>` (secret reader; `None` = process env) and `runner_id: Option<String>` (`None` = hostname); `embed::exchange_config` takes the runner id. The binary passes `None`.
+- `NOTICE` file added.
+
 ## simplify R1, 2026-10-14
 - renamed: `ZRIZ_RUNNER_TOKEN` is `ZRIZ_RUNNER_KEY`; config `cloud.token-env` is `cloud.key-env` (`config::Cloud::key_env`); `exchange::Config::token`/`token_source`/`TokenSource` are `key`/`key_source`/`KeySource`; `exchange/token.rs` is `key.rs`. No old name stays.
 - new public module `embed`: `start(Config { runner, key }, on_connected) -> Result<Handle, ops::NewError>` and `Handle::stop()`. The key is a value, not a process variable. No worker, no port.

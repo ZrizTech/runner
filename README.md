@@ -286,6 +286,6 @@ Set every other `${NAME}` the config uses in the same way.
 
 ## License
 
-The runner source in this repository, the runner image and the worker source are Apache License 2.0. See `LICENSE`. Copyright ZrizTech.
+The runner source in this repository, the runner image and the worker source are Apache License 2.0. See `LICENSE` and `NOTICE`. Copyright ZrizTech.
 
 The worker image holds more than that. It also holds Chromium, Node.js and Debian packages, each under its own license. The worker image is therefore not all Apache-2.0.
