@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 (unreleased): round-6 fix (s-fix8), 2026-10-14
+- Contract synced: log event `refused` on `runner.main` (the log-format test was red).
+- After a refusal (401/403), a stop (TERM or INT) now exits 0, a normal stop; systemd does not mark the unit failed. Exit 2 stays for a bad config at start. Test, unit comment and README updated; README says the service looks up while it waits and where to see it.
+
 ## 0.3.0 (unreleased): round-5 fix (s-fix7), 2026-10-14
 - `ops/docker-compose.yml`: `env_file` with `path` and `format: raw` (Docker Compose 2.30 or later), so `$` and ` #` in a secret stay as they are. The README says so.
 

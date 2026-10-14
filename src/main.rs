@@ -146,7 +146,7 @@ async fn run_exchange(
         Ok(()) => 0,
         Err(e @ (exchange::ExchangeError::Unauthorized | exchange::ExchangeError::Forbidden)) => {
             wait_refused(&e, &cancel).await;
-            2
+            0
         }
         Err(exchange::ExchangeError::Panicked) => 2,
     }
@@ -154,7 +154,7 @@ async fn run_exchange(
 
 /// The cloud refused the key (401) or the key has no right (403). Writes one
 /// error line (kind only, never the key), then makes no more requests: it waits
-/// until `cancel` fires (TERM or INT). So Docker and systemd do not restart it in
+/// until `cancel` fires (TERM or INT); a stop is normal, so `run` then returns 0. So Docker and systemd do not restart it in
 /// a loop, and the cloud sees no more bad requests.
 async fn wait_refused(e: &exchange::ExchangeError, cancel: &CancellationToken) {
     let kind = if matches!(e, exchange::ExchangeError::Forbidden) {

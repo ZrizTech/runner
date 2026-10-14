@@ -92,7 +92,7 @@ async fn run_unauthorized_waits_idle_until_cancelled() {
         .await
         .expect("run did not return in time")
         .expect("join");
-    assert_eq!(code, 2);
+    assert_eq!(code, 0, "a stop after a refusal is a normal stop");
 }
 
 /// A `lookup` backed by a map a test can mutate while `run` is executing,
