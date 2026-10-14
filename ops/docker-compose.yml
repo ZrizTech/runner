@@ -2,7 +2,8 @@ name: zriz-runner
 
 # restart: unless-stopped. A runner whose key is refused (401 or 403) makes no more
 # requests and waits until it is stopped, so Docker does not loop. To fix it, revoke
-# the key, make a new one, then restart the runner.
+# the key, make a new one, then make the container again:
+# `docker compose up -d --force-recreate runner`. `docker restart` keeps the old key.
 services:
   runner:
     image: ${ZRIZ_RUNNER_IMAGE:?}
