@@ -1,7 +1,7 @@
 {
   "cloud": {
     "url": "https://zriz.io",
-    "token-env": "ZRIZ_RUNNER_TOKEN"
+    "key-env": "ZRIZ_RUNNER_KEY"
   },
   "evidence": "redacted",
   "worker": {

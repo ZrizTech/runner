@@ -80,6 +80,7 @@
    "refused",
    "attempts",
    "writes",
+   "epoch",
    "timeout_ms",
    "wait_ms",
    "work_ms",
@@ -153,6 +154,7 @@
    "refused",
    "attempts",
    "writes",
+   "epoch",
    "timeout_ms",
    "wait_ms",
    "work_ms",
@@ -237,6 +239,47 @@
      "runs",
      "window_s"
     ]
+   },
+   "standby": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": []
+   },
+   "active": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "epoch",
+     "wait_ms"
+    ]
+   },
+   "lock lost": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": []
+   },
+   "epoch lost": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "epoch"
+    ]
+   },
+   "claim waiting": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": []
+   },
+   "standby lock failed": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": []
    },
    "shutdown done": {
     "levels": [
@@ -743,6 +786,46 @@
      "resend-limit"
     ]
    },
+   "password reset sent": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id"
+    ]
+   },
+   "password reset refused": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "reason",
+     "org_id",
+     "account_id",
+     "ip"
+    ],
+    "reasons": [
+     "not-found",
+     "expired",
+     "origin",
+     "rate-ip",
+     "reset-limit",
+     "password-weak",
+     "busy",
+     "server-error"
+    ]
+   },
+   "password reset done": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id",
+     "ip"
+    ]
+   },
    "unverified account removed": {
     "levels": [
      "INFO"
@@ -752,6 +835,15 @@
      "account_id",
      "email",
      "age_days"
+    ]
+   },
+   "account removed": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id"
     ]
    },
    "account retired": {
@@ -782,6 +874,15 @@
     ]
    },
    "member removed": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "account_id"
+    ]
+   },
+   "org removed": {
     "levels": [
      "INFO"
     ],
@@ -1247,6 +1348,36 @@
      "ok",
      "busy",
      "degraded"
+    ]
+   },
+   "old runs removed": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "count"
+    ]
+   },
+   "sweeper failed": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "op",
+     "error"
+    ]
+   },
+   "op restored": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "org_id",
+     "run_id",
+     "step",
+     "op_id",
+     "runner",
+     "kind"
     ]
    },
    "op sent": {

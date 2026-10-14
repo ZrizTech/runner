@@ -1,5 +1,10 @@
 # Changelog
 
+## simplify R1, 2026-10-14
+- renamed: `ZRIZ_RUNNER_TOKEN` is `ZRIZ_RUNNER_KEY`; config `cloud.token-env` is `cloud.key-env` (`config::Cloud::key_env`); `exchange::Config::token`/`token_source`/`TokenSource` are `key`/`key_source`/`KeySource`; `exchange/token.rs` is `key.rs`. No old name stays.
+- new public module `embed`: `start(Config { runner, key }, on_connected) -> Result<Handle, ops::NewError>` and `Handle::stop()`. The key is a value, not a process variable. No worker, no port.
+- vendored contract synced (reasons v2, pipeline inline call)
+
 ## time budget, 2026-10-11
 - `timing.target-ms` (optional integer, `Timing::target_ms`) in the result frame; vendored `contract/result.json` has the key
 - sql.query (MySQL and Postgres): `SqlConn::query` returns `SqlReply { rows, target_ms }`; the number is the round trip of the statement and the row read, without the wait for a place, the connection, BEGIN/COMMIT and the prepare (both drivers prepare first, then time only the execute; Postgres also turns rows into maps after the span); a query that fails at prepare has no `target-ms`; `exec-ms` is unchanged

@@ -5,6 +5,7 @@ pub mod argshape;
 pub mod config;
 pub mod config_cli;
 pub mod contract;
+pub mod embed;
 pub mod evidence;
 pub mod exchange;
 pub mod logfmt;

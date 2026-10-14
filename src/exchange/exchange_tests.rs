@@ -9,7 +9,7 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 fn base_config(handler: Arc<dyn Handler>) -> Config {
-    let mut cfg = Config::new("http://placeholder", TEST_TOKEN, "runner-1", handler);
+    let mut cfg = Config::new("http://placeholder", TEST_KEY, "runner-1", handler);
     cfg.resources = vec!["shop-api".to_string()];
     cfg.backoff = Duration::from_millis(5);
     cfg.max_backoff = Duration::from_millis(20);
@@ -66,7 +66,7 @@ async fn first_request_reports_env_and_ops() {
         cancel.cancel();
         assert_eq!(done.await.expect("join"), Ok(()));
 
-        assert_eq!(first.auth, format!("Bearer {TEST_TOKEN}"));
+        assert_eq!(first.auth, format!("Bearer {TEST_KEY}"));
         assert_eq!(first.req.inflight, 0);
         assert!(first.req.frames.is_empty());
         assert_eq!(first.req.runner.env, env);
@@ -220,7 +220,7 @@ async fn panicking_handler_replies_runner_error() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn unauthorized_fails_closed_with_no_token_source() {
+async fn unauthorized_fails_closed_with_no_key_source() {
     let handler: Arc<dyn Handler> = Arc::new(FakeHandler::new(1));
     let cloud = ImmediateCloud::new(|_n, _req| (401, None)).await;
 
@@ -523,7 +523,7 @@ async fn unauthorized_refreshes_token_once() {
     );
     cfg.backoff = Duration::from_millis(5);
     cfg.max_backoff = Duration::from_millis(20);
-    cfg.token_source = Some(Arc::new(move || {
+    cfg.key_source = Some(Arc::new(move || {
         source_calls2.fetch_add(1, Ordering::SeqCst);
         Ok("new-token".to_string())
     }));
@@ -558,7 +558,7 @@ async fn unauthorized_twice_fails_closed() {
     let mut cfg = Config::new(cloud.base_url.clone(), "old-token", "runner-1", handler);
     cfg.backoff = Duration::from_millis(5);
     cfg.max_backoff = Duration::from_millis(20);
-    cfg.token_source = Some(Arc::new(move || {
+    cfg.key_source = Some(Arc::new(move || {
         source_calls2.fetch_add(1, Ordering::SeqCst);
         Ok("new-token".to_string())
     }));
@@ -580,7 +580,7 @@ async fn unauthorized_twice_fails_closed() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn unauthorized_token_source_error_fails_closed_at_once() {
+async fn unauthorized_key_source_error_fails_closed_at_once() {
     let handler: Arc<dyn Handler> = Arc::new(FakeHandler::new(1));
     let (auth_tx, mut auth_rx) = tokio::sync::mpsc::unbounded_channel();
 
@@ -593,7 +593,7 @@ async fn unauthorized_token_source_error_fails_closed_at_once() {
     let mut cfg = Config::new(cloud.base_url.clone(), "old-token", "runner-1", handler);
     cfg.backoff = Duration::from_millis(5);
     cfg.max_backoff = Duration::from_millis(20);
-    cfg.token_source = Some(Arc::new(|| Err("token source: boom".to_string())));
+    cfg.key_source = Some(Arc::new(|| Err("token source: boom".to_string())));
 
     let done = run(cfg, CancellationToken::new()).await;
     assert_eq!(done, Err(ExchangeError::Unauthorized));
@@ -604,7 +604,7 @@ async fn unauthorized_token_source_error_fails_closed_at_once() {
         tokio::time::timeout(Duration::from_millis(100), auth_rx.recv())
             .await
             .is_err(),
-        "want exactly 1 request: TokenSource failed, no retry"
+        "want exactly 1 request: KeySource failed, no retry"
     );
 }
 
@@ -616,7 +616,7 @@ async fn unauthorized_retry_cancelled_during_backoff_shuts_down_clean() {
     let mut cfg = Config::new(cloud.base_url.clone(), "old-token", "runner-1", handler);
     cfg.backoff = Duration::from_millis(5);
     cfg.max_backoff = Duration::from_millis(20);
-    cfg.token_source = Some(Arc::new(|| Ok("new-token".to_string())));
+    cfg.key_source = Some(Arc::new(|| Ok("new-token".to_string())));
     cfg.sleep = Some(Arc::new(|_cancel, _d| Box::pin(async { false })));
 
     let done = run(cfg, CancellationToken::new()).await;

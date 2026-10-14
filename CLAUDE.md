@@ -4,7 +4,7 @@ every secret. Public, Apache 2 (LICENSE). Never imports from the cloud.
 
 ## Dictionary
 
-`../../zriz-cloud/DICTIONARY.md` (in the repository `zriz-cloud`) is the single source of truth for the meaning of each zriz term (org, env, resource, run, op, result, API key, token, service contract, and so on). Read it before you name or define something. Use its words in code, help text, messages and documents. If the code and the dictionary do not agree, tell the owner. Do not make a second definition here.
+`../../zriz-cloud/DICTIONARY.md` (in the repository `zriz-cloud`) is the single source of truth for the meaning of each zriz term (org, env, resource, run, op, result, API key, runner key, service contract, and so on). Read it before you name or define something. Use its words in code, help text, messages and documents. If the code and the dictionary do not agree, tell the owner. Do not make a second definition here.
 
 ## Modules (crate `zriz-runner`, lib + bin `zriz-runner`, no internal/)
 - `main` (`src/main.rs`) — bin: config from
@@ -37,7 +37,8 @@ every secret. Public, Apache 2 (LICENSE). Never imports from the cloud.
   use a fake connection). `SqlConn::query` returns a `SqlReply`: rows plus
   `target_ms`, the round trip of the statement and the row read only (not the wait for a place, connect, BEGIN/COMMIT, prepare; a query that fails at prepare has no `target-ms`), which becomes `timing.target-ms`; `exec-ms` stays the whole op.
 - browser.page / cli.exec: the worker measures and returns a top-level `target-ms` in its ok answer (`worker-response.json`, not in `out`; monotonic, whole ms; browser = the command loop only, cli = by mode); `ops/target.rs` `worker_target_ms` passes it on (non-integer, negative or absent gives `None`).
-- `exchange` (`mod.rs`, `frames.rs`, `token.rs`, `test_support.rs`, `conformance_tests.rs`) —
+- `embed` — `start(Config{runner,key}, on_connected) -> Handle`, `Handle::stop()`: the exchange loop in a task, key as a value, no worker, no port (zz uses it). `exchange_config` is shared with `main`.
+- `exchange` (`mod.rs`, `frames.rs`, `key.rs`, `test_support.rs`, `conformance_tests.rs`) —
   long-poll loop, bounded pool, extra exchange on op completion, `ExchangeError::Unauthorized` on
   a second consecutive 401, never `process::exit`; `Config::on_connected`, if set, fires exactly
   once, after the first successful exchange; backoff doubles from 1s to a default max of 10s;

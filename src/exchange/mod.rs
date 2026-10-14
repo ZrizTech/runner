@@ -6,9 +6,9 @@
 mod batch;
 mod frames;
 mod health;
+mod key;
 mod reply;
 mod run_op;
-mod token;
 
 pub use health::WorkerHealth;
 
@@ -120,7 +120,7 @@ pub type OnConnected = Arc<dyn Fn() + Send + Sync>;
 /// Re-reads the runner's token. Called when the main loop's exchange gets a
 /// 401: `run` calls it once and, if it returns a token, waits out one
 /// backoff interval before retrying with it.
-pub type TokenSource = Arc<dyn Fn() -> std::result::Result<String, String> + Send + Sync>;
+pub type KeySource = Arc<dyn Fn() -> std::result::Result<String, String> + Send + Sync>;
 
 /// Configures [`run`]. `cloud_url`, `token`, `runner_id` and `handler` are
 /// required; the rest default when left at [`Config::new`]'s values or, for
@@ -140,7 +140,7 @@ pub struct Config {
     pub max_backoff: Duration,
     pub sleep: Option<SleepFn>,
     pub on_connected: Option<OnConnected>,
-    pub token_source: Option<TokenSource>,
+    pub key_source: Option<KeySource>,
     /// The `User-Agent` sent on exchange requests; `None` means
     /// [`USER_AGENT`]. A caller that embeds this library may set its own value.
     pub user_agent: Option<String>,
@@ -152,7 +152,7 @@ pub struct Config {
 impl Config {
     /// Builds a `Config` with sane defaults for everything but the
     /// required fields; callers set `resources`, `env`, `on_connected`,
-    /// `token_source` etc. afterward.
+    /// `key_source` etc. afterward.
     pub fn new(
         cloud_url: impl Into<String>,
         token: impl Into<String>,
@@ -171,7 +171,7 @@ impl Config {
             max_backoff: DEFAULT_MAX_BACKOFF,
             sleep: None,
             on_connected: None,
-            token_source: None,
+            key_source: None,
             user_agent: None,
             health_every: DEFAULT_HEALTH_EVERY,
         }
@@ -353,9 +353,9 @@ fn next_backoff(current: Duration, limit: Duration) -> Duration {
 /// the extra exchange an op completion triggers drives the same backoff, so
 /// a cloud outage slows every request path, not just this one.
 ///
-/// A 401 gets one retry: `run` tries `cfg.token_source` and, if that yields
+/// A 401 gets one retry: `run` tries `cfg.key_source` and, if that yields
 /// a fresh token, waits out one backoff interval and retries with it. A
-/// second consecutive 401 — or no `token_source` to retry with — fails
+/// second consecutive 401 — or no `key_source` to retry with — fails
 /// closed with [`ExchangeError::Unauthorized`], exit code 2 at the bin
 /// layer.
 pub async fn run(

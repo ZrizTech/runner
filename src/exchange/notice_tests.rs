@@ -77,7 +77,7 @@ fn handler(
 }
 
 fn config(url: &str, h: Arc<dyn Handler>) -> Config {
-    let mut cfg = Config::new(url, TEST_TOKEN, "runner-1", h);
+    let mut cfg = Config::new(url, TEST_KEY, "runner-1", h);
     cfg.backoff = Duration::from_millis(2);
     cfg.max_backoff = Duration::from_millis(5);
     cfg

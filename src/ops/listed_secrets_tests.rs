@@ -41,7 +41,7 @@ fn config(base: &str) -> Config {
     );
     Config {
         cloud: Cloud {
-            token_env: "TOK".to_string(),
+            key_env: "TOK".to_string(),
             ..Default::default()
         },
         evidence: "redacted".to_string(),

@@ -33,7 +33,7 @@ async fn cancel_and_join(
 }
 
 fn base_config(handler: Arc<dyn Handler>) -> Config {
-    let mut cfg = Config::new("http://placeholder", TEST_TOKEN, "runner-1", handler);
+    let mut cfg = Config::new("http://placeholder", TEST_KEY, "runner-1", handler);
     cfg.resources = vec!["shop-api".to_string()];
     cfg.backoff = Duration::from_millis(5);
     cfg.max_backoff = Duration::from_millis(20);
@@ -208,7 +208,7 @@ async fn outage_backoff_bounded_then_recovers() {
     // max_backoff is left at Config::new's zero-duration-normalized default
     // on purpose: the default (10s) must apply here, as when
     // MaxBackoff is left unset.
-    let mut cfg = Config::new(base_url, TEST_TOKEN, "runner-1", handler);
+    let mut cfg = Config::new(base_url, TEST_KEY, "runner-1", handler);
     cfg.resources = vec!["shop-api".to_string()];
     cfg.sleep = Some(sleep);
 

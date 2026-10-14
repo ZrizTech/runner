@@ -1,16 +1,16 @@
-//! The one 401 retry: re-read the token from `cfg.token_source` and try the
+//! The one 401 retry: re-read the token from `cfg.key_source` and try the
 //! exchange once more after a backoff.
 
 use super::{Inner, StepError};
 use std::sync::Arc;
 
 impl Inner {
-    /// Re-reads the token from `cfg.token_source` for the one retry `run`
+    /// Re-reads the token from `cfg.key_source` for the one retry `run`
     /// allows after a 401. Returns `false` — no retry — when there is no
-    /// `token_source` to re-read from, or the source itself errors; either
+    /// `key_source` to re-read from, or the source itself errors; either
     /// way `run` fails closed on the 401 it already has.
-    fn refresh_token(&self) -> bool {
-        let Some(source) = &self.cfg.token_source else {
+    fn refresh_key(&self) -> bool {
+        let Some(source) = &self.cfg.key_source else {
             return false;
         };
         match source() {
@@ -39,7 +39,7 @@ impl Inner {
     pub(super) async fn retry_unauthorized(
         self: &Arc<Self>,
     ) -> Option<std::result::Result<(), StepError>> {
-        if !self.refresh_token() {
+        if !self.refresh_key() {
             return Some(Err(StepError::Unauthorized));
         }
         if !self.apply_backoff(true).await {

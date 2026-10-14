@@ -70,7 +70,7 @@ How to check each claim. Paths are in this repository. `cargo test` and `cd work
 | Results hold only the projected fields | `src/project.rs` | `src/ops/http_tests.rs` `status_only_projection_nulls_body`, `response_header_projected_only_when_asked`; `src/ops/sql_tests.rs` `empty_projection_yields_no_rows` |
 | Secrets are scrubbed, also in URL- and base64-encoded forms | `src/scrub.rs`, `src/ops/mod.rs` `scrub_payload` | `src/scrub.rs` `scrub_table`; `src/ops/http_tests.rs` `auth_register_scrubs_secret`; `src/ops/listed_secrets_tests.rs` `sql_row_holding_listed_http_secret_is_scrubbed` |
 | Captured values stay in the runner and show as `[captured]` | `src/ops/capture.rs`, `src/ops/vault.rs` | `src/ops/http_capture_tests.rs` `capture_masks_stores_and_scrubs_later`, `other_run_cannot_resolve` |
-| The token env name cannot be listed in `secrets` or used as `${NAME}` | `src/config.rs`, `src/ops/subst.rs` | `src/config_tests.rs` `secrets_listing_the_token_env_is_refused`; `src/ops/http_tests.rs` `runner_token_name_is_never_substitutable` |
+| The key env name cannot be listed in `secrets` or used as `${NAME}` | `src/config.rs`, `src/ops/subst.rs` | `src/config_tests.rs` `secrets_listing_the_key_env_is_refused`; `src/ops/http_tests.rs` `runner_key_name_is_never_substitutable` |
 | `cloud.url` must be https (http only for loopback or the test switch) | `src/config.rs` `check_cloud_scheme` | `src/config_tests.rs` `cloud_url_scheme_rules` |
 | Logs carry no payloads | `src/logfmt/`, `src/ops/log.rs` (closed key list) | `tests/log_sub_test.rs` `op_failed_is_an_error_line_without_payload`; `tests/log_format_test.rs` `every_tracing_macro_in_src_is_on_the_lists`; `worker/test/server.test.js` `secret in args or in bad fields never reaches the log` |
 | A cli command runs without a shell, with a cleared env, and only with a declared argument shape | `worker/src/cli.js`; `src/argshape.rs`, `src/ops/cli.rs` | `worker/test/cli.test.js` `run: argv passed exactly, no shell expansion`, `env is cleared; only given env, fixed PATH/HOME, cwd is the run dir`; `src/argshape.rs` `classes_accept_and_refuse`, `shapes_match_exactly`; `src/ops/cli_tests.rs` `argv_shape_refusals` |
@@ -97,9 +97,9 @@ Both images are built for `linux/amd64` and `linux/arm64`. Tags:
 - `1.2.3` never changes. The release workflow refuses to publish a version twice. Pin this one.
 - `1.2` and `latest` move only when the new release is the highest stable version so far. A pre-release (`1.3.0-rc1`) gets its own tag only. Do not use `latest` in a guide or a Compose file.
 
-Write the token and the passwords in a file named `runner.env`, with an editor (one `NAME=value` per line), so they stay out of your shell history:
+Write the runner key and the passwords in a file named `runner.env`, with an editor (one `NAME=value` per line), so they stay out of your shell history:
 
-    ZRIZ_RUNNER_TOKEN=zrt_...
+    ZRIZ_RUNNER_KEY=zrt_...
     SHOP_DB_PASSWORD=...
 
 Then:
@@ -111,7 +111,7 @@ Then:
       -v "$PWD/config.json:/config/config.json:ro" \
       ghcr.io/zriztech/runner:<version>
 
-Do not write `-e ZRIZ_RUNNER_TOKEN=value` on the command line. The shell keeps it in its history.
+Do not write `-e ZRIZ_RUNNER_KEY=value` on the command line. The shell keeps it in its history.
 
 ### Verify the image
 
@@ -138,7 +138,7 @@ Build the images from this folder:
     docker build -t zriz-runner .
     docker build -f worker/Dockerfile -t zriz-worker .
 
-Copy `examples/config.json`, edit it, and write `runner.env` as in the section above (the token and every password the config uses). Then:
+Copy `examples/config.json`, edit it, and write `runner.env` as in the section above (the runner key and every password the config uses). Then:
 
     chmod 600 runner.env
     docker run --rm \
@@ -147,25 +147,25 @@ Copy `examples/config.json`, edit it, and write `runner.env` as in the section a
       -v "$PWD/config.json:/config/config.json:ro" \
       zriz-runner
 
-The token comes from your zriz account (`zrt_...`). Every `${NAME}` the config uses must be set in the container environment, or the runner exits with code 2 and names the missing variable. If you use `browser` or `cli` resources, run the worker too and share its socket (`worker.socket`) through a volume. `ops/docker-compose.yml` does this; see `ops/README.md`.
+The runner key comes from your zriz account (`zrt_...`). Every `${NAME}` the config uses must be set in the container environment, or the runner exits with code 2 and names the missing variable. If you use `browser` or `cli` resources, run the worker too and share its socket (`worker.socket`) through a volume. `ops/docker-compose.yml` does this; see `ops/README.md`.
 
 ## Config reference
 
-One JSON file, path in `ZRIZ_RUNNER_CONFIG`. In these keys, `${NAME}` is replaced from the process environment at load: `cloud.url`, `cloud.token-env`, `worker.socket`, and each resource's `base-url`, `connection` and `origins`. A missing name is a startup error. Unknown keys are ignored. A full example is `examples/config.json`.
+One JSON file, path in `ZRIZ_RUNNER_CONFIG`. In these keys, `${NAME}` is replaced from the process environment at load: `cloud.url`, `cloud.key-env`, `worker.socket`, and each resource's `base-url`, `connection` and `origins`. A missing name is a startup error. Unknown keys are ignored. A full example is `examples/config.json`.
 
 Top level:
 
 | Key | Meaning |
 | --- | --- |
 | `cloud.url` | Cloud base URL. Required. Must be https. |
-| `cloud.token-env` | Name of the env var that holds the runner token. Required. |
+| `cloud.key-env` | Name of the env var that holds the runner key. Required. |
 | `evidence` | `"none"` turns off `evidence.fetch` (the cloud asking for a prior op's excerpt). Any other value keeps it on; excerpts are redacted, kept 120 s, at most 1000 entries. |
 | `worker.socket` | Path of the worker's unix socket. Required if any resource is `browser` or `cli`. |
 | `resources` | Map of resource id to resource. |
 
 Every resource has `type`: `http`, `sql`, `browser` or `cli`. An unknown type is an error.
 
-`secrets` (all types except `sql`): the list of env var names an op may use as `${NAME}` on this resource. Omitted or empty: none. It must not list the token env name.
+`secrets` (all types except `sql`): the list of env var names an op may use as `${NAME}` on this resource. Omitted or empty: none. It must not list the key env name.
 
 **http**
 
@@ -229,7 +229,7 @@ Notes on `cli` shapes:
 
 - `${NAME}` works only for names in the resource's `secrets` (or values the run captured), and only in the slots listed above. Never in SQL. A placeholder anywhere else is refused.
 - Secret values should be long and random. A short or common value listed in `secrets` is scrubbed wherever it appears in results.
-- Never list the token env name in `secrets`. The config is rejected if you do.
+- Never list the key env name in `secrets`. The config is rejected if you do.
 - `cloud.url` must be https. Plain http is accepted only for `localhost`, `127.0.0.1` and `::1`, or when `ZRIZ_RUNNER_INSECURE_CLOUD=1`. Use that only for local tests.
 - An op runs at most 10 minutes. An op that asks for more, or for nothing, gets 10 minutes.
 - Use a database account that can only read, and still set `read-only: true`.
@@ -240,7 +240,7 @@ Notes on `cli` shapes:
 | Name | Use |
 | --- | --- |
 | `ZRIZ_RUNNER_CONFIG` | Path of the config file. Required. |
-| The name in `cloud.token-env` (for example `ZRIZ_RUNNER_TOKEN`) | The runner token. Required. |
+| The name in `cloud.key-env` (for example `ZRIZ_RUNNER_KEY`) | The runner key. Required. |
 | `ZRIZ_LOG` | Log filter, for example `debug` or `warn,runner=info` (the default). |
 | `ZRIZ_RUNNER_INSECURE_CLOUD` | `1` allows a plain http cloud URL. Local tests only. |
 | `ZRIZ_WORKER_SOCKET` | Worker only: the unix socket path it serves. |
@@ -270,9 +270,9 @@ You need Rust (see `rust-version` in `Cargo.toml`) and, for the worker, Node 22 
 
 The browser tests need Chromium: `npx playwright install chromium` in `worker/`.
 
-Run the binary. Read the token without echo, so it stays out of your shell history, then start it:
+Run the binary. Read the key without echo, so it stays out of your shell history, then start it:
 
-    read -rs ZRIZ_RUNNER_TOKEN && export ZRIZ_RUNNER_TOKEN
+    read -rs ZRIZ_RUNNER_KEY && export ZRIZ_RUNNER_KEY
     ZRIZ_RUNNER_CONFIG=config.json cargo run --release
 
 Set every other `${NAME}` the config uses in the same way.
