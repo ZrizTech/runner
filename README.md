@@ -171,7 +171,7 @@ Copy `examples/config.json`, edit it, and write `runner.env` as in the section a
       -v "$PWD/config.json:/config/config.json:ro" \
       zriz-runner
 
-The runner key comes from your zriz account (`zrt_...`). Every `${NAME}` the config uses must be set in the container environment, or the runner exits with code 2 and names the missing variable. If you use `browser` or `cli` resources, run the worker too and share its socket (`worker.socket`) through a volume. `ops/docker-compose.yml` does this; see `ops/README.md`.
+The runner key comes from `zz runners init` or the page `/app/runners` (`zrt_...`). Every `${NAME}` the config uses must be set in the container environment, or the runner exits with code 2 and names the missing variable. If you use `browser` or `cli` resources, run the worker too and share its socket (`worker.socket`) through a volume. `ops/docker-compose.yml` does this; see `ops/README.md`.
 
 ## Config reference
 
