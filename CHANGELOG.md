@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0 (unreleased): round-4 fixes (s-fix5), 2026-10-14
+- `ops/docker-compose.yml` and the README `docker run`: `restart: on-failure:3` (was `unless-stopped`). A runner whose key is refused exits 2 and must not restart for ever (the cloud can ban the IP). A comment and the README say: after a host reboot, start the container again or use the systemd unit (Docker may not start an `on-failure` container after a reboot).
+- Release workflow: the draft message says "Re-run failed jobs" (not "run again").
+- README and unit comment: exit 2 = key refused (401), no right (403), or bad config. Doc of `exchange::run`: a 401 and a 403 end the loop.
+
 ## 0.3.0 (unreleased): round-3 low fixes (s-fix3), 2026-10-14
 - `exchange::ExchangeError::Forbidden` (new variant): a 403 on the exchange ends the loop like a 401 (no retry); the binary exits 2 for it. Additive for callers that use `_`; a `match` without `_` must add the arm.
 - `embed::Handle` cancels its loop when dropped (`stop()` stays).

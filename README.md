@@ -106,7 +106,7 @@ One static Linux binary. No Docker. It opens no port. Put `config.json` (no secr
 
 To upgrade, run `sudo sh install.sh` again, then `sudo systemctl restart zriz-runner`. The runner never changes by itself.
 
-The unit (`ops/zriz-runner.service`) uses `DynamicUser=yes`, reads `/etc/zriz-runner/runner.env` and `/etc/zriz-runner/config.json`, and has `ProtectSystem=strict` and `NoNewPrivileges=yes`. It does not restart after exit code 2 (the cloud refused the key, or the config is bad): fix the cause, then `systemctl restart zriz-runner`. The release gives `x86_64` and `aarch64` binaries, `zriz-runner-<version>-<arch>-linux`, and a `SHA256SUMS` file.
+The unit (`ops/zriz-runner.service`) uses `DynamicUser=yes`, reads `/etc/zriz-runner/runner.env` and `/etc/zriz-runner/config.json`, and has `ProtectSystem=strict` and `NoNewPrivileges=yes`. It does not restart after exit code 2 (the cloud refused the key (401), the key has no right (403), or the config is bad): fix the cause, then `systemctl restart zriz-runner`. The release gives `x86_64` and `aarch64` binaries, `zriz-runner-<version>-<arch>-linux`, and a `SHA256SUMS` file.
 
 ### Docker (resources `browser` and `cli`)
 
@@ -131,11 +131,13 @@ Write the runner key and the passwords in a file named `runner.env`, with an edi
 Then:
 
     chmod 600 runner.env
-    docker run -d --restart unless-stopped --name zriz-runner \
+    docker run -d --restart on-failure:3 --name zriz-runner \
       --env-file runner.env \
       -e ZRIZ_RUNNER_CONFIG=/config/config.json \
       -v "$PWD/config.json:/config/config.json:ro" \
       ghcr.io/zriztech/runner:<version>
+
+`on-failure:3` stops a runner whose key is refused (exit 2). After a host reboot, start the container again (`docker start zriz-runner`) or use the systemd unit.
 
 Do not write `-e ZRIZ_RUNNER_KEY=value` on the command line. The shell keeps it in its history.
 

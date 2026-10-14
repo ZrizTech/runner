@@ -116,7 +116,7 @@ jobs:
         run: |
           # One rule for a re-run: a draft that already has files is never
           # completed, because a new build may not equal the old one and
-          # SHA256SUMS must match its binaries. Delete the draft, then run again.
+          # SHA256SUMS must match its binaries. Delete the draft, then use "Re-run failed jobs".
           pre=""
           case "$GITHUB_REF_NAME" in *-*) pre="--prerelease" ;; esac
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
@@ -127,7 +127,7 @@ jobs:
             fi
             files=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets | length')
             if [ "$files" != "0" ]; then
-              echo "::error::draft $GITHUB_REF_NAME already has files: delete the draft and run again"
+              echo "::error::draft $GITHUB_REF_NAME already has files: delete the draft, then use Re-run failed jobs (not Re-run all jobs)"
               exit 1
             fi
           else
