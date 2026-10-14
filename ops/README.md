@@ -30,7 +30,7 @@
 
 Do `set-secret ZRIZ_RUNNER_KEY` before the first `deploy`: it refuses to run without it. Use one `set-secret` per `${NAME}` your config needs. Names must match `^[A-Z][A-Z0-9_]*$`. The file must hold one line.
 
-`deploy` builds the runner and worker images, sends them to the server with `docker save | ssh docker load`, copies the compose files and config, sets the image tags in `.env`, runs `docker compose up -d`, waits up to 60 seconds for the runner's first good exchange, and removes old images.
+`deploy` builds the runner and worker images, sends them to the server with `docker save | ssh docker load`, copies the compose files and config, sets the image tags in `.env`, runs `docker compose up -d --force-recreate`, waits up to 60 seconds for the runner's first good exchange, and removes old images.
 
 ## Day to day
 

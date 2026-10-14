@@ -64,16 +64,17 @@ cmd_build() {
 # Waits up to 60s for the INFO line `runner connected` (runner.exchange), which
 # the runner logs once, on its first good poll (log format v3). If it never
 # appears, falls back to: the container has been running 10s with no restart.
+# Returns 0 = connected or stable, 1 = timeout or restarts, 2 = key refused.
 wait_connected() {
 	echo "waiting for the runner's first successful exchange (up to 60s)"
 	for _ in $(seq 1 60); do
-		if compose_remote "logs --no-color runner" 2>/dev/null | grep -Fq ' runner.exchange runner connected'; then
+		if compose_remote "logs --no-color runner" 2>/dev/null | grep -Eq 'runner\.exchange +runner connected'; then
 			echo "runner connected"
 			return 0
 		fi
-		if compose_remote "logs --no-color runner" 2>/dev/null | grep -Fq ' runner.main refused'; then
+		if compose_remote "logs --no-color runner" 2>/dev/null | grep -Eq 'runner\.main +refused'; then
 			echo "the cloud refused the key; make a new key, run set-secret, then restart" >&2
-			return 1
+			return 2
 		fi
 		sleep 1
 	done
@@ -164,7 +165,12 @@ cmd_deploy() {
 	# Always new containers: the runner reads its config only at start, and an equal image does not restart it.
 	compose_remote up -d --force-recreate
 
-	wait_connected || true
+	local rc=0
+	wait_connected || rc=$?
+	if [ "$rc" = 2 ]; then
+		echo "deploy of $tag: the cloud refused the key" >&2
+		exit 1
+	fi
 
 	echo "pruning old images"
 	prune_images
@@ -297,6 +303,9 @@ cmd_ps() {
 cmd_restart() {
 	# Makes the container again: compose reads .env only when it makes the container.
 	compose_remote up -d --force-recreate runner
+	local rc=0
+	wait_connected || rc=$?
+	[ "$rc" = 0 ] || exit 1
 }
 
 cmd_help() {
