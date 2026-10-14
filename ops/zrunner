@@ -68,11 +68,13 @@ cmd_build() {
 wait_connected() {
 	echo "waiting for the runner's first successful exchange (up to 60s)"
 	for _ in $(seq 1 60); do
-		if compose_remote "logs --no-color runner" 2>/dev/null | grep -Eq 'runner\.exchange +runner connected'; then
+		local logs
+		logs="$(compose_remote "logs --no-color runner" 2>/dev/null || true)"
+		if grep -Eq 'runner\.exchange +runner connected' <<<"$logs"; then
 			echo "runner connected"
 			return 0
 		fi
-		if compose_remote "logs --no-color runner" 2>/dev/null | grep -Eq 'runner\.main +refused'; then
+		if grep -Eq 'runner\.main +refused' <<<"$logs"; then
 			echo "the cloud refused the key; make a new key, run set-secret, then restart" >&2
 			return 2
 		fi
@@ -274,7 +276,11 @@ cmd_rollback() {
 		fi
 	"
 	compose_remote up -d
-	wait_connected || true
+	local rc=0
+	wait_connected || rc=$?
+	if [ "$rc" -eq 2 ]; then
+		exit 1
+	fi
 }
 
 cmd_logs() {
