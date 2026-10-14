@@ -40,7 +40,7 @@ Do `set-secret ZRIZ_RUNNER_KEY` before the first `deploy`: it refuses to run wit
 | `zrunner set-secret NAME FILE` | Set `NAME` in the server's `.env`. Run `zrunner restart` after. |
 | `zrunner logs [-f] [-n N]` | Runner logs. |
 | `zrunner ps` | Container status. |
-| `zrunner restart` | Restart the runner. |
+| `zrunner restart` | Make the runner container again. It reads `.env` again. |
 | `zrunner rollback` | Go back to the previous runner and worker images. |
 
 ## The worker
