@@ -1,6 +1,9 @@
 # Example systemd unit for the zriz runner (binary shape: http and sql resources).
 # Copy to /etc/systemd/system/zriz-runner.service.
-# Files: /etc/zriz-runner/config.json and /etc/zriz-runner/runner.env (chmod 600).
+# Files in /etc/zriz-runner/:
+#   config.json  mode 644. It holds no secret value, and the runner (DynamicUser) must read it.
+#   runner.env   mode 600, owner root. systemd reads it as root (EnvironmentFile), the runner cannot.
+#                Format: one NAME=value per line, no quotes, no backslash escapes.
 # The runner opens no port. It only connects out.
 [Unit]
 Description=zriz runner
@@ -13,7 +16,9 @@ EnvironmentFile=/etc/zriz-runner/runner.env
 Environment=ZRIZ_RUNNER_CONFIG=/etc/zriz-runner/config.json
 ExecStart=/usr/local/bin/zriz-runner
 Restart=on-failure
-RestartSec=5
+RestartSec=10
+# Exit 2 = the cloud refused the key, or the config is bad. A restart would repeat it for ever.
+RestartPreventExitStatus=2
 
 NoNewPrivileges=yes
 ProtectSystem=strict

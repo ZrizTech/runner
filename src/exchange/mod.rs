@@ -1,7 +1,7 @@
 //! The long-poll loop that talks to the cloud: it posts the runner's state
 //! and any completed op results, dispatches the op frames the cloud sends
 //! back onto a bounded pool of tasks, and repeats forever until cancelled or
-//! the cloud rejects the token.
+//! the cloud rejects the key.
 
 mod batch;
 mod frames;
@@ -117,18 +117,18 @@ pub type SleepFn =
 /// first, so it should return quickly.
 pub type OnConnected = Arc<dyn Fn() + Send + Sync>;
 
-/// Re-reads the runner's token. Called when the main loop's exchange gets a
-/// 401: `run` calls it once and, if it returns a token, waits out one
+/// Re-reads the runner's key. Called when the main loop's exchange gets a
+/// 401: `run` calls it once and, if it returns a key, waits out one
 /// backoff interval before retrying with it.
 pub type KeySource = Arc<dyn Fn() -> std::result::Result<String, String> + Send + Sync>;
 
-/// Configures [`run`]. `cloud_url`, `token`, `runner_id` and `handler` are
+/// Configures [`run`]. `cloud_url`, `key`, `runner_id` and `handler` are
 /// required; the rest default when left at [`Config::new`]'s values or, for
 /// a struct built by hand with a zero `Duration`, when [`run`] applies its
 /// defaults.
 pub struct Config {
     pub cloud_url: String,
-    pub token: String,
+    pub key: String,
     pub runner_id: String,
     pub env: String,
     pub resources: Vec<String>,
@@ -155,13 +155,13 @@ impl Config {
     /// `key_source` etc. afterward.
     pub fn new(
         cloud_url: impl Into<String>,
-        token: impl Into<String>,
+        key: impl Into<String>,
         runner_id: impl Into<String>,
         handler: Arc<dyn Handler>,
     ) -> Self {
         Self {
             cloud_url: cloud_url.into(),
-            token: token.into(),
+            key: key.into(),
             runner_id: runner_id.into(),
             env: String::new(),
             resources: Vec::new(),
@@ -179,12 +179,15 @@ impl Config {
 }
 
 /// Errors [`run`] returns. The only case: the cloud answered 401 twice in a
-/// row (or once with no way to refresh the token), so the runner fails
+/// row (or once with no way to refresh the key), so the runner fails
 /// closed instead of retrying forever.
 #[derive(Debug, thiserror::Error, PartialEq, Eq, Clone, Copy)]
 pub enum ExchangeError {
     #[error("exchange: unauthorized")]
     Unauthorized,
+    /// The exchange task panicked (only seen by an embedded runner).
+    #[error("exchange: internal error")]
+    Panicked,
 }
 
 /// What one call to [`Inner::exchange`] can end in, internally. Never
@@ -251,7 +254,7 @@ struct Inner {
     /// the cloud as `runner.max-inflight` exactly as declared.
     declared_max_inflight: i64,
     backoff: Mutex<Duration>,
-    token: RwLock<String>,
+    key: RwLock<String>,
     connect_once: Once,
     /// Made once at process start; sent in the health of each request.
     boot_id: String,
@@ -273,7 +276,7 @@ impl Inner {
         let capacity = declared_max_inflight.max(0) as usize;
         let http_client = cfg.http_client.clone().unwrap_or_else(default_http_client);
         let endpoint = format!("{}/runner/v1/exchange", cfg.cloud_url.trim_end_matches('/'));
-        let token = cfg.token.clone();
+        let key = cfg.key.clone();
         let backoff = cfg.backoff;
         Self {
             endpoint,
@@ -283,7 +286,7 @@ impl Inner {
             capacity,
             declared_max_inflight,
             backoff: Mutex::new(backoff),
-            token: RwLock::new(token),
+            key: RwLock::new(key),
             connect_once: Once::new(),
             boot_id: health::new_boot_id(),
             refused: AtomicU64::new(0),
@@ -354,7 +357,7 @@ fn next_backoff(current: Duration, limit: Duration) -> Duration {
 /// a cloud outage slows every request path, not just this one.
 ///
 /// A 401 gets one retry: `run` tries `cfg.key_source` and, if that yields
-/// a fresh token, waits out one backoff interval and retries with it. A
+/// a fresh key, waits out one backoff interval and retries with it. A
 /// second consecutive 401 — or no `key_source` to retry with — fails
 /// closed with [`ExchangeError::Unauthorized`], exit code 2 at the bin
 /// layer.

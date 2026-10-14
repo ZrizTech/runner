@@ -10,7 +10,8 @@ use tokio_util::sync::CancellationToken;
 
 /// What [`start`] needs.
 pub struct Config {
-    /// Resources and cloud URL. `cloud.key_env` is not read here.
+    /// Resources and cloud URL, checked by [`config::check`]. `cloud.key_env`
+    /// is not read here.
     pub runner: config::Config,
     /// The runner key, sent as the Bearer value on each exchange.
     pub key: String,
@@ -31,7 +32,10 @@ impl Handle {
     /// task to end. Returns `Err` if the cloud had already refused the key.
     pub async fn stop(self) -> Result<(), exchange::ExchangeError> {
         self.cancel.cancel();
-        self.task.await.unwrap_or(Ok(()))
+        match self.task.await {
+            Ok(result) => result,
+            Err(_) => Err(exchange::ExchangeError::Panicked),
+        }
     }
 
     /// True when the loop has ended by itself (the cloud refused the key).
@@ -40,14 +44,35 @@ impl Handle {
     }
 }
 
+/// Why [`start`] refused.
+#[derive(Debug, thiserror::Error)]
+pub enum StartError {
+    #[error(transparent)]
+    Config(#[from] config::ConfigError),
+    #[error(transparent)]
+    Handler(#[from] ops::NewError),
+}
+
 /// Starts the exchange loop in a task. `on_connected` is called once, after
 /// the first successful exchange.
 pub async fn start(
     config: Config,
     on_connected: impl Fn() + Send + Sync + 'static,
-) -> Result<Handle, ops::NewError> {
+) -> Result<Handle, StartError> {
+    let insecure = std::env::var("ZRIZ_RUNNER_INSECURE_CLOUD").is_ok_and(|v| v == "1");
+    config::check(&config.runner, insecure)?;
+    // The key is never substitutable: no lookup may return it as a value.
+    let inner = config.lookup;
+    let key_value = config.key.clone();
+    let lookup: ops::Lookup = Arc::new(move |name: &str| {
+        let v = match &inner {
+            Some(f) => f(name),
+            None => std::env::var(name).ok(),
+        };
+        v.filter(|v| *v != key_value)
+    });
     let opts = ops::Options {
-        lookup: config.lookup,
+        lookup: Some(lookup),
         ..Default::default()
     };
     let handler = Arc::new(ops::Handler::new(config.runner.clone(), opts).await?);

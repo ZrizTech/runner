@@ -160,9 +160,11 @@ pub fn load(
         .map_err(|e| ConfigError::Parse(path.display().to_string(), e))?;
 
     let cfg = substitute_config(raw, lookup)?;
-    validate(&cfg)?;
-    check_cloud_scheme(
-        &cfg.cloud.url,
+    if cfg.cloud.key_env.is_empty() {
+        return Err(ConfigError::MissingCloudKeyEnv);
+    }
+    check(
+        &cfg,
         lookup("ZRIZ_RUNNER_INSECURE_CLOUD").as_deref() == Some("1"),
     )?;
     Ok(cfg)
@@ -292,23 +294,19 @@ fn check_cloud_scheme(raw: &str, insecure_ok: bool) -> std::result::Result<(), C
     }
 }
 
-fn validate(cfg: &Config) -> std::result::Result<(), ConfigError> {
+/// The checks of a config, for the binary and for an embedded runner: the
+/// cloud URL (https, or loopback, or `insecure_ok`), each resource, and the
+/// guard that the key env name (when set) is not in a `secrets` list.
+pub fn check(cfg: &Config, insecure_ok: bool) -> std::result::Result<(), ConfigError> {
     if cfg.cloud.url.is_empty() {
         return Err(ConfigError::MissingCloudUrl);
     }
-    if cfg.cloud.key_env.is_empty() {
-        return Err(ConfigError::MissingCloudKeyEnv);
-    }
+    check_cloud_scheme(&cfg.cloud.url, insecure_ok)?;
     for (id, r) in &cfg.resources {
         validate_resource(id, r)?;
-        if r.secrets
-            .as_ref()
-            .is_some_and(|l| l.contains(&cfg.cloud.key_env))
-        {
-            return Err(ConfigError::KeyInSecrets(
-                id.clone(),
-                cfg.cloud.key_env.clone(),
-            ));
+        let key_env = &cfg.cloud.key_env;
+        if !key_env.is_empty() && r.secrets.as_ref().is_some_and(|l| l.contains(key_env)) {
+            return Err(ConfigError::KeyInSecrets(id.clone(), key_env.clone()));
         }
         if r.r#type == "browser" && cfg.worker_socket.is_empty() {
             return Err(ConfigError::BrowserNeedsWorker(id.clone()));

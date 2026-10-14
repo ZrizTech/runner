@@ -1,11 +1,11 @@
-//! The one 401 retry: re-read the token from `cfg.key_source` and try the
+//! The one 401 retry: re-read the key from `cfg.key_source` and try the
 //! exchange once more after a backoff.
 
 use super::{Inner, StepError};
 use std::sync::Arc;
 
 impl Inner {
-    /// Re-reads the token from `cfg.key_source` for the one retry `run`
+    /// Re-reads the key from `cfg.key_source` for the one retry `run`
     /// allows after a 401. Returns `false` — no retry — when there is no
     /// `key_source` to re-read from, or the source itself errors; either
     /// way `run` fails closed on the 401 it already has.
@@ -14,9 +14,9 @@ impl Inner {
             return false;
         };
         match source() {
-            Ok(token) => {
-                let mut t = self.token.write().unwrap_or_else(|e| e.into_inner());
-                *t = token;
+            Ok(key) => {
+                let mut t = self.key.write().unwrap_or_else(|e| e.into_inner());
+                *t = key;
                 true
             }
             Err(e) => {
@@ -26,7 +26,7 @@ impl Inner {
         }
     }
 
-    /// Handles one 401 from the main loop: re-reads the token and, only if
+    /// Handles one 401 from the main loop: re-reads the key and, only if
     /// that succeeds, waits out one backoff interval and retries the
     /// exchange once more.
     ///

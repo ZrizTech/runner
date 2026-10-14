@@ -92,19 +92,21 @@ Two shapes. Pick by the resources in your config.
 
 ### Binary (resources `http` and `sql`)
 
-One static Linux binary. No Docker. It opens no port. Put `config.json` and `runner.env` (the runner key and the passwords, `chmod 600`) with `install.sh` and `zriz-runner.service` (from `ops/`) on the server, then:
+One static Linux binary. No Docker. It opens no port. Put `config.json` (no secret value in it) and `runner.env` (the runner key and the passwords) with `install.sh` and `zriz-runner.service` (from `ops/`) on the server, then:
 
     sudo sh install.sh
-    sudo mkdir -p /etc/zriz-runner && sudo install -m 600 config.json runner.env /etc/zriz-runner/ && sudo cp zriz-runner.service /etc/systemd/system/
+    sudo mkdir -p /etc/zriz-runner && sudo install -m 644 config.json /etc/zriz-runner/config.json && sudo install -m 600 runner.env /etc/zriz-runner/runner.env && sudo cp zriz-runner.service /etc/systemd/system/
     sudo systemctl enable --now zriz-runner
 
-`runner.env` holds one `NAME=value` per line, for example `ZRIZ_RUNNER_KEY=zrt_...`. Write it with an editor, not on a command line.
+`runner.env` holds one `NAME=value` per line, for example `ZRIZ_RUNNER_KEY=zrt_...`. Write it with an editor, not on a command line. Write the value as it is: no quotes and no backslash escapes. Docker (`--env-file`) and systemd (`EnvironmentFile=`) then read the same value. Do not use a value that starts or ends with a space, or that has a line break.
 
-`install.sh` downloads the binary of the latest release from GitHub, checks its SHA-256 sum, and puts it in `/usr/local/bin/zriz-runner`. It stops with one line on any error, and it installs nothing if the sum is wrong or missing. It asks no question. To install one version, set `ZRIZ_RUNNER_VERSION=v0.2.3`. To use a different folder, set `ZRIZ_RUNNER_BIN_DIR`.
+`config.json` has mode 644 because the unit runs as a dynamic user that must read it. It holds only `${NAME}` placeholders, never a secret value. `runner.env` has mode 600: systemd reads it as root before it starts the runner.
+
+`install.sh` downloads the binary of the latest release from GitHub, checks its SHA-256 sum, and puts it in `/usr/local/bin/zriz-runner`. It uses https only. It writes the file next to the target and renames it at the end, so a failed upgrade leaves the old binary. It stops with one line on any error, and it installs nothing if the sum is wrong or missing. It asks no question. To install one version, run `ZRIZ_RUNNER_VERSION=0.3.0 sh install.sh`. To use a different folder, set `ZRIZ_RUNNER_BIN_DIR`.
 
 To upgrade, run `sudo sh install.sh` again, then `sudo systemctl restart zriz-runner`. The runner never changes by itself.
 
-The unit (`ops/zriz-runner.service`) uses `DynamicUser=yes`, reads `/etc/zriz-runner/runner.env` and `/etc/zriz-runner/config.json`, and has `ProtectSystem=strict` and `NoNewPrivileges=yes`. The release gives `x86_64` and `aarch64` binaries, `zriz-runner-<version>-<arch>-linux`, and a `SHA256SUMS` file.
+The unit (`ops/zriz-runner.service`) uses `DynamicUser=yes`, reads `/etc/zriz-runner/runner.env` and `/etc/zriz-runner/config.json`, and has `ProtectSystem=strict` and `NoNewPrivileges=yes`. It does not restart after exit code 2 (the cloud refused the key, or the config is bad): fix the cause, then `systemctl restart zriz-runner`. The release gives `x86_64` and `aarch64` binaries, `zriz-runner-<version>-<arch>-linux`, and a `SHA256SUMS` file.
 
 ### Docker (resources `browser` and `cli`)
 
@@ -121,7 +123,7 @@ Both images are built for `linux/amd64` and `linux/arm64`. Tags:
 - `1.2.3` never changes. The release workflow refuses to publish a version twice. Pin this one.
 - `1.2` and `latest` move only when the new release is the highest stable version so far. A pre-release (`1.3.0-rc1`) gets its own tag only. Do not use `latest` in a guide or a Compose file.
 
-Write the runner key and the passwords in a file named `runner.env`, with an editor (one `NAME=value` per line), so they stay out of your shell history:
+Write the runner key and the passwords in a file named `runner.env`, with an editor (one `NAME=value` per line, no quotes, no backslash escapes), so they stay out of your shell history:
 
     ZRIZ_RUNNER_KEY=zrt_...
     SHOP_DB_PASSWORD=...
@@ -139,7 +141,7 @@ Do not write `-e ZRIZ_RUNNER_KEY=value` on the command line. The shell keeps it 
 
 ### Verify the image
 
-A release runs only after CI passes, and only from a commit on `main`. Each release image is signed without a key (Sigstore keyless) and has a build record (provenance) and an SBOM. The runner binary is built with `cargo-auditable`, so the SBOM lists its Rust crates. Replace `<version>` with the version you use, for example `0.2.2`.
+A release runs only after CI passes, and only from a commit on `main`. Each release image is signed without a key (Sigstore keyless) and has a build record (provenance) and an SBOM. The runner binary is built with `cargo-auditable`, so the SBOM lists its Rust crates. Replace `<version>` with the version you use, for example `0.3.0`.
 
 Check the signature. It must come from the release workflow of this repository, on a `v` tag:
 

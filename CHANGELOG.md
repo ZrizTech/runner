@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 (unreleased): simplify review fixes (s-fix1), 2026-10-14
+- `config::check(&Config, insecure_ok)` is the one config check (cloud URL scheme, resources, key-name guard); `config::load` and `embed::start` both call it.
+- `embed::start` returns `embed::StartError` (`Config` or `Handler`) and no longer accepts a config that `config::load` would refuse. It never lets a lookup return the runner key as a secret value.
+- `Handle::stop` maps a panic of the exchange task to the new `ExchangeError::Panicked` (was `Ok`).
+- `exchange::Config::token` is now `key` (R1 missed it); inner lock and docs say key.
+- `install.sh`: temp file in the target folder, atomic `mv`, trap cleanup, `curl --proto '=https' --tlsv1.2 --retry 3` (`file://` base allowed only for tests).
+- `ops/zriz-runner.service`: `RestartPreventExitStatus=2` (key refused), `RestartSec=10`. README: `config.json` mode 644 (no secret in it), `runner.env` mode 600 with a plain `NAME=value` format.
+- release workflow: binary build with `contents: read` and no stored token; separate `publish` job with `contents: write`; same on-main and new-version checks as the image job; no `--clobber`.
+- `tests/install_sh_test.rs` removes its temp folders.
+
 ## simplify clean-up, 2026-10-14
 - No more start WARN `no allowlist` for an http resource without `secrets`: `secrets` is optional (nothing to scrub), and the origin check always applies.
 - Contract copy synced.
