@@ -1,0 +1,13 @@
+{
+  "description": "inline call object",
+  "steps": [
+    {
+      "call": {"resource": "target", "method": "GET", "path": "/health", "timeout-ms": 5000},
+      "expect": [["status", "==", 200], ["timing.target-ms", "<", 800]]
+    },
+    {
+      "call": {"resource": "shopdb", "query": "SELECT 1"},
+      "expect": [["row-count", "==", 1]]
+    }
+  ]
+}

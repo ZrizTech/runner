@@ -116,8 +116,16 @@
       "type": "object",
       "properties": {
         "call": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$"
+          "description": "resource/action, or an inline call object",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$"
+            },
+            {
+              "$ref": "#/$defs/inline-call"
+            }
+          ]
         },
         "redirect": {
           "enum": [
@@ -451,6 +459,88 @@
         "$ref": "#/$defs/path"
       },
       "description": "NAME -> response path; runner keeps the value for the run, cloud never sees it"
+    },
+    "inline-call": {
+      "type": "object",
+      "description": "A call with no action in a resource file: the keys of an action plus resource. The resource file still gives base-url.",
+      "properties": {
+        "method": {
+          "$ref": "resource.json#/$defs/http-action/properties/method"
+        },
+        "path": {
+          "$ref": "resource.json#/$defs/http-action/properties/path"
+        },
+        "query": {
+          "$ref": "resource.json#/$defs/sql-action/properties/query"
+        },
+        "commands": {
+          "$ref": "resource.json#/$defs/browser-action/properties/commands"
+        },
+        "command": {
+          "$ref": "resource.json#/$defs/cli-action/properties/command"
+        },
+        "args": {
+          "$ref": "resource.json#/$defs/cli-action/properties/args"
+        },
+        "mode": {
+          "$ref": "resource.json#/$defs/cli-action/properties/mode"
+        },
+        "handle": {
+          "$ref": "resource.json#/$defs/cli-action/properties/handle"
+        },
+        "until": {
+          "$ref": "resource.json#/$defs/cli-action/properties/until"
+        },
+        "extract": {
+          "$ref": "resource.json#/$defs/cli-action/properties/extract"
+        },
+        "stdout": {
+          "$ref": "resource.json#/$defs/cli-action/properties/stdout"
+        },
+        "env": {
+          "$ref": "resource.json#/$defs/cli-action/properties/env"
+        },
+        "resource": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "redirect": {
+          "$ref": "resource.json#/$defs/http-action/properties/redirect"
+        },
+        "headers": {
+          "$ref": "resource.json#/$defs/http-action/properties/headers"
+        },
+        "timeout-ms": {
+          "$ref": "resource.json#/$defs/http-action/properties/timeout-ms"
+        }
+      },
+      "required": [
+        "resource"
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "method",
+            "path"
+          ]
+        },
+        {
+          "required": [
+            "query"
+          ]
+        },
+        {
+          "required": [
+            "commands"
+          ]
+        },
+        {
+          "required": [
+            "command"
+          ]
+        }
+      ],
+      "additionalProperties": false
     }
   },
   "type": "object",

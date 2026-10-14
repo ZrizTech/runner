@@ -19,7 +19,7 @@ fn write_config(dir: &tempfile::TempDir, body: &str) -> std::path::PathBuf {
 
 fn config_body(cloud_url: &str) -> String {
     format!(
-        r#"{{"cloud":{{"url":"{cloud_url}","token-env":"ZRIZ_TOKEN"}},"evidence":"redacted","resources":{{}}}}"#
+        r#"{{"cloud":{{"url":"{cloud_url}","key-env":"ZRIZ_KEY"}},"evidence":"redacted","resources":{{}}}}"#
     )
 }
 
@@ -41,13 +41,13 @@ async fn run_config_file_fails_to_load() {
 }
 
 #[tokio::test]
-async fn run_token_env_unset() {
+async fn run_key_env_unset() {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = write_config(&dir, &config_body("https://cloud.example"));
     let path_str = path.to_string_lossy().to_string();
     let mut env = HashMap::new();
     env.insert("ZRIZ_RUNNER_CONFIG", path_str);
-    // ZRIZ_TOKEN, named by the config's token-env, is deliberately absent.
+    // ZRIZ_KEY, named by the config's key-env, is deliberately absent.
 
     let code = run(CancellationToken::new(), lookup_map(env), &mut Vec::new()).await;
     assert_eq!(code, 2);
@@ -66,14 +66,14 @@ async fn run_unauthorized_exits_two() {
     let path_str = path.to_string_lossy().to_string();
     let mut env = HashMap::new();
     env.insert("ZRIZ_RUNNER_CONFIG", path_str);
-    env.insert("ZRIZ_TOKEN", "test-token".to_string());
+    env.insert("ZRIZ_KEY", "test-token".to_string());
 
     let code = run(CancellationToken::new(), lookup_map(env), &mut Vec::new()).await;
     assert_eq!(code, 2);
 }
 
 /// A `lookup` backed by a map a test can mutate while `run` is executing,
-/// simulating the token env var rotating between the runner's first 401
+/// simulating the key env var rotating between the runner's first 401
 /// and its retry.
 #[derive(Clone)]
 struct MutableEnv {
@@ -135,7 +135,7 @@ async fn run_recovers_from_unauthorized_after_token_rotates() {
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or("");
             if auth == "Bearer old-token" {
-                env_for_mock.set("ZRIZ_TOKEN", "new-token");
+                env_for_mock.set("ZRIZ_KEY", "new-token");
                 ResponseTemplate::new(401)
             } else {
                 ResponseTemplate::new(200)
@@ -149,7 +149,7 @@ async fn run_recovers_from_unauthorized_after_token_rotates() {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = write_config(&dir, &config_body(&server.uri()));
     env.set("ZRIZ_RUNNER_CONFIG", &path.to_string_lossy());
-    env.set("ZRIZ_TOKEN", "old-token");
+    env.set("ZRIZ_KEY", "old-token");
 
     let cancel = CancellationToken::new();
     let cancel2 = cancel.clone();
@@ -187,7 +187,7 @@ async fn run_clean_shutdown_exits_zero() {
     let path_str = path.to_string_lossy().to_string();
     let mut env = HashMap::new();
     env.insert("ZRIZ_RUNNER_CONFIG", path_str);
-    env.insert("ZRIZ_TOKEN", "test-token".to_string());
+    env.insert("ZRIZ_KEY", "test-token".to_string());
     let lookup = lookup_map(env);
 
     let cancel = CancellationToken::new();

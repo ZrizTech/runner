@@ -129,7 +129,7 @@ impl Inner {
         }
     }
 
-    fn current_token(&self) -> String {
+    fn current_key(&self) -> String {
         self.token.read().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
@@ -141,7 +141,7 @@ impl Inner {
             .post(&self.endpoint)
             .header(
                 reqwest::header::AUTHORIZATION,
-                format!("Bearer {}", self.current_token()),
+                format!("Bearer {}", self.current_key()),
             )
             .header(
                 reqwest::header::USER_AGENT,

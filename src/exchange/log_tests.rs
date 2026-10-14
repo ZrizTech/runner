@@ -47,7 +47,7 @@ async fn exchange_lines_follow_the_log_format() {
     .await;
     let mut rx = cloud.take_receiver();
     let handler: Arc<dyn Handler> = Arc::new(FakeHandler::new(3));
-    let mut cfg = Config::new(cloud.base_url.clone(), TEST_TOKEN, "runner-1", handler);
+    let mut cfg = Config::new(cloud.base_url.clone(), TEST_KEY, "runner-1", handler);
     cfg.env = "uat".to_string();
     let cancel = CancellationToken::new();
     let cancel2 = cancel.clone();
@@ -97,7 +97,7 @@ async fn a_failed_poll_is_a_warn_line() {
     let cloud = ImmediateCloud::new(|_n, _req| (500, None)).await;
     let mut rx = cloud.take_receiver();
     let handler: Arc<dyn Handler> = Arc::new(FakeHandler::new(3));
-    let mut cfg = Config::new(cloud.base_url.clone(), TEST_TOKEN, "runner-1", handler);
+    let mut cfg = Config::new(cloud.base_url.clone(), TEST_KEY, "runner-1", handler);
     cfg.backoff = Duration::from_millis(5);
     cfg.max_backoff = Duration::from_millis(20);
     let cancel = CancellationToken::new();

@@ -1,0 +1,8 @@
+{
+  "steps": [
+    {
+      "call": {"method": "GET", "path": "/health"},
+      "expect": [["status", "==", 200]]
+    }
+  ]
+}

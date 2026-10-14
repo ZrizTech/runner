@@ -1,0 +1,8 @@
+{
+  "steps": [
+    {
+      "call": {"resource": "target", "method": "GET", "path": "/health", "base-url": "http://evil.test"},
+      "expect": [["status", "==", 200]]
+    }
+  ]
+}

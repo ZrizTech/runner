@@ -12,7 +12,7 @@ fn write_config(dir: &tempfile::TempDir, body: &str) -> std::path::PathBuf {
 }
 
 const GOOD_CONFIG: &str = r#"{
-  "cloud": {"url": "https://cloud.zriz.io", "token-env": "ZRIZ_TOKEN"},
+  "cloud": {"url": "https://cloud.zriz.io", "key-env": "ZRIZ_KEY"},
   "evidence": "redacted",
   "resources": {
     "shop-api": {"type": "http", "base-url": "http://shop:9080/api"},
@@ -36,7 +36,7 @@ fn good_config_loads_both_resources() {
     env.insert("MYSQL_PASSWORD", "hunter2");
     let cfg = load(&path, &lookup(env)).expect("load");
     assert_eq!(cfg.cloud.url, "https://cloud.zriz.io");
-    assert_eq!(cfg.cloud.token_env, "ZRIZ_TOKEN");
+    assert_eq!(cfg.cloud.key_env, "ZRIZ_KEY");
     assert_eq!(cfg.resources.len(), 2);
     let db = &cfg.resources["shop-db"];
     assert_eq!(db.connection, "shop:hunter2@tcp(shop-mysql:3306)/shop");
@@ -47,7 +47,7 @@ fn good_config_loads_both_resources() {
 #[test]
 fn unknown_resource_type() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let body = r#"{"cloud":{"url":"https://c","token-env":"T"},"resources":{"r":{"type":"ftp"}}}"#;
+    let body = r#"{"cloud":{"url":"https://c","key-env":"T"},"resources":{"r":{"type":"ftp"}}}"#;
     let path = write_config(&dir, body);
     assert!(load(&path, &lookup(StdHashMap::new())).is_err());
 }
@@ -55,7 +55,7 @@ fn unknown_resource_type() {
 #[test]
 fn http_resource_without_scheme() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let body = r#"{"cloud":{"url":"https://c","token-env":"T"},"resources":{"r":{"type":"http","base-url":"shop:9080/api"}}}"#;
+    let body = r#"{"cloud":{"url":"https://c","key-env":"T"},"resources":{"r":{"type":"http","base-url":"shop:9080/api"}}}"#;
     let path = write_config(&dir, body);
     assert!(load(&path, &lookup(StdHashMap::new())).is_err());
 }
@@ -63,13 +63,13 @@ fn http_resource_without_scheme() {
 #[test]
 fn missing_cloud_url() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let body = r#"{"cloud":{"token-env":"T"},"resources":{}}"#;
+    let body = r#"{"cloud":{"key-env":"T"},"resources":{}}"#;
     let path = write_config(&dir, body);
     assert!(load(&path, &lookup(StdHashMap::new())).is_err());
 }
 
 #[test]
-fn missing_cloud_token_env() {
+fn missing_cloud_key_env() {
     let dir = tempfile::tempdir().expect("tempdir");
     let body = r#"{"cloud":{"url":"https://c"},"resources":{}}"#;
     let path = write_config(&dir, body);
@@ -77,9 +77,9 @@ fn missing_cloud_token_env() {
 }
 
 #[test]
-fn secrets_listing_the_token_env_is_refused() {
+fn secrets_listing_the_key_env_is_refused() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let body = r#"{"cloud":{"url":"https://c","token-env":"RUNNER_TOK"},"resources":{"r":{"type":"http","base-url":"http://h:1","secrets":["A","RUNNER_TOK"]}}}"#;
+    let body = r#"{"cloud":{"url":"https://c","key-env":"RUNNER_TOK"},"resources":{"r":{"type":"http","base-url":"http://h:1","secrets":["A","RUNNER_TOK"]}}}"#;
     let path = write_config(&dir, body);
     let err = load(&path, &lookup(StdHashMap::new())).unwrap_err();
     assert!(err.to_string().contains("RUNNER_TOK"), "err = {err}");
@@ -87,7 +87,7 @@ fn secrets_listing_the_token_env_is_refused() {
 }
 
 fn cloud_cfg(url: &str) -> String {
-    format!(r#"{{"cloud":{{"url":"{url}","token-env":"T"}},"resources":{{}}}}"#)
+    format!(r#"{{"cloud":{{"url":"{url}","key-env":"T"}},"resources":{{}}}}"#)
 }
 
 #[test]
@@ -157,14 +157,14 @@ fn browser_limits_follow_the_worker_ranges() {
     ];
     for (extra, ok) in cases {
         let body = format!(
-            r#"{{"cloud": {{"url": "https://cloud.zriz.io", "token-env": "ZRIZ_TOKEN"}},
+            r#"{{"cloud": {{"url": "https://cloud.zriz.io", "key-env": "ZRIZ_KEY"}},
               "evidence": "redacted", "worker": {{"socket": "/run/zriz/worker.sock"}},
               "resources": {{"web": {{"type": "browser", "base-url": "https://app.example.com", {extra}}}}}}}"#
         );
         let dir = tempfile::tempdir().expect("tempdir");
         let path = write_config(&dir, &body);
         let mut env = StdHashMap::new();
-        env.insert("ZRIZ_TOKEN", "t");
+        env.insert("ZRIZ_KEY", "t");
         let got = load(&path, &lookup(env));
         assert_eq!(got.is_ok(), ok, "{extra}: {got:?}");
         if let Err(e) = got {

@@ -132,8 +132,8 @@ cmd_deploy() {
 		set -euo pipefail
 		touch $DIR/.env
 		chmod 600 $DIR/.env
-		if ! grep -q '^ZRIZ_RUNNER_TOKEN=' $DIR/.env; then
-			echo 'refusing: $DIR/.env has no ZRIZ_RUNNER_TOKEN= — run set-secret ZRIZ_RUNNER_TOKEN first' >&2
+		if ! grep -q '^ZRIZ_RUNNER_KEY=' $DIR/.env; then
+			echo 'refusing: $DIR/.env has no ZRIZ_RUNNER_KEY= — run set-secret ZRIZ_RUNNER_KEY first' >&2
 			exit 1
 		fi
 		for pair in 'ZRIZ_RUNNER_IMAGE=$tag' 'ZRIZ_WORKER_IMAGE=$wtag' 'COMPOSE_PROJECT_NAME=$proj'; do

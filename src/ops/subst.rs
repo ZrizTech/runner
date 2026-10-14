@@ -7,7 +7,7 @@ impl Handler {
     /// [`PlaceholderError`] to the contract error an op should return.
     /// `allow` lists the runner env names that may be substituted; an empty
     /// list means none. The run's vault is always searched first and always
-    /// allowed. The runner token name is never allowed.
+    /// allowed. The runner key name is never allowed.
     pub(super) fn substitute_args(
         &self,
         op: &contract::Op,
@@ -24,7 +24,7 @@ impl Handler {
     }
 
     /// Runs `f` with a lookup over the vault, then the env names in
-    /// `allow` (never the runner token name). A name in neither the vault nor `allow` is
+    /// `allow` (never the runner key name). A name in neither the vault nor `allow` is
     /// `placeholder-not-found`; a listed name with no value is `secret-not-set`. Adds every vault value of the run and
     /// every value named in any resource's `secrets` to the returned
     /// secrets, so they are scrubbed from every op.
@@ -43,7 +43,7 @@ impl Handler {
             if let Some(v) = self.vault.get(&op.run_id, name, now) {
                 return Some(v);
             }
-            let listed = name != self.cfg.cloud.token_env && allow.iter().any(|n| n == name);
+            let listed = name != self.cfg.cloud.key_env && allow.iter().any(|n| n == name);
             let value = if listed { (self.lookup)(name) } else { None };
             if value.is_none() {
                 *missing.borrow_mut() = Some((name.to_string(), listed));
@@ -93,14 +93,14 @@ impl Handler {
 
 /// The values of every env name in any resource's `secrets` list, in name
 /// order, deduped. Unset and empty values are skipped, and so is the runner
-/// token name.
+/// key name.
 pub(super) fn listed_secret_values(cfg: &Config, lookup: &Lookup) -> Vec<String> {
     let mut names: Vec<&str> = cfg
         .resources
         .values()
         .flat_map(|r| r.secrets.iter().flatten())
         .map(String::as_str)
-        .filter(|n| *n != cfg.cloud.token_env)
+        .filter(|n| *n != cfg.cloud.key_env)
         .collect();
     names.sort_unstable();
     names.dedup();

@@ -21,7 +21,7 @@ fn frame(id: &str, pad: usize) -> contract::Frame {
 
 fn inner(url: &str, backoff: Duration) -> Arc<Inner> {
     let h: Arc<dyn Handler> = Arc::new(FakeHandler::new(2));
-    let mut cfg = Config::new(url, TEST_TOKEN, "runner-1", h);
+    let mut cfg = Config::new(url, TEST_KEY, "runner-1", h);
     cfg.backoff = backoff;
     Arc::new(Inner::new(cfg, CancellationToken::new()))
 }
@@ -204,7 +204,7 @@ async fn a_changed_health_sends_one_request_and_an_unchanged_one_none() {
     let mut rx = cloud.take_receiver();
     let busy = Arc::new(Busy(std::sync::atomic::AtomicU64::new(8)));
     let h: Arc<dyn Handler> = busy.clone();
-    let mut cfg = Config::new(&cloud.base_url, TEST_TOKEN, "runner-1", h);
+    let mut cfg = Config::new(&cloud.base_url, TEST_KEY, "runner-1", h);
     cfg.health_every = Duration::from_secs(1);
     let i = Arc::new(Inner::new(cfg, CancellationToken::new()));
     let t0 = Instant::now();

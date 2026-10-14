@@ -9,7 +9,7 @@ async fn first_arrival(user_agent: Option<&str>) -> Arrival {
     let handler: Arc<dyn Handler> = Arc::new(FakeHandler::new(1));
     let cloud = ImmediateCloud::new(|_n, _req| (204, None)).await;
     let mut rx = cloud.take_receiver();
-    let mut cfg = Config::new(cloud.base_url.clone(), TEST_TOKEN, "runner-1", handler);
+    let mut cfg = Config::new(cloud.base_url.clone(), TEST_KEY, "runner-1", handler);
     cfg.user_agent = user_agent.map(str::to_string);
     let cancel = CancellationToken::new();
     let cancel2 = cancel.clone();

@@ -546,13 +546,13 @@ async fn header_echoing_secret_is_scrubbed_and_unrequested_absent() {
 }
 
 /// A handler whose lookup records every name it is asked for. The http
-/// resource `api` carries `secrets`; the runner token env is `RUNNER_TOK`.
+/// resource `api` carries `secrets`; the runner key env is `RUNNER_TOK`.
 async fn recording_handler(
     base_url: &str,
     secrets: Option<Vec<&str>>,
 ) -> (Handler, Arc<Mutex<Vec<String>>>) {
     let mut cfg = http_config(base_url, "redacted");
-    cfg.cloud.token_env = "RUNNER_TOK".to_string();
+    cfg.cloud.key_env = "RUNNER_TOK".to_string();
     if let Some(r) = cfg.resources.get_mut("api") {
         r.secrets = secrets.map(|v| v.into_iter().map(String::from).collect());
     }
@@ -624,7 +624,7 @@ async fn secrets_list_allows_only_listed_names() {
 }
 
 #[tokio::test]
-async fn runner_token_name_is_never_substitutable() {
+async fn runner_key_name_is_never_substitutable() {
     let (h, asked) = recording_handler("http://127.0.0.1:1", Some(vec!["RUNNER_TOK"])).await;
     let (result, err) = sub_header_op(&h, "${RUNNER_TOK}").await;
     assert!(result.is_none());

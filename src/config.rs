@@ -9,8 +9,8 @@ use std::path::Path;
 pub struct Cloud {
     /// The cloud's exchange endpoint base URL.
     pub url: String,
-    /// The name of the environment variable holding the runner's token.
-    pub token_env: String,
+    /// The name of the environment variable holding the runner key.
+    pub key_env: String,
 }
 
 /// Describes one HTTP or SQL target the runner may act against.
@@ -30,7 +30,7 @@ pub struct Resource {
     pub origins: Vec<String>,
     /// Runner env names an op may substitute (`${NAME}`). `None` or empty =
     /// none, for every kind. sql takes no placeholders at all. Listing the
-    /// runner token env name is a config error.
+    /// runner key env name is a config error.
     pub secrets: Option<Vec<String>>,
     /// Browser: most live contexts in the worker.
     pub max_contexts: Option<u32>,
@@ -69,8 +69,8 @@ pub enum ConfigError {
         "config: cloud.url must be https (http is allowed only for localhost, 127.0.0.1 or ::1, or when ZRIZ_RUNNER_INSECURE_CLOUD=1)"
     )]
     InsecureCloudUrl,
-    #[error("config: missing cloud.token-env")]
-    MissingCloudTokenEnv,
+    #[error("config: missing cloud.key-env")]
+    MissingCloudKeyEnv,
     #[error("config: resource {0}: base-url must have a scheme and host, got {1:?}")]
     BadBaseUrl(String, String),
     #[error("config: resource {0}: unknown type {1:?}")]
@@ -83,16 +83,16 @@ pub enum ConfigError {
     CliNeedsWorker(String),
     #[error("config: resource {0}: bad cli setting: {1}")]
     BadCli(String, String),
-    #[error("config: resource {0}: secrets must not list the runner token env {1}")]
-    TokenInSecrets(String, String),
+    #[error("config: resource {0}: secrets must not list the runner key env {1}")]
+    KeyInSecrets(String, String),
 }
 
 #[derive(Deserialize, Default)]
 struct RawCloud {
     #[serde(default)]
     url: String,
-    #[serde(default, rename = "token-env")]
-    token_env: String,
+    #[serde(default, rename = "key-env")]
+    key_env: String,
 }
 
 #[derive(Deserialize, Default)]
@@ -173,7 +173,7 @@ fn substitute_config(
     lookup: &dyn Fn(&str) -> Option<String>,
 ) -> std::result::Result<Config, ConfigError> {
     let cloud_url = substitute(&raw.cloud.url, lookup)?;
-    let token_env = substitute(&raw.cloud.token_env, lookup)?;
+    let key_env = substitute(&raw.cloud.key_env, lookup)?;
 
     let mut resources = HashMap::with_capacity(raw.resources.len());
     for (id, r) in raw.resources {
@@ -183,7 +183,7 @@ fn substitute_config(
     Ok(Config {
         cloud: Cloud {
             url: cloud_url,
-            token_env,
+            key_env,
         },
         evidence: raw.evidence,
         resources,
@@ -271,7 +271,7 @@ fn placeholder_at(s: &str, i: usize) -> Option<usize> {
     }
 }
 
-/// The runner token travels to `cloud.url`, so it must be https. Plain http
+/// The runner key travels to `cloud.url`, so it must be https. Plain http
 /// is allowed for a loopback host, or when the insecure escape is set.
 fn check_cloud_scheme(raw: &str, insecure_ok: bool) -> std::result::Result<(), ConfigError> {
     let Ok(u) = url::Url::parse(raw) else {
@@ -296,18 +296,18 @@ fn validate(cfg: &Config) -> std::result::Result<(), ConfigError> {
     if cfg.cloud.url.is_empty() {
         return Err(ConfigError::MissingCloudUrl);
     }
-    if cfg.cloud.token_env.is_empty() {
-        return Err(ConfigError::MissingCloudTokenEnv);
+    if cfg.cloud.key_env.is_empty() {
+        return Err(ConfigError::MissingCloudKeyEnv);
     }
     for (id, r) in &cfg.resources {
         validate_resource(id, r)?;
         if r.secrets
             .as_ref()
-            .is_some_and(|l| l.contains(&cfg.cloud.token_env))
+            .is_some_and(|l| l.contains(&cfg.cloud.key_env))
         {
-            return Err(ConfigError::TokenInSecrets(
+            return Err(ConfigError::KeyInSecrets(
                 id.clone(),
-                cfg.cloud.token_env.clone(),
+                cfg.cloud.key_env.clone(),
             ));
         }
         if r.r#type == "browser" && cfg.worker_socket.is_empty() {

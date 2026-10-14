@@ -6,7 +6,7 @@
 
 - On the workstation: `bash`, `git`, `ssh`, `scp`, and Docker with buildx. The repo must be a git checkout with a clean working tree (the image is tagged with the commit).
 - On the server: Docker with the compose plugin, and SSH access for the user you pass in `ZRUNNER_HOST`.
-- A runner config file (see `../examples/config.json`) and your runner token.
+- A runner config file (see `../examples/config.json`) and your runner key.
 
 ## Settings
 
@@ -23,12 +23,12 @@
     export ZRUNNER_CONFIG=./config.json
 
     # Secrets go into $ZRUNNER_DIR/.env on the server, read from a file, never on the command line.
-    printf '%s' 'zrt_...' > /tmp/token && ./ops/zrunner set-secret ZRIZ_RUNNER_TOKEN /tmp/token
+    printf '%s' 'zrt_...' > /tmp/key && ./ops/zrunner set-secret ZRIZ_RUNNER_KEY /tmp/key
     ./ops/zrunner set-secret SHOP_DB_PASSWORD ./db-password.txt
 
     ./ops/zrunner deploy
 
-Do `set-secret ZRIZ_RUNNER_TOKEN` before the first `deploy`: it refuses to run without it. Use one `set-secret` per `${NAME}` your config needs. Names must match `^[A-Z][A-Z0-9_]*$`. The file must hold one line.
+Do `set-secret ZRIZ_RUNNER_KEY` before the first `deploy`: it refuses to run without it. Use one `set-secret` per `${NAME}` your config needs. Names must match `^[A-Z][A-Z0-9_]*$`. The file must hold one line.
 
 `deploy` builds the runner and worker images, sends them to the server with `docker save | ssh docker load`, copies the compose files and config, sets the image tags in `.env`, runs `docker compose up -d`, waits up to 60 seconds for the runner's first good exchange, and removes old images.
 

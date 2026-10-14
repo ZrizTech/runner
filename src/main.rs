@@ -5,7 +5,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
-use zriz_runner::{config, exchange, ops};
+use zriz_runner::{config, embed, exchange, ops};
 
 #[tokio::main]
 async fn main() {
@@ -72,7 +72,7 @@ async fn run(
         return 2;
     };
 
-    let (cfg, token, code) = load_config(Path::new(&path), &lookup, stderr);
+    let (cfg, key, code) = load_config(Path::new(&path), &lookup, stderr);
     if code != 0 {
         return code;
     }
@@ -91,12 +91,12 @@ async fn run(
     // process exits. The earlier returns above never reach this point
     // because no handler (and so no sql connection) exists yet to close.
     let closer = Arc::clone(&handler);
-    let code = run_exchange(cancel, cfg, token, lookup, handler).await;
+    let code = run_exchange(cancel, cfg, key, lookup, handler).await;
     closer.close().await;
     code
 }
 
-/// Reads the runner config and its cloud token, returning a non-zero exit
+/// Reads the runner config and its cloud key, returning a non-zero exit
 /// code (and an already-printed message) on any failure.
 fn load_config(
     path: &Path,
@@ -111,13 +111,13 @@ fn load_config(
         }
     };
 
-    match lookup(&cfg.cloud.token_env) {
-        Some(token) => (cfg, token, 0),
+    match lookup(&cfg.cloud.key_env) {
+        Some(key) => (cfg, key, 0),
         None => {
             let _ = writeln!(
                 stderr,
                 "environment variable {} is not set",
-                cfg.cloud.token_env
+                cfg.cloud.key_env
             );
             (config::Config::default(), String::new(), 2)
         }
@@ -127,20 +127,18 @@ fn load_config(
 async fn run_exchange(
     cancel: CancellationToken,
     cfg: config::Config,
-    token: String,
+    key: String,
     lookup: impl Fn(&str) -> Option<String> + Send + Sync + 'static,
     handler: Arc<ops::Handler>,
 ) -> i32 {
-    let runner_id = hostname();
-    let token_env = cfg.cloud.token_env.clone();
+    let key_env = cfg.cloud.key_env.clone();
 
-    let mut exchange_cfg = exchange::Config::new(cfg.cloud.url.clone(), token, runner_id, handler);
-    exchange_cfg.resources = sorted_resource_ids(&cfg);
-    // Re-reads the token env var named by the config on every call, so a
-    // rotated token takes effect on the exchange loop's next 401 retry
+    let mut exchange_cfg = embed::exchange_config(&cfg, key, handler);
+    // Re-reads the key env var named by the config on every call, so a
+    // rotated key takes effect on the exchange loop's next 401 retry
     // without a process restart.
-    exchange_cfg.token_source = Some(Arc::new(move || {
-        lookup(&token_env).ok_or_else(|| format!("environment variable {token_env} is not set"))
+    exchange_cfg.key_source = Some(Arc::new(move || {
+        lookup(&key_env).ok_or_else(|| format!("environment variable {key_env} is not set"))
     }));
 
     tracing::info!(target: "runner.main", runner = %exchange_cfg.runner_id, cloud = %exchange_cfg.cloud_url, build = zriz_runner::exchange::VERSION, "started");
@@ -148,35 +146,6 @@ async fn run_exchange(
         Ok(()) => 0,
         Err(exchange::ExchangeError::Unauthorized) => 2,
     }
-}
-
-fn sorted_resource_ids(cfg: &config::Config) -> Vec<String> {
-    let mut ids: Vec<String> = cfg.resources.keys().cloned().collect();
-    ids.sort();
-    ids
-}
-
-/// The standard library has no hostname call. `$HOSTNAME`
-/// is set automatically by Docker and Kubernetes (the runner's actual
-/// deployment target) for every container; the `hostname` command covers
-/// bare-metal dev/test machines that don't export it. Falls back to
-/// `"runner"` on error.
-fn hostname() -> String {
-    if let Ok(h) = std::env::var("HOSTNAME")
-        && !h.is_empty()
-    {
-        return h;
-    }
-    if let Ok(output) = std::process::Command::new("hostname").output()
-        && output.status.success()
-        && let Ok(s) = String::from_utf8(output.stdout)
-    {
-        let s = s.trim();
-        if !s.is_empty() {
-            return s.to_string();
-        }
-    }
-    "runner".to_string()
 }
 
 #[cfg(test)]
