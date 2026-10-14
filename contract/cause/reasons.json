@@ -136,7 +136,7 @@
     },
     "time-budget": {
       "path": "timing.target-ms",
-      "ops": ["==", "!=", ">", ">=", "<", "<=", "count==", "count>", "count>=", "count<", "count<="],
+      "ops": ["==", "!=", ">", ">=", "<", "<="],
       "note": "Only a two-argument operator (in ops) can check this path; the pattern needs {expected}.",
       "pattern": "step {step-index} ({action}) took {actual} ms, and the time budget {op-text} {expected} ms"
     }

@@ -178,9 +178,10 @@ impl Config {
     }
 }
 
-/// Errors [`run`] returns. The only case: the cloud answered 401 twice in a
+/// Errors [`run`] returns. `Unauthorized`: the cloud answered 401 twice in a
 /// row (or once with no way to refresh the key), so the runner fails
-/// closed instead of retrying forever.
+/// closed instead of retrying forever. `Panicked`: the exchange task
+/// panicked (seen only through `embed::Handle::stop`).
 #[derive(Debug, thiserror::Error, PartialEq, Eq, Clone, Copy)]
 pub enum ExchangeError {
     #[error("exchange: unauthorized")]

@@ -3,7 +3,9 @@
 # Files in /etc/zriz-runner/:
 #   config.json  mode 644. It holds no secret value, and the runner (DynamicUser) must read it.
 #   runner.env   mode 600, owner root. systemd reads it as root (EnvironmentFile), the runner cannot.
-#                Format: one NAME=value per line, no quotes, no backslash escapes.
+#                Format: one NAME=value per line. The value has no quotes, no backslash,
+#                no space at the start or the end, and no line break (zz refuses other values).
+#                Then systemd and Docker (--env-file) read the same value.
 # The runner opens no port. It only connects out.
 [Unit]
 Description=zriz runner

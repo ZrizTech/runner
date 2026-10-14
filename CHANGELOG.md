@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (unreleased): round-2 low fixes (s-fix2), 2026-10-14
+- README: pinned install is `sudo ZRIZ_RUNNER_VERSION=... sh install.sh`; the `runner.env` value rule is stated without the false claim (unit comment too).
+- `embed`: the key guard is `guarded_lookup`, with a test; test that `Handle::stop` returns `Panicked`. Docs of `ExchangeError` and CLAUDE.md fixed.
+- release workflow: the release is a draft until all files are uploaded, then published; a re-run completes a draft (never replaces a file).
+- Contract copy synced (`time-budget.ops` has no `count*`).
+
 ## 0.3.0 (unreleased): simplify review fixes (s-fix1), 2026-10-14
 - `config::check(&Config, insecure_ok)` is the one config check (cloud URL scheme, resources, key-name guard); `config::load` and `embed::start` both call it.
 - `embed::start` returns `embed::StartError` (`Config` or `Handler`) and no longer accepts a config that `config::load` would refuse. It never lets a lookup return the runner key as a secret value.

@@ -114,16 +114,26 @@ jobs:
           pre=""
           case "$GITHUB_REF_NAME" in *-*) pre="--prerelease" ;; esac
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            n=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets | length')
-            if [ "$n" != "0" ]; then
-              echo "::error::release $GITHUB_REF_NAME already has files"
+            # Only a draft may be completed (a re-run of a failed upload).
+            draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft')
+            if [ "$draft" != "true" ]; then
+              echo "::error::release $GITHUB_REF_NAME is already published"
               exit 1
             fi
           else
             # shellcheck disable=SC2086
-            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes $pre
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes $pre
           fi
-          gh release upload "$GITHUB_REF_NAME" dist/*
+          # Never replace a file: upload only names the draft does not have.
+          have=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')
+          for f in dist/*; do
+            if printf '%s\n' "$have" | grep -qxF "$(basename "$f")"; then
+              echo "skip $f (already uploaded)"
+            else
+              gh release upload "$GITHUB_REF_NAME" "$f"
+            fi
+          done
+          gh release edit "$GITHUB_REF_NAME" --draft=false
 
   image:
     needs: ci
