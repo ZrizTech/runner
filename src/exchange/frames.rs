@@ -231,6 +231,13 @@ impl Inner {
                 tracing::error!(target: "runner.exchange", http_status = 401u16, "poll refused");
                 Err(StepError::Unauthorized)
             }
+            reqwest::StatusCode::FORBIDDEN => {
+                let n = sent.len();
+                self.push_front(sent);
+                poll_done(Some(403), n, 0, t0);
+                tracing::error!(target: "runner.exchange", http_status = 403u16, "poll refused");
+                Err(StepError::Forbidden)
+            }
             other => {
                 let status = other.as_u16();
                 if is_refusal(status) {

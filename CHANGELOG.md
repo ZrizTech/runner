@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 (unreleased): round-3 low fixes (s-fix3), 2026-10-14
+- `exchange::ExchangeError::Forbidden` (new variant): a 403 on the exchange ends the loop like a 401 (no retry); the binary exits 2 for it. Additive for callers that use `_`; a `match` without `_` must add the arm.
+- `embed::Handle` cancels its loop when dropped (`stop()` stays).
+- `install.sh`: temp file by `mktemp` in the target folder; a failed download says to check the version (not "use root").
+- release workflow: a draft that already has files is not completed (delete it and run again); SHA256SUMS is uploaded last; `--latest` only for the highest stable tag; same Rust toolchain step as CI; `publish` needs `binary` and `image`.
+- Contract copy synced (`canceled` text, `runner-unavailable` doc).
+
 ## 0.3.0 (unreleased): round-2 low fixes (s-fix2), 2026-10-14
 - README: pinned install is `sudo ZRIZ_RUNNER_VERSION=... sh install.sh`; the `runner.env` value rule is stated without the false claim (unit comment too).
 - `embed`: the key guard is `guarded_lookup`, with a test; test that `Handle::stop` returns `Panicked`. Docs of `ExchangeError` and CLAUDE.md fixed.

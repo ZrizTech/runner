@@ -58,10 +58,11 @@ asset=zriz-runner-${tag#v}-$arch-linux
 work=$(mktemp -d) || fail "cannot make a temporary folder"
 mkdir -p "$bin_dir" || fail "cannot make $bin_dir"
 # The binary is written next to its target (same file system), so the last step is an atomic rename.
-tmp=$bin_dir/.zriz-runner.$$
-trap 'rm -rf "$work" "$tmp"' EXIT HUP INT TERM
+tmp=
+trap 'rm -rf "$work" ${tmp:+"$tmp"}' EXIT HUP INT TERM
+tmp=$(mktemp "$bin_dir/.zriz-runner.XXXXXX") || fail "cannot write in $bin_dir (use root, or set ZRIZ_RUNNER_BIN_DIR)"
 
-fetch -o "$tmp" "$base/download/$tag/$asset" || fail "cannot download $asset (use root, or set ZRIZ_RUNNER_BIN_DIR)"
+fetch -o "$tmp" "$base/download/$tag/$asset" || fail "cannot download $asset (does the version $tag exist? check the release page)"
 fetch -o "$work/SHA256SUMS" "$base/download/$tag/SHA256SUMS" || fail "cannot download SHA256SUMS"
 
 want=$(awk -v f="$asset" '$2 == f { print $1 }' "$work/SHA256SUMS")
