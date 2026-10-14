@@ -133,7 +133,7 @@ async fn run_exchange(
 ) -> i32 {
     let key_env = cfg.cloud.key_env.clone();
 
-    let mut exchange_cfg = embed::exchange_config(&cfg, key, handler);
+    let mut exchange_cfg = embed::exchange_config(&cfg, key, None, handler);
     // Re-reads the key env var named by the config on every call, so a
     // rotated key takes effect on the exchange loop's next 401 retry
     // without a process restart.

@@ -14,6 +14,10 @@ pub struct Config {
     pub runner: config::Config,
     /// The runner key, sent as the Bearer value on each exchange.
     pub key: String,
+    /// Reads a secret value by name. `None` reads the process environment.
+    pub lookup: Option<ops::Lookup>,
+    /// The runner id in the exchange. `None` uses [`hostname`].
+    pub runner_id: Option<String>,
 }
 
 /// A running embedded runner.
@@ -42,9 +46,17 @@ pub async fn start(
     config: Config,
     on_connected: impl Fn() + Send + Sync + 'static,
 ) -> Result<Handle, ops::NewError> {
-    let handler =
-        Arc::new(ops::Handler::new(config.runner.clone(), ops::Options::default()).await?);
-    let mut ex = exchange_config(&config.runner, config.key, handler.clone());
+    let opts = ops::Options {
+        lookup: config.lookup,
+        ..Default::default()
+    };
+    let handler = Arc::new(ops::Handler::new(config.runner.clone(), opts).await?);
+    let mut ex = exchange_config(
+        &config.runner,
+        config.key,
+        config.runner_id,
+        handler.clone(),
+    );
     ex.on_connected = Some(Arc::new(on_connected));
     let cancel = CancellationToken::new();
     let token = cancel.clone();
@@ -56,14 +68,16 @@ pub async fn start(
     Ok(Handle { cancel, task })
 }
 
-/// The exchange config for a runner config and a key. Used by the binary
+/// The exchange config for a runner config, a key and an optional runner id. Used by the binary
 /// and by [`start`], so both run the same loop.
 pub fn exchange_config(
     cfg: &config::Config,
     key: String,
+    runner_id: Option<String>,
     handler: Arc<ops::Handler>,
 ) -> exchange::Config {
-    let mut ex = exchange::Config::new(cfg.cloud.url.clone(), key, hostname(), handler);
+    let runner_id = runner_id.unwrap_or_else(hostname);
+    let mut ex = exchange::Config::new(cfg.cloud.url.clone(), key, runner_id, handler);
     let mut ids: Vec<String> = cfg.resources.keys().cloned().collect();
     ids.sort();
     ex.resources = ids;
