@@ -1,5 +1,8 @@
 # Changelog
 
+## simplify D3, 2026-10-14
+- README: the runner key comes from `zz runners init` or the page `/app/runners`.
+
 ## simplify R2, 2026-10-14
 - release workflow: new job `binary` builds static Linux binaries (`x86_64` and `aarch64`, musl, `cargo-zigbuild`) and attaches `zriz-runner-<version>-<arch>-linux` and `SHA256SUMS` to the GitHub release (created if missing). Nothing is published on a dry run.
 - new `install.sh`: POSIX sh, no question, no stdin; downloads the latest release (or `ZRIZ_RUNNER_VERSION`), fails closed on a wrong or missing SHA-256 sum, installs to `/usr/local/bin/zriz-runner` (or `ZRIZ_RUNNER_BIN_DIR`). Test: `tests/install_sh_test.rs` (offline, `ZRIZ_RUNNER_BASE_URL=file://`).
