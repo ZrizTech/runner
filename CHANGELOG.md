@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (unreleased): round-5 fix (s-fix6), 2026-10-14
+- The binary, on a refused key (401) or no right (403): writes one error line (no key), then waits idle (no more requests) until TERM or INT, then exits 2. The embed API is unchanged (the loop still ends at once).
+- `ops/docker-compose.yml` and the README `docker run`: back to `restart: unless-stopped` (`on-failure:3` counted crashes over the whole life of the container). The reboot notes are removed. Docs: a refused key stops the requests; revoke it, make a new key, restart the runner.
+- Unit: `RestartPreventExitStatus=2` stays for a bad config at start; the comment says so.
+- Docs: README names `install.sh` at the repo root; CLAUDE.md: `Forbidden` comes on the first 403.
+
 ## 0.3.0 (unreleased): round-4 fixes (s-fix5), 2026-10-14
 - `ops/docker-compose.yml` and the README `docker run`: `restart: on-failure:3` (was `unless-stopped`). A runner whose key is refused exits 2 and must not restart for ever (the cloud can ban the IP). A comment and the README say: after a host reboot, start the container again or use the systemd unit (Docker may not start an `on-failure` container after a reboot).
 - Release workflow: the draft message says "Re-run failed jobs" (not "run again").

@@ -92,7 +92,7 @@ Two shapes. Pick by the resources in your config.
 
 ### Binary (resources `http` and `sql`)
 
-One static Linux binary. No Docker. It opens no port. Put `config.json` (no secret value in it) and `runner.env` (the runner key and the passwords) with `install.sh` and `zriz-runner.service` (from `ops/`) on the server, then:
+One static Linux binary. No Docker. It opens no port. Put `config.json` (no secret value in it) and `runner.env` (the runner key and the passwords) with `install.sh` (repo root) and `ops/zriz-runner.service` on the server, then:
 
     sudo sh install.sh
     sudo mkdir -p /etc/zriz-runner && sudo install -m 644 config.json /etc/zriz-runner/config.json && sudo install -m 600 runner.env /etc/zriz-runner/runner.env && sudo cp zriz-runner.service /etc/systemd/system/
@@ -131,13 +131,13 @@ Write the runner key and the passwords in a file named `runner.env`, with an edi
 Then:
 
     chmod 600 runner.env
-    docker run -d --restart on-failure:3 --name zriz-runner \
+    docker run -d --restart unless-stopped --name zriz-runner \
       --env-file runner.env \
       -e ZRIZ_RUNNER_CONFIG=/config/config.json \
       -v "$PWD/config.json:/config/config.json:ro" \
       ghcr.io/zriztech/runner:<version>
 
-`on-failure:3` stops a runner whose key is refused (exit 2). After a host reboot, start the container again (`docker start zriz-runner`) or use the systemd unit.
+If the cloud refuses the key (401) or the key has no right (403), the runner stops its requests and waits. It does not loop. Revoke the key, make a new one, then restart the runner (`docker restart zriz-runner`).
 
 Do not write `-e ZRIZ_RUNNER_KEY=value` on the command line. The shell keeps it in its history.
 

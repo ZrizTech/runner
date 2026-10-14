@@ -1,8 +1,8 @@
 name: zriz-runner
 
-# restart: on-failure:3 stops a runner whose key is refused (exit 2): Docker must
-# not retry for ever, because the cloud can ban the IP. After a host reboot, run
-# `docker compose up -d` again (or use a systemd unit).
+# restart: unless-stopped. A runner whose key is refused (401 or 403) makes no more
+# requests and waits until it is stopped, so Docker does not loop. To fix it, revoke
+# the key, make a new one, then restart the runner.
 services:
   runner:
     image: ${ZRIZ_RUNNER_IMAGE:?}
@@ -25,7 +25,7 @@ services:
     init: true
     mem_limit: 256m
     pids_limit: 128
-    restart: on-failure:3
+    restart: unless-stopped
     logging:
       driver: json-file
       options:
@@ -52,7 +52,7 @@ services:
     init: true
     mem_limit: 1g
     pids_limit: 256
-    restart: on-failure:3
+    restart: unless-stopped
     logging:
       driver: json-file
       options:
