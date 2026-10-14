@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.0 (unreleased): round-5 fix (s-fix7), 2026-10-14
+- `ops/docker-compose.yml`: `env_file` with `path` and `format: raw` (Docker Compose 2.30 or later), so `$` and ` #` in a secret stay as they are. The README says so.
+
 ## 0.3.0 (unreleased): round-5 fix (s-fix6), 2026-10-14
 - The binary, on a refused key (401) or no right (403): writes one error line (no key), then waits idle (no more requests) until TERM or INT, then exits 2. The embed API is unchanged (the loop still ends at once).
 - `ops/docker-compose.yml` and the README `docker run`: back to `restart: unless-stopped` (`on-failure:3` counted crashes over the whole life of the container). The reboot notes are removed. Docs: a refused key stops the requests; revoke it, make a new key, restart the runner.
