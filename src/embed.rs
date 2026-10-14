@@ -53,6 +53,18 @@ pub enum StartError {
     Handler(#[from] ops::NewError),
 }
 
+/// The secret lookup of the runner: the given one (or the process env), and
+/// never the key value.
+fn guarded_lookup(inner: Option<ops::Lookup>, key_value: String) -> ops::Lookup {
+    Arc::new(move |name: &str| {
+        let v = match &inner {
+            Some(f) => f(name),
+            None => std::env::var(name).ok(),
+        };
+        v.filter(|v| *v != key_value)
+    })
+}
+
 /// Starts the exchange loop in a task. `on_connected` is called once, after
 /// the first successful exchange.
 pub async fn start(
@@ -62,15 +74,7 @@ pub async fn start(
     let insecure = std::env::var("ZRIZ_RUNNER_INSECURE_CLOUD").is_ok_and(|v| v == "1");
     config::check(&config.runner, insecure)?;
     // The key is never substitutable: no lookup may return it as a value.
-    let inner = config.lookup;
-    let key_value = config.key.clone();
-    let lookup: ops::Lookup = Arc::new(move |name: &str| {
-        let v = match &inner {
-            Some(f) => f(name),
-            None => std::env::var(name).ok(),
-        };
-        v.filter(|v| *v != key_value)
-    });
+    let lookup = guarded_lookup(config.lookup, config.key.clone());
     let opts = ops::Options {
         lookup: Some(lookup),
         ..Default::default()

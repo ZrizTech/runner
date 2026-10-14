@@ -150,3 +150,25 @@ async fn start_refuses_a_config_that_load_would_refuse() {
         Err(StartError::Config(config::ConfigError::BadBaseUrl(..)))
     ));
 }
+
+#[test]
+fn the_lookup_never_returns_the_key_value() {
+    let inner: ops::Lookup = Arc::new(|name: &str| match name {
+        "X" => Some("zrk_embedded".to_string()),
+        "Y" => Some("other".to_string()),
+        _ => None,
+    });
+    let lookup = guarded_lookup(Some(inner), "zrk_embedded".to_string());
+    assert_eq!(lookup("X"), None);
+    assert_eq!(lookup("Y"), Some("other".to_string()));
+    assert_eq!(lookup("Z"), None);
+}
+
+#[tokio::test]
+async fn stop_reports_a_panicked_task() {
+    let handle = Handle {
+        cancel: CancellationToken::new(),
+        task: tokio::spawn(async { panic!("boom") }),
+    };
+    assert_eq!(handle.stop().await, Err(exchange::ExchangeError::Panicked));
+}
