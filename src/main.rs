@@ -144,7 +144,11 @@ async fn run_exchange(
     tracing::info!(target: "runner.main", runner = %exchange_cfg.runner_id, cloud = %exchange_cfg.cloud_url, build = zriz_runner::exchange::VERSION, "started");
     match exchange::run(exchange_cfg, cancel).await {
         Ok(()) => 0,
-        Err(exchange::ExchangeError::Unauthorized | exchange::ExchangeError::Panicked) => 2,
+        Err(
+            exchange::ExchangeError::Unauthorized
+            | exchange::ExchangeError::Forbidden
+            | exchange::ExchangeError::Panicked,
+        ) => 2,
     }
 }
 

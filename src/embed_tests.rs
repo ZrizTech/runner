@@ -72,6 +72,48 @@ async fn a_refused_key_ends_the_task_and_stop_reports_it() {
 }
 
 #[tokio::test]
+async fn a_403_ends_the_task_with_forbidden() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(403))
+        .mount(&server)
+        .await;
+
+    let handle = start(config_for(&server.uri()), || {})
+        .await
+        .expect("start");
+    let stopped = tokio::time::timeout(Duration::from_secs(10), async {
+        while !handle.is_finished() {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        handle.stop().await
+    })
+    .await
+    .expect("task ends");
+    assert_eq!(stopped, Err(exchange::ExchangeError::Forbidden));
+}
+
+#[tokio::test]
+async fn dropping_the_handle_cancels_the_loop() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(204))
+        .mount(&server)
+        .await;
+    let handle = start(config_for(&server.uri()), || {})
+        .await
+        .expect("start");
+    let before = server.received_requests().await.unwrap_or_default().len();
+    drop(handle);
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let a = server.received_requests().await.unwrap_or_default().len();
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let b = server.received_requests().await.unwrap_or_default().len();
+    assert!(a >= before);
+    assert_eq!(a, b, "requests continue after drop");
+}
+
+#[tokio::test]
 async fn the_given_runner_id_is_in_the_exchange_body() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -167,7 +209,7 @@ fn the_lookup_never_returns_the_key_value() {
 #[tokio::test]
 async fn stop_reports_a_panicked_task() {
     let handle = Handle {
-        cancel: CancellationToken::new(),
+        cancel: super::CancelOnDrop(CancellationToken::new()),
         task: tokio::spawn(async { panic!("boom") }),
     };
     assert_eq!(handle.stop().await, Err(exchange::ExchangeError::Panicked));

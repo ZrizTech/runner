@@ -55,6 +55,9 @@ jobs:
             exit 1
           fi
 
+      # The same toolchain as CI.
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+
       - name: Install the targets and cargo-zigbuild
         run: |
           rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
@@ -81,7 +84,7 @@ jobs:
 
   # Runs no build code. It only checks and uploads what the binary job made.
   publish:
-    needs: binary
+    needs: [binary, image]
     if: github.event_name == 'push'
     name: publish binaries
     runs-on: ubuntu-latest
@@ -111,29 +114,41 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # One rule for a re-run: a draft that already has files is never
+          # completed, because a new build may not equal the old one and
+          # SHA256SUMS must match its binaries. Delete the draft, then run again.
           pre=""
           case "$GITHUB_REF_NAME" in *-*) pre="--prerelease" ;; esac
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            # Only a draft may be completed (a re-run of a failed upload).
             draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft')
             if [ "$draft" != "true" ]; then
               echo "::error::release $GITHUB_REF_NAME is already published"
+              exit 1
+            fi
+            files=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets | length')
+            if [ "$files" != "0" ]; then
+              echo "::error::draft $GITHUB_REF_NAME already has files: delete the draft and run again"
               exit 1
             fi
           else
             # shellcheck disable=SC2086
             gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes $pre
           fi
-          # Never replace a file: upload only names the draft does not have.
-          have=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')
-          for f in dist/*; do
-            if printf '%s\n' "$have" | grep -qxF "$(basename "$f")"; then
-              echo "skip $f (already uploaded)"
-            else
-              gh release upload "$GITHUB_REF_NAME" "$f"
-            fi
+          # Binaries first, SHA256SUMS last.
+          for f in dist/zriz-runner-*; do
+            gh release upload "$GITHUB_REF_NAME" "$f"
           done
-          gh release edit "$GITHUB_REF_NAME" --draft=false
+          gh release upload "$GITHUB_REF_NAME" dist/SHA256SUMS
+          # "latest" moves only for the highest stable version (as for the images).
+          latest="--latest=false"
+          case "$GITHUB_REF_NAME" in
+            *-*) ;;
+            *)
+              top=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -v -- '-' | sort -V | tail -n1)
+              [ "$top" = "$GITHUB_REF_NAME" ] && latest="--latest"
+              ;;
+          esac
+          gh release edit "$GITHUB_REF_NAME" --draft=false "$latest"
 
   image:
     needs: ci

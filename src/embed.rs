@@ -23,7 +23,7 @@ pub struct Config {
 
 /// A running embedded runner.
 pub struct Handle {
-    cancel: CancellationToken,
+    cancel: CancelOnDrop,
     task: JoinHandle<Result<(), exchange::ExchangeError>>,
 }
 
@@ -31,7 +31,7 @@ impl Handle {
     /// Stops the exchange loop, closes the op handler, and waits for the
     /// task to end. Returns `Err` if the cloud had already refused the key.
     pub async fn stop(self) -> Result<(), exchange::ExchangeError> {
-        self.cancel.cancel();
+        self.cancel.0.cancel();
         match self.task.await {
             Ok(result) => result,
             Err(_) => Err(exchange::ExchangeError::Panicked),
@@ -41,6 +41,15 @@ impl Handle {
     /// True when the loop has ended by itself (the cloud refused the key).
     pub fn is_finished(&self) -> bool {
         self.task.is_finished()
+    }
+}
+
+/// Cancels its token when dropped, so dropping a [`Handle`] ends the loop.
+struct CancelOnDrop(CancellationToken);
+
+impl Drop for CancelOnDrop {
+    fn drop(&mut self) {
+        self.0.cancel();
     }
 }
 
@@ -94,7 +103,10 @@ pub async fn start(
         handler.close().await;
         result
     });
-    Ok(Handle { cancel, task })
+    Ok(Handle {
+        cancel: CancelOnDrop(cancel),
+        task,
+    })
 }
 
 /// The exchange config for a runner config, a key and an optional runner id. Used by the binary

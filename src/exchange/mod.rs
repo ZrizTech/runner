@@ -186,6 +186,10 @@ impl Config {
 pub enum ExchangeError {
     #[error("exchange: unauthorized")]
     Unauthorized,
+    /// The cloud answered 403 (a key without the right, for example a viewer
+    /// key). The runner fails closed and does not retry.
+    #[error("exchange: forbidden")]
+    Forbidden,
     /// The exchange task panicked (only seen by an embedded runner).
     #[error("exchange: internal error")]
     Panicked,
@@ -197,6 +201,8 @@ pub enum ExchangeError {
 enum StepError {
     /// The cloud answered 401.
     Unauthorized,
+    /// The cloud answered 403.
+    Forbidden,
     /// A transport error, a non-2xx/401/204 status, or an undecodable body.
     Failed,
     /// `cancel` fired while the request was in flight.
@@ -376,6 +382,9 @@ pub async fn run(
         }
 
         let mut result = inner.exchange().await;
+        if result == Err(StepError::Forbidden) {
+            return Err(ExchangeError::Forbidden);
+        }
         if result == Err(StepError::Unauthorized) {
             match inner.retry_unauthorized().await {
                 None => return Ok(()),
