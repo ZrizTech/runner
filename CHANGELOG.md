@@ -1,8 +1,12 @@
 # Changelog
 
+## 0.3.0 (unreleased): round-7 fix (s-fix9), 2026-10-14
+- After a new key, make the container again (`docker rm -f` and `docker run`, or `docker compose up -d --force-recreate runner`); `docker restart` keeps the old key. README, compose comment and the free text of the `refused` log line say so. systemd: restart reads `runner.env` again.
+- README: exit 2 is a bad config only; a refused key waits, and a stop exits 0. Doc fixes in `exchange::run` and `wait_refused`.
+
 ## 0.3.0 (unreleased): round-6 fix (s-fix8), 2026-10-14
 - Contract synced: log event `refused` on `runner.main` (the log-format test was red).
-- After a refusal (401/403), a stop (TERM or INT) now exits 0, a normal stop; systemd does not mark the unit failed. Exit 2 stays for a bad config at start. Test, unit comment and README updated; README says the service looks up while it waits and where to see it.
+- After a refusal (401/403), a stop (TERM or INT) now exits 0, a normal stop; systemd does not mark the unit failed. Exit 2 stays for a bad config at start. Test, unit comment and README updated; README says Docker and systemd still show the service as running while it waits, and where to see it.
 
 ## 0.3.0 (unreleased): round-5 fix (s-fix7), 2026-10-14
 - `ops/docker-compose.yml`: `env_file` with `path` and `format: raw` (Docker Compose 2.30 or later), so `$` and ` #` in a secret stay as they are. The README says so.

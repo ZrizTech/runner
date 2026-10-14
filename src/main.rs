@@ -154,15 +154,16 @@ async fn run_exchange(
 
 /// The cloud refused the key (401) or the key has no right (403). Writes one
 /// error line (kind only, never the key), then makes no more requests: it waits
-/// until `cancel` fires (TERM or INT); a stop is normal, so `run` then returns 0. So Docker and systemd do not restart it in
-/// a loop, and the cloud sees no more bad requests.
+/// until `cancel` fires (TERM or INT). A stop is normal, so `run` then returns 0.
+/// So Docker and systemd do not restart it in a loop, and the cloud sees no more
+/// bad requests.
 async fn wait_refused(e: &exchange::ExchangeError, cancel: &CancellationToken) {
     let kind = if matches!(e, exchange::ExchangeError::Forbidden) {
         "the key has no right (403)"
     } else {
         "the key was refused (401)"
     };
-    tracing::error!(target: "runner.main", error = %format!("{kind}; the runner makes no more requests and waits until it is stopped; revoke the key, make a new one, then restart the runner"), "refused");
+    tracing::error!(target: "runner.main", error = %format!("{kind}; the runner makes no more requests and waits until it is stopped; revoke the key, make a new one, then start the runner again with the new key (Docker: make the container again)"), "refused");
     cancel.cancelled().await;
 }
 

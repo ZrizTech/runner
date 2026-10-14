@@ -367,8 +367,8 @@ fn next_backoff(current: Duration, limit: Duration) -> Duration {
 /// A 401 gets one retry: `run` tries `cfg.key_source` and, if that yields
 /// a fresh key, waits out one backoff interval and retries with it. A
 /// second consecutive 401 — or no `key_source` to retry with — fails
-/// closed with [`ExchangeError::Unauthorized`], exit code 2 at the bin
-/// layer.
+/// closed with [`ExchangeError::Unauthorized`]. The bin then waits until it is
+/// stopped, and exits 0.
 pub async fn run(
     mut cfg: Config,
     cancel: CancellationToken,
