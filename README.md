@@ -137,7 +137,7 @@ Then:
       -v "$PWD/config.json:/config/config.json:ro" \
       ghcr.io/zriztech/runner:<version>
 
-If the cloud refuses the key (401) or the key has no right (403), the runner stops its requests and waits. It does not loop. Revoke the key, make a new one, then restart the runner (`docker restart zriz-runner`).
+If the cloud refuses the key (401) or the key has no right (403), the runner stops its requests and waits. It does not loop. Revoke the key, make a new one, then restart the runner (`docker restart zriz-runner`). While it waits, the service looks up in systemd and Docker; the runners page of the cloud (`/app/runners`) shows it not connected, and the log has one `refused` line.
 
 Do not write `-e ZRIZ_RUNNER_KEY=value` on the command line. The shell keeps it in its history.
 

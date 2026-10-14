@@ -364,6 +364,14 @@
      "refused",
      "timeout_ms"
     ]
+   },
+   "refused": {
+    "levels": [
+     "ERROR"
+    ],
+    "keys": [
+     "error"
+    ]
    }
   },
   "zz.main": {
