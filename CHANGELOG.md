@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 (unreleased): round-9 fix (s-fix11), 2026-10-14
+- `zrunner`: the `refused` and `runner connected` checks match the padded log line (`runner\.main +refused`). `wait_connected` returns 1 for a timeout and 2 for a refused key; `deploy` exits 1 on a refused key. `restart` now waits and says connected or refused.
+- ops README: `deploy` runs `up -d --force-recreate`.
+
 ## 0.3.0 (unreleased): round-8 fix (s-fix10), 2026-10-14
 - `zrunner restart` makes the container again (`up -d --force-recreate runner`), so a new key or secret in `.env` is read. Help and ops README say so.
 - `zrunner deploy`: `wait_connected` says the cloud refused the key and returns 1 when the log has the `refused` line.
