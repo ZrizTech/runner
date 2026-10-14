@@ -6,7 +6,7 @@
     "org-id": {"type": "string", "minLength": 1},
     "org-name": {"type": "string", "minLength": 1},
     "email": {"type": ["string", "null"]},
-    "role": {"enum": ["admin", "member", "viewer"]},
+    "role": {"enum": ["admin", "member", "viewer", "ci"]},
     "key-kind": {"type": "string", "minLength": 1}
   },
   "required": ["org-id", "org-name", "email", "role", "key-kind"],

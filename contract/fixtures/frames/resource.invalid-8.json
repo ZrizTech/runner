@@ -8,8 +8,8 @@
       ],
       "env": [
         "zz_api_key",
-        "ZZ_API_KEY",
-        "ZZ_API_KEY"
+        "ZZ_KEY",
+        "ZZ_KEY"
       ]
     }
   }

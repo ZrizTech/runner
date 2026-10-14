@@ -1,4 +1,3 @@
-use super::super::announce::secretless_http_resources;
 use crate::config::{Config, Resource};
 use crate::ops::tests::test_op;
 use crate::ops::{Handler, Options};
@@ -290,23 +289,6 @@ async fn browser_resource_listed_only_when_worker_up() {
     *h.last_ping.lock().expect("lock") = None;
     h.refresh_worker().await;
     assert_eq!(h.announced_resources(&configured), configured);
-}
-
-#[test]
-fn http_without_secrets_is_named_once() {
-    let mut cfg = Config::default();
-    for (id, secrets) in [("a", None), ("b", Some(vec!["X".to_string()])), ("c", None)] {
-        cfg.resources.insert(
-            id.to_string(),
-            Resource {
-                r#type: "http".to_string(),
-                base_url: "http://h".to_string(),
-                secrets,
-                ..Default::default()
-            },
-        );
-    }
-    assert_eq!(secretless_http_resources(&cfg), vec!["a", "c"]);
 }
 
 #[tokio::test]

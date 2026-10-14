@@ -6,7 +6,7 @@
   "properties": {
     "org-id": {"type": "string", "minLength": 1},
     "org-name": {"type": "string", "minLength": 1},
-    "actor": {"type": "string", "minLength": 1, "description": "The id of the API key of the request. A run has the same value in actor when this key started it."},
+    "actor": {"type": "string", "minLength": 1, "description": "The id of the key of the request. A run has the same value in actor when this key started it."},
     "tier": {"type": ["string", "null"], "minLength": 1},
     "limits": {
       "type": "object",
