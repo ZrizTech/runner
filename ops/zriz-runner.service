@@ -1,0 +1,39 @@
+# Example systemd unit for the zriz runner (binary shape: http and sql resources).
+# Copy to /etc/systemd/system/zriz-runner.service.
+# Files: /etc/zriz-runner/config.json and /etc/zriz-runner/runner.env (chmod 600).
+# The runner opens no port. It only connects out.
+[Unit]
+Description=zriz runner
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+DynamicUser=yes
+EnvironmentFile=/etc/zriz-runner/runner.env
+Environment=ZRIZ_RUNNER_CONFIG=/etc/zriz-runner/config.json
+ExecStart=/usr/local/bin/zriz-runner
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,11 @@
 # Changelog
 
+## simplify R2, 2026-10-14
+- release workflow: new job `binary` builds static Linux binaries (`x86_64` and `aarch64`, musl, `cargo-zigbuild`) and attaches `zriz-runner-<version>-<arch>-linux` and `SHA256SUMS` to the GitHub release (created if missing). Nothing is published on a dry run.
+- new `install.sh`: POSIX sh, no question, no stdin; downloads the latest release (or `ZRIZ_RUNNER_VERSION`), fails closed on a wrong or missing SHA-256 sum, installs to `/usr/local/bin/zriz-runner` (or `ZRIZ_RUNNER_BIN_DIR`). Test: `tests/install_sh_test.rs` (offline, `ZRIZ_RUNNER_BASE_URL=file://`).
+- new `ops/zriz-runner.service`, an example systemd unit (`DynamicUser=yes`, hardened, no port).
+- README: the binary shape first, then Docker.
+
 ## simplify R1b, 2026-10-14
 - `embed::Config` has `lookup: Option<ops::Lookup>` (secret reader; `None` = process env) and `runner_id: Option<String>` (`None` = hostname); `embed::exchange_config` takes the runner id. The binary passes `None`.
 - `NOTICE` file added.
