@@ -7,8 +7,10 @@ services:
   runner:
     image: ${ZRIZ_RUNNER_IMAGE:?}
     hostname: ${ZRIZ_RUNNER_NAME:-runner}
+    # format: raw (Docker Compose 2.30 or later): a `$` or ` #` in a value stays as it is.
     env_file:
-      - .env
+      - path: .env
+        format: raw
     environment:
       ZRIZ_RUNNER_CONFIG: /etc/zriz-runner/config.json
     user: "65532:65532"

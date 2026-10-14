@@ -98,7 +98,7 @@ One static Linux binary. No Docker. It opens no port. Put `config.json` (no secr
     sudo mkdir -p /etc/zriz-runner && sudo install -m 644 config.json /etc/zriz-runner/config.json && sudo install -m 600 runner.env /etc/zriz-runner/runner.env && sudo cp zriz-runner.service /etc/systemd/system/
     sudo systemctl enable --now zriz-runner
 
-`runner.env` holds one `NAME=value` per line, for example `ZRIZ_RUNNER_KEY=zrt_...`. Write it with an editor, not on a command line. Write each line as `NAME=value`: no quotes, no backslash, no space at the start or the end of the value, no line break. For such a value, Docker (`--env-file`) and systemd (`EnvironmentFile=`) read the same text. `zz` refuses any other value.
+`runner.env` holds one `NAME=value` per line, for example `ZRIZ_RUNNER_KEY=zrt_...`. Write it with an editor, not on a command line. Write each line as `NAME=value`: no quotes, no backslash, no space at the start or the end of the value, no line break. For such a value, `docker run --env-file` and systemd (`EnvironmentFile=`) read the same text. Docker Compose reads it the same way only with `env_file:` `format: raw` (Docker Compose 2.30 or later; `ops/docker-compose.yml` sets it). Without `format: raw`, Compose changes `$NAME` and cuts a value at ` #`. `zz` refuses any other value.
 
 `config.json` has mode 644 because the unit runs as a dynamic user that must read it. It holds only `${NAME}` placeholders, never a secret value. `runner.env` has mode 600: systemd reads it as root before it starts the runner.
 
