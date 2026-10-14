@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.0 (unreleased): round-10 fix (s-fix12), 2026-10-14
+- `zrunner`: `wait_connected` reads the logs once into a variable and greps it (no `grep -q` in a pipe under `pipefail`). `rollback` exits 1 when the cloud refused the key.
+
 ## 0.3.0 (unreleased): round-9 fix (s-fix11), 2026-10-14
 - `zrunner`: the `refused` and `runner connected` checks match the padded log line (`runner\.main +refused`). `wait_connected` returns 1 for a timeout and 2 for a refused key; `deploy` exits 1 on a refused key. `restart` now waits and says connected or refused.
 - ops README: `deploy` runs `up -d --force-recreate`.
