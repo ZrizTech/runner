@@ -357,7 +357,8 @@ fn next_backoff(current: Duration, limit: Duration) -> Duration {
 }
 
 /// Polls the cloud until `cancel` fires (returning `Ok(())`) or the cloud
-/// fails closed on a 401 (returning [`ExchangeError::Unauthorized`]). Any
+/// fails closed on a 401 ([`ExchangeError::Unauthorized`]) or a 403
+/// ([`ExchangeError::Forbidden`], no retry). Any
 /// other failure is logged, its frames are requeued, and the loop retries
 /// after an exponential backoff capped at `cfg.max_backoff`. A failure on
 /// the extra exchange an op completion triggers drives the same backoff, so
