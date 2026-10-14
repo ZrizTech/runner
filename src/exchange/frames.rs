@@ -31,7 +31,7 @@ fn poll_done(status: Option<u16>, sent: usize, received: usize, t0: Instant) {
     }
 }
 
-/// A refusal is a 4xx other than 401 (token) and 429 (rate limit).
+/// A refusal is a 4xx other than 401 (key) and 429 (rate limit).
 fn is_refusal(status: u16) -> bool {
     (400..500).contains(&status) && status != 401 && status != 429
 }
@@ -130,7 +130,7 @@ impl Inner {
     }
 
     fn current_key(&self) -> String {
-        self.token.read().unwrap_or_else(|e| e.into_inner()).clone()
+        self.key.read().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     async fn post(

@@ -128,3 +128,25 @@ async fn secrets_are_read_through_the_given_lookup() {
             .any(|n| n == "EMBED_TEST_SECRET")
     );
 }
+
+#[tokio::test]
+async fn start_refuses_a_config_that_load_would_refuse() {
+    let mut bad_url = config_for("http://cloud.example.com");
+    assert!(matches!(
+        start(bad_url, || {}).await,
+        Err(StartError::Config(config::ConfigError::InsecureCloudUrl))
+    ));
+    bad_url = config_for("https://cloud.example.com");
+    bad_url.runner.resources.insert(
+        "api".to_string(),
+        config::Resource {
+            r#type: "http".to_string(),
+            base_url: "${API_URL}".to_string(),
+            ..Default::default()
+        },
+    );
+    assert!(matches!(
+        start(bad_url, || {}).await,
+        Err(StartError::Config(config::ConfigError::BadBaseUrl(..)))
+    ));
+}
