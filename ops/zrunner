@@ -71,6 +71,10 @@ wait_connected() {
 			echo "runner connected"
 			return 0
 		fi
+		if compose_remote "logs --no-color runner" 2>/dev/null | grep -Fq ' runner.main refused'; then
+			echo "the cloud refused the key; make a new key, run set-secret, then restart" >&2
+			return 1
+		fi
 		sleep 1
 	done
 	echo "no successful exchange logged within 60s; falling back to a stay-up check" >&2
@@ -291,7 +295,8 @@ cmd_ps() {
 }
 
 cmd_restart() {
-	compose_remote restart runner
+	# Makes the container again: compose reads .env only when it makes the container.
+	compose_remote up -d --force-recreate runner
 }
 
 cmd_help() {
@@ -311,7 +316,7 @@ commands:
   rollback              swap *_IMAGE/*_IMAGE_PREV (runner and worker), up -d
   logs [-f] [-n N]      docker compose logs for the runner service
   ps                    docker compose ps
-  restart               docker compose restart runner
+  restart               make the runner container again (reads .env again)
   help                  this message
 EOF
 }

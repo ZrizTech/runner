@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0 (unreleased): round-8 fix (s-fix10), 2026-10-14
+- `zrunner restart` makes the container again (`up -d --force-recreate runner`), so a new key or secret in `.env` is read. Help and ops README say so.
+- `zrunner deploy`: `wait_connected` says the cloud refused the key and returns 1 when the log has the `refused` line.
+- README: "Docker still shows the container Up".
+
 ## 0.3.0 (unreleased): round-7 fix (s-fix9), 2026-10-14
 - After a new key, make the container again (`docker rm -f` and `docker run`, or `docker compose up -d --force-recreate runner`); `docker restart` keeps the old key. README, compose comment and the free text of the `refused` log line say so. systemd: restart reads `runner.env` again.
 - README: exit 2 is a bad config only; a refused key waits, and a stop exits 0. Doc fixes in `exchange::run` and `wait_refused`.
