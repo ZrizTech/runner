@@ -253,6 +253,8 @@ struct Inner {
     endpoint: String,
     http_client: reqwest::Client,
     queue: Mutex<Vec<contract::Frame>>,
+    /// The one result request in flight at a time (see `sender`).
+    gate: Mutex<sender::Gate>,
     semaphore: Arc<Semaphore>,
     /// The pool capacity the semaphore was built with (`handler.max_inflight()`
     /// clamped to `>= 0`), used to compute the in-flight count for requests.
@@ -289,6 +291,7 @@ impl Inner {
             endpoint,
             http_client,
             queue: Mutex::new(Vec::new()),
+            gate: Mutex::new(sender::Gate::default()),
             semaphore: Arc::new(Semaphore::new(capacity)),
             capacity,
             declared_max_inflight,
@@ -423,6 +426,10 @@ mod log_tests;
 #[cfg(test)]
 #[path = "notice_tests.rs"]
 mod notice_tests;
+mod sender;
+#[cfg(test)]
+#[path = "sender_tests.rs"]
+mod sender_tests;
 
 #[cfg(test)]
 #[path = "exchange_tests.rs"]

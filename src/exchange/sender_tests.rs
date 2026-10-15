@@ -1,0 +1,108 @@
+//! The sender against a fake cloud that delays its replies: results that
+//! finish while one result request is in flight go together in the next.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+use super::test_support::*;
+use super::*;
+use std::collections::HashMap;
+use std::sync::Mutex as StdMutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
+use tokio_util::sync::CancellationToken;
+
+#[tokio::test(flavor = "multi_thread")]
+async fn results_that_finish_in_flight_go_together() {
+    const OPS: usize = 50;
+    let frames: Vec<contract::Frame> = (0..OPS)
+        .map(|i| build_op_frame(&format!("f-{i}"), &format!("op-{i}")))
+        .collect();
+    let first_reply = exchange_response_body(frames);
+    let carrying = Arc::new(AtomicUsize::new(0));
+    let in_flight = Arc::new(AtomicUsize::new(0));
+    let max_in_flight = Arc::new(AtomicUsize::new(0));
+    let seen: Arc<StdMutex<HashMap<String, usize>>> = Arc::default();
+
+    let (c, f, m, s) = (
+        carrying.clone(),
+        in_flight.clone(),
+        max_in_flight.clone(),
+        seen.clone(),
+    );
+    let handler = Arc::new(
+        move |n: usize, _h: HashMap<String, String>, body: Vec<u8>| {
+            let (c, f, m, s, first) = (
+                c.clone(),
+                f.clone(),
+                m.clone(),
+                s.clone(),
+                first_reply.clone(),
+            );
+            Box::pin(async move {
+                let req: contract::ExchangeRequest = serde_json::from_slice(&body).unwrap();
+                if n == 0 {
+                    return RawResponse {
+                        status: 200,
+                        body: Some(first),
+                    };
+                }
+                if req.frames.is_empty() {
+                    // the parked poll
+                    tokio::time::sleep(Duration::from_secs(30)).await;
+                    return RawResponse {
+                        status: 204,
+                        body: None,
+                    };
+                }
+                c.fetch_add(1, Ordering::SeqCst);
+                let now = f.fetch_add(1, Ordering::SeqCst) + 1;
+                m.fetch_max(now, Ordering::SeqCst);
+                {
+                    let mut s = s.lock().unwrap();
+                    for fr in &req.frames {
+                        *s.entry(fr.id.clone()).or_default() += 1;
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                f.fetch_sub(1, Ordering::SeqCst);
+                RawResponse {
+                    status: 204,
+                    body: None,
+                }
+            }) as futures::future::BoxFuture<'static, RawResponse>
+        },
+    );
+    let base_url = start_raw_server(handler as _).await;
+
+    let (tx, rx) = tokio::sync::watch::channel(false);
+    let echo: Arc<dyn Handler> = Arc::new(EchoHandler {
+        max_inflight: 64,
+        block: Some(rx),
+        received: None,
+    });
+    let mut cfg = Config::new(&base_url, TEST_KEY, "runner-1", echo);
+    cfg.resources = vec!["shop-api".to_string()];
+    let cancel = CancellationToken::new();
+    let c2 = cancel.clone();
+    let done = tokio::spawn(async move { run(cfg, c2).await });
+
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    tx.send(true).unwrap();
+
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    while seen.lock().unwrap().len() < OPS && std::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(seen.lock().unwrap().len(), OPS, "every result arrives");
+    assert!(
+        seen.lock().unwrap().values().all(|n| *n == 1),
+        "each result exactly once"
+    );
+    assert!(
+        carrying.load(Ordering::SeqCst) <= 2,
+        "result requests: {}",
+        carrying.load(Ordering::SeqCst)
+    );
+    assert_eq!(max_in_flight.load(Ordering::SeqCst), 1, "one in flight");
+    cancel.cancel();
+    let _ = tokio::time::timeout(WAIT_TIMEOUT, done).await;
+}

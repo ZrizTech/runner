@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.1 (unreleased): group-commit sender
+- exchange: one result request in flight at a time; results that finish meanwhile go together in the next one (no wire change). Idle: a result goes at once.
+
 ## 0.3.0 (unreleased): round-10 fix (s-fix12), 2026-10-14
 - `zrunner`: `wait_connected` reads the logs once into a variable and greps it (no `grep -q` in a pipe under `pipefail`). `rollback` exits 1 when the cloud refused the key.
 

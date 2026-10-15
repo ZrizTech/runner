@@ -77,23 +77,44 @@ impl Inner {
         self.trigger_exchange();
     }
 
-    /// Fires one exchange, unconditionally, on its own task, so a completed
-    /// op's result leaves on a new request instead of waiting behind
-    /// whichever requests are already parked in the cloud's hold. There is
-    /// no cap here: at most `handler.max_inflight()` ops run at once, each
-    /// firing one exchange on completion, so at most `max_inflight() + 1`
-    /// requests are ever open (the main loop's plus one per finishing op).
-    ///
-    /// A failure here is not swallowed: it feeds the same shared backoff
-    /// the main loop uses, so a cloud outage discovered on this path slows
-    /// every request path down, not just the main loop's. It is never
-    /// treated as authorization failure here — the main loop's own next
-    /// scheduled exchange will observe the same 401 and stop the loop.
+    /// Sends the queued results, with at most one result request in flight.
+    /// If one is in flight, returns at once: its sender loop takes the
+    /// results that finish meanwhile, all together, in its next request.
+    /// Idle, the request starts at once. A failure feeds the shared backoff
+    /// and the loop tries again while results wait (at-least-once delivery).
+    /// 401, 403 and a stop end the loop; the main loop sees them itself.
+    /// With nothing queued (a health request) one empty request goes out.
     pub(super) fn trigger_exchange(self: &Arc<Self>) {
+        if !self
+            .gate
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .try_start(true)
+        {
+            return;
+        }
         let inner = Arc::clone(self);
         tokio::spawn(async move {
-            if inner.exchange().await == Err(StepError::Failed) {
-                inner.apply_backoff(true).await;
+            loop {
+                let r = inner.exchange_with(true).await;
+                let failed = r == Err(StepError::Failed);
+                if r.is_err() && !failed {
+                    inner.gate_stop();
+                    return;
+                }
+                if failed && !inner.apply_backoff(true).await {
+                    inner.gate_stop();
+                    return;
+                }
+                let more = inner.queue_pending();
+                if !inner
+                    .gate
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .next(more)
+                {
+                    return;
+                }
             }
         });
     }

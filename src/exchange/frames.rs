@@ -64,6 +64,24 @@ impl Inner {
         *q = merged;
     }
 
+    pub(super) fn queue_pending(&self) -> bool {
+        !self
+            .queue
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_empty()
+    }
+
+    /// Takes the one result-request slot, only if results wait and it is free.
+    fn gate_try_start(&self) -> bool {
+        let mut g = self.gate.lock().unwrap_or_else(|e| e.into_inner());
+        g.try_start(self.queue_pending())
+    }
+
+    pub(super) fn gate_stop(&self) {
+        self.gate.lock().unwrap_or_else(|e| e.into_inner()).stop();
+    }
+
     pub(super) fn push_back(&self, frame: contract::Frame) {
         let mut q = self.queue.lock().unwrap_or_else(|e| e.into_inner());
         q.push(frame);
@@ -158,8 +176,30 @@ impl Inner {
     /// completion calls it once more so results never wait behind a long
     /// poll.
     pub(super) async fn exchange(self: &Arc<Self>) -> std::result::Result<(), StepError> {
+        // The loop's poll carries results only when it can take the gate:
+        // one result request is in flight at a time.
+        let held = self.gate_try_start();
+        let r = self.exchange_with(held).await;
+        if held {
+            self.gate_stop();
+            if r.is_ok() && self.queue_pending() {
+                self.trigger_exchange();
+            }
+        }
+        r
+    }
+
+    /// One request; it takes frames from the queue only when `carry`.
+    pub(super) async fn exchange_with(
+        self: &Arc<Self>,
+        carry: bool,
+    ) -> std::result::Result<(), StepError> {
         self.cfg.handler.refresh().await;
-        let sent = self.drain_queue();
+        let sent = if carry {
+            self.drain_queue()
+        } else {
+            Vec::new()
+        };
         let snap = self.snapshot();
         let req = self.build_request(sent.clone(), &snap);
         *self.last_sent.lock().unwrap_or_else(|e| e.into_inner()) = Some(req.health.clone());
@@ -197,12 +237,7 @@ impl Inner {
             // The cloud did not accept the request: its counts go back.
             Err(_) => self.counts_unsent(&snap),
             Ok(()) => {
-                let more = !self
-                    .queue
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .is_empty();
-                if more {
+                if self.queue_pending() {
                     self.trigger_exchange();
                 }
             }
