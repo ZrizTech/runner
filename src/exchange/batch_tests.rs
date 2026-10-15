@@ -152,7 +152,12 @@ async fn a_refused_request_with_no_frame_drops_nothing() {
         let _ = i.exchange().await;
     }
     i.push_back(frame("f", 0));
+    // The main poll does not carry results: the sender takes the frame.
     let _ = i.exchange().await;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !queued(&i).is_empty() && Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(2)).await;
+    }
     assert!(queued(&i).is_empty(), "the frame went out and was taken");
 }
 

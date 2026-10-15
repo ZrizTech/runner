@@ -26,6 +26,11 @@ impl Gate {
         queued
     }
 
+    #[cfg(test)]
+    pub(super) fn is_free(&self) -> bool {
+        !self.busy
+    }
+
     /// The sender ends without a next request.
     pub(super) fn stop(&mut self) {
         self.busy = false;

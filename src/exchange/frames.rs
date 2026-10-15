@@ -72,10 +72,22 @@ impl Inner {
             .is_empty()
     }
 
-    /// Takes the one result-request slot, only if results wait and it is free.
-    fn gate_try_start(&self) -> bool {
+    /// The sender's step after a request: looks at the queue and frees the
+    /// gate under ONE gate lock (lock order gate, then queue), so a result
+    /// queued meanwhile either is seen here or finds the gate free.
+    /// True: results wait, send again (the gate stays taken).
+    pub(super) fn gate_next(&self) -> bool {
         let mut g = self.gate.lock().unwrap_or_else(|e| e.into_inner());
-        g.try_start(self.queue_pending())
+        g.next(self.queue_pending())
+    }
+
+    #[cfg(test)]
+    pub(super) fn gate_busy(&self) -> bool {
+        !self
+            .gate
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_free()
     }
 
     pub(super) fn gate_stop(&self) {
@@ -176,17 +188,10 @@ impl Inner {
     /// completion calls it once more so results never wait behind a long
     /// poll.
     pub(super) async fn exchange(self: &Arc<Self>) -> std::result::Result<(), StepError> {
-        // The loop's poll carries results only when it can take the gate:
-        // one result request is in flight at a time.
-        let held = self.gate_try_start();
-        let r = self.exchange_with(held).await;
-        if held {
-            self.gate_stop();
-            if r.is_ok() && self.queue_pending() {
-                self.trigger_exchange();
-            }
-        }
-        r
+        // The main poll is the plain poll that parks: it never carries
+        // results. Results go only through the sender (`trigger_exchange`),
+        // which `exchange_with` starts when the queue is not empty.
+        self.exchange_with(false).await
     }
 
     /// One request; it takes frames from the queue only when `carry`.

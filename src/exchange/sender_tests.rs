@@ -106,3 +106,83 @@ async fn results_that_finish_in_flight_go_together() {
     cancel.cancel();
     let _ = tokio::time::timeout(WAIT_TIMEOUT, done).await;
 }
+
+fn result_frame(id: &str) -> contract::Frame {
+    contract::Frame {
+        v: 1,
+        t: "result".into(),
+        id: id.into(),
+        re: None,
+        ts: 1,
+        d: serde_json::json!({}),
+    }
+}
+
+fn sender_inner(url: &str) -> Arc<Inner> {
+    let h: Arc<dyn Handler> = Arc::new(FakeHandler::new(2));
+    let cfg = Config::new(url, TEST_KEY, "runner-1", h);
+    Arc::new(Inner::new(cfg, CancellationToken::new()))
+}
+
+/// Results queued at the moment the sender loop ends must still go: no
+/// result waits for the long poll. The cloud answers at once; each round
+/// queues a result from another thread while the loop is ending.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_result_queued_as_the_sender_ends_is_still_sent() {
+    let cloud = ImmediateCloud::new(|_, _| (204, None)).await;
+    let i = sender_inner(&cloud.base_url);
+    for round in 0..300 {
+        i.push_back(result_frame(&format!("a-{round}")));
+        i.trigger_exchange();
+        // Land the next result around the time the loop ends.
+        tokio::task::yield_now().await;
+        let j = Arc::clone(&i);
+        let t = tokio::task::spawn_blocking(move || {
+            j.push_back(result_frame(&format!("b-{round}")));
+        });
+        i.trigger_exchange();
+        t.await.unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while i.queue_pending() || i.gate_busy() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "round {round}: a result waits with no sender"
+            );
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    }
+}
+
+/// A panic in the sender task must not leave the gate busy for ever.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_panic_in_the_sender_frees_the_gate() {
+    struct Boom;
+    impl Handler for Boom {
+        fn refresh(&self) -> futures::future::BoxFuture<'_, ()> {
+            Box::pin(async { panic!("boom") })
+        }
+        fn max_inflight(&self) -> i64 {
+            1
+        }
+        fn handle(
+            &self,
+            _op: contract::Op,
+        ) -> futures::future::BoxFuture<'_, (Option<ResultFrame>, Option<ErrorFrame>)> {
+            Box::pin(async { (None, None) })
+        }
+    }
+    let cloud = ImmediateCloud::new(|_, _| (204, None)).await;
+    let h: Arc<dyn Handler> = Arc::new(Boom);
+    let cfg = Config::new(&cloud.base_url, TEST_KEY, "runner-1", h);
+    let i = Arc::new(Inner::new(cfg, CancellationToken::new()));
+    i.push_back(result_frame("p"));
+    i.trigger_exchange();
+    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+    while i.gate_busy() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "gate stays busy after a panic"
+        );
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+}

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tracing::Instrument;
 
 impl Inner {
-    pub(super) fn reject(&self, frame_id: &str, op: &contract::Op) {
+    pub(super) fn reject(self: &Arc<Self>, frame_id: &str, op: &contract::Op) {
         let op_id = op.op_id.as_str();
         let busy = self.capacity as u64;
         let frame = ErrorFrame::new(
@@ -26,6 +26,8 @@ impl Inner {
                 tracing::error!(target: "runner.exchange", frame = "capacity", error = %e, "frame failed")
             }
         }
+        // The main poll never carries results: the sender sends this one.
+        self.trigger_exchange();
     }
 
     /// Executes one op and queues its reply. Releasing the pool permit and
@@ -95,27 +97,44 @@ impl Inner {
         }
         let inner = Arc::clone(self);
         tokio::spawn(async move {
+            // A panic in the loop frees the gate (Drop); a normal end has
+            // freed it already under the lock and disarms the guard.
+            let mut guard = GateGuard {
+                inner: Arc::clone(&inner),
+                armed: true,
+            };
             loop {
                 let r = inner.exchange_with(true).await;
                 let failed = r == Err(StepError::Failed);
                 if r.is_err() && !failed {
+                    guard.armed = false;
                     inner.gate_stop();
                     return;
                 }
                 if failed && !inner.apply_backoff(true).await {
+                    guard.armed = false;
                     inner.gate_stop();
                     return;
                 }
-                let more = inner.queue_pending();
-                if !inner
-                    .gate
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .next(more)
-                {
+                if !inner.gate_next() {
+                    guard.armed = false;
                     return;
                 }
             }
         });
+    }
+}
+
+/// Frees the sender gate if the sender task ends without doing it (panic).
+struct GateGuard {
+    inner: Arc<Inner>,
+    armed: bool,
+}
+
+impl Drop for GateGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            self.inner.gate_stop();
+        }
     }
 }

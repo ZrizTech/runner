@@ -984,7 +984,7 @@
   "cloud.runs": {
    "run started": {
     "levels": [
-     "INFO"
+     "DEBUG"
     ],
     "keys": [
      "org_id",
@@ -1080,7 +1080,8 @@
    },
    "run ended": {
     "levels": [
-     "INFO"
+     "INFO",
+     "DEBUG"
     ],
     "keys": [
      "org_id",
@@ -1255,6 +1256,15 @@
      "error"
     ]
    },
+   "write skipped": {
+    "levels": [
+     "WARN"
+    ],
+    "keys": [
+     "run_id",
+     "op"
+    ]
+   },
    "write failed": {
     "levels": [
      "ERROR"
@@ -1390,7 +1400,7 @@
    },
    "op sent": {
     "levels": [
-     "INFO",
+     "DEBUG",
      "WARN"
     ],
     "keys": [
