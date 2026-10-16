@@ -7,9 +7,20 @@ use std::time::{Duration, Instant};
 /// The most refusals of one frame, sent alone, before the runner drops it.
 pub(super) const MAX_REFUSALS: u32 = 3;
 
-/// The most encoded bytes of frames in one request (the cloud's body limit
-/// is 2 MiB). One frame over the cap goes alone.
-pub(super) const BATCH_CAP: usize = 1_572_864;
+/// The request body limit of the cloud: 2 MiB (2,097,152 bytes). The cloud
+/// states it in its input module; its proxy allows the same size on the
+/// exchange route only. A request over it gets 413.
+const CLOUD_BODY_LIMIT: usize = 2 * 1024 * 1024;
+
+/// The most encoded bytes of frames in one request: 480 KiB. It is under
+/// 512 KiB, so the cloud's buffer for the body stays a small object for its
+/// garbage collector. One frame over the cap goes alone.
+pub(super) const BATCH_CAP: usize = 480 * 1024;
+
+/// The most encoded bytes of one frame. A frame goes alone; the request
+/// around it (runner data, health) needs 64 KiB, so the body stays under
+/// `CLOUD_BODY_LIMIT`. A reply over this size is sent as an error frame.
+pub(super) const FRAME_MAX: usize = CLOUD_BODY_LIMIT - 64 * 1024;
 
 /// How many of the first frames go into the next request. A refused (`lone`)
 /// frame goes alone; the others go together until the next one would pass
@@ -101,6 +112,21 @@ mod tests {
         for (sizes, lone, want) in cases {
             assert_eq!(first_batch(&sizes, &lone, cap), want, "{sizes:?} {lone:?}");
         }
+    }
+
+    #[test]
+    fn the_cap_is_under_512_kib_and_a_frame_fits_the_cloud_limit() {
+        const { assert!(BATCH_CAP < 512 * 1024) };
+        const { assert!(FRAME_MAX + 64 * 1024 <= CLOUD_BODY_LIMIT) };
+        assert_eq!(CLOUD_BODY_LIMIT, 2_097_152);
+    }
+
+    #[test]
+    fn the_batch_splits_at_the_cap() {
+        let half = BATCH_CAP / 2;
+        // two halves fit exactly, a third starts the next request
+        assert_eq!(first_batch(&[half, half, 1], &[false; 3], BATCH_CAP), 2);
+        assert_eq!(first_batch(&[half, half + 1], &[false; 2], BATCH_CAP), 1);
     }
 
     #[test]

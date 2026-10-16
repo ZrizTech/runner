@@ -30,6 +30,25 @@ pub(super) fn reply_frame(
     Err(ReplyError::NeitherResultNorError)
 }
 
+/// A reply frame that fits one request. A frame over `FRAME_MAX` would be
+/// refused (413) again and again and dropped, and the run would never get
+/// the result. It becomes a small `runner-error` frame instead (`where`:
+/// `response-encoding`), for the same op.
+pub(super) fn fit_frame(frame: contract::Frame, frame_id: &str, op_id: &str) -> contract::Frame {
+    let size = serde_json::to_vec(&frame).map_or(0, |b| b.len());
+    if size <= super::batch::FRAME_MAX {
+        return frame;
+    }
+    tracing::error!(target: "runner.exchange", frame = "too-large", "frame failed");
+    let e = ErrorFrame::new(
+        op_id,
+        "runner-error",
+        serde_json::json!({"where": "response-encoding"}),
+    );
+    // A small frame always encodes.
+    error_frame(frame_id, e).unwrap_or(frame)
+}
+
 fn result_frame(
     frame_id: &str,
     result: ResultFrame,
@@ -66,4 +85,33 @@ fn now_millis() -> i64 {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_frame_over_the_limit_becomes_an_error_frame() {
+        let big = new_frame(
+            "result",
+            "f1",
+            serde_json::json!({"op-id": "o1", "pad": "x".repeat(super::super::batch::FRAME_MAX)}),
+        )
+        .unwrap();
+        let f = fit_frame(big, "f1", "o1");
+        assert_eq!(f.t, "error");
+        assert_eq!(f.re.as_deref(), Some("f1"));
+        assert_eq!(f.d["op-id"], "o1");
+        assert_eq!(f.d["reason"], "runner-error");
+        assert_eq!(f.d["details"]["where"], "response-encoding");
+        assert!(serde_json::to_vec(&f).unwrap().len() < 1024);
+    }
+
+    #[test]
+    fn a_frame_under_the_limit_stays() {
+        let small = new_frame("result", "f1", serde_json::json!({"op-id": "o1"})).unwrap();
+        let id = small.id.clone();
+        assert_eq!(fit_frame(small, "f1", "o1").id, id);
+    }
 }
