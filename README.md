@@ -102,7 +102,7 @@ One static Linux binary. No Docker. It opens no port. Put `config.json` (no secr
 
 `config.json` has mode 644 because the unit runs as a dynamic user that must read it. It holds only `${NAME}` placeholders, never a secret value. `runner.env` has mode 600: systemd reads it as root before it starts the runner.
 
-`install.sh` downloads the binary of the latest release from GitHub, checks its SHA-256 sum, and puts it in `/usr/local/bin/zriz-runner`. It uses https only. It writes the file next to the target and renames it at the end, so a failed upgrade leaves the old binary. It stops with one line on any error, and it installs nothing if the sum is wrong or missing. It asks no question. To install one version, run `sudo ZRIZ_RUNNER_VERSION=0.5.0 sh install.sh`. To use a different folder, set `ZRIZ_RUNNER_BIN_DIR`.
+`install.sh` downloads the binary of the latest release from GitHub, checks its SHA-256 sum, and puts it in `/usr/local/bin/zriz-runner`. It uses https only. It writes the file next to the target and renames it at the end, so a failed upgrade leaves the old binary. It stops with one line on any error, and it installs nothing if the sum is wrong or missing. It asks no question. To install one version, run `sudo ZRIZ_RUNNER_VERSION=0.5.1 sh install.sh`. To use a different folder, set `ZRIZ_RUNNER_BIN_DIR`.
 
 To upgrade, run `sudo sh install.sh` again, then `sudo systemctl restart zriz-runner`. The runner never changes by itself.
 
@@ -144,7 +144,7 @@ Do not write `-e ZRIZ_RUNNER_KEY=value` on the command line. The shell keeps it 
 
 ### Verify the image
 
-A release runs only after CI passes, and only from a commit on `main`. Each release image is signed without a key (Sigstore keyless) and has a build record (provenance) and an SBOM. The runner binary is built with `cargo-auditable`, so the SBOM lists its Rust crates. Replace `<version>` with the version you use, for example `0.5.0`.
+A release runs only after CI passes, and only from a commit on `main`. Each release image is signed without a key (Sigstore keyless) and has a build record (provenance) and an SBOM. The runner binary is built with `cargo-auditable`, so the SBOM lists its Rust crates. Replace `<version>` with the version you use, for example `0.5.1`.
 
 Check the signature. It must come from the release workflow of this repository, on a `v` tag:
 

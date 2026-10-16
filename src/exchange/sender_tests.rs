@@ -137,10 +137,11 @@ async fn a_result_queued_as_the_sender_ends_is_still_sent() {
         // Land the next result around the time the loop ends.
         tokio::task::yield_now().await;
         let j = Arc::clone(&i);
+        // As in `run_op`: push, then trigger, from the thread that pushed.
         let t = tokio::task::spawn_blocking(move || {
             j.push_back(result_frame(&format!("b-{round}")));
+            j.trigger_exchange();
         });
-        i.trigger_exchange();
         t.await.unwrap();
         let deadline = std::time::Instant::now() + Duration::from_secs(3);
         while i.queue_pending() || i.gate_busy() {

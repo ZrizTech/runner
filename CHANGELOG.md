@@ -1,6 +1,7 @@
 # Changelog
 
-## 0.5.0 (2026-10-16): refused key, key-env only, reply size
+## 0.5.1 (2026-10-16): refused key, key-env only, reply size
+- 0.5.0 was tagged but not released (CI red: a test race in `sender_tests` and the worker key order without `key_id`). Both fixed.
 - Breaking: the config reads `key-env` only (`token-env` is gone).
 
 ### review fixes: reply size
