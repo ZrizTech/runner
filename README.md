@@ -131,13 +131,14 @@ Write the runner key and the passwords in a file named `runner.env`, with an edi
 Then:
 
     chmod 600 runner.env
-    docker run -d --restart on-failure:3 --name zriz-runner \
+    docker run -d --restart unless-stopped --name zriz-runner \
       --env-file runner.env \
+      -e ZRIZ_RUNNER_ON_REFUSED=wait \
       -e ZRIZ_RUNNER_CONFIG=/config/config.json \
       -v "$PWD/config.json:/config/config.json:ro" \
       ghcr.io/zriztech/runner:<version>
 
-The runner exits with code 2 (bad config) or 3 (the cloud refused the key, 401 or 403). Docker's `on-failure` restarts on any non-zero code and cannot skip one, so `on-failure:3` stops after 3 tries and the container stays Exited; the log has one line with the cause and the fix. Make a new key (`zz runners init --env <env>`), then make the container again: `docker rm -f zriz-runner`, then the same `docker run` again (with Compose: `docker compose up -d --force-recreate runner`). `docker restart` keeps the old key. The runners page of the cloud (`/app/runners`) shows it not connected, and the log has one `refused` line.
+With `ZRIZ_RUNNER_ON_REFUSED=wait` (set in the Compose file and above), a refused key (401 or 403) or a bad config makes the runner write ONE log line with the cause and the fix, then wait idle. It stays up and sends no request to the cloud, so `--restart unless-stopped` brings it back after a reboot and never loops on a bad key. Without this setting (systemd) the runner exits with code 2 (bad config) or 3 (key refused). Make a new key (`zz runners init --env <env>`), then make the container again: `docker rm -f zriz-runner`, then the same `docker run` again (with Compose: `docker compose up -d --force-recreate runner`). `docker restart` keeps the old key. The runners page of the cloud (`/app/runners`) shows it not connected, and the log has one `refused` line.
 
 Do not write `-e ZRIZ_RUNNER_KEY=value` on the command line. The shell keeps it in its history.
 

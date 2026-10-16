@@ -254,12 +254,46 @@ fn the_refused_line_names_cause_and_fix_and_never_a_key() {
         (Forbidden("no-right"), "no right"),
         (Forbidden(""), "no right"),
     ] {
-        let line = refused_line(&e, "uat");
+        let line = refused_line(&e, "uat", false);
         assert!(line.contains(cause), "{line}");
         assert!(line.contains("zz runners init --env uat"), "{line}");
         assert!(line.contains("systemctl restart zriz-runner"), "{line}");
         assert!(line.contains("exit 3"), "{line}");
         assert!(!line.contains('\n'), "{line}");
     }
-    assert!(refused_line(&Unauthorized(""), "").contains("--env <env>"));
+    assert!(refused_line(&Unauthorized(""), "", false).contains("--env <env>"));
+}
+
+#[test]
+fn the_wait_line_says_idle_and_never_a_key() {
+    let line = refused_line(
+        &exchange::ExchangeError::Unauthorized("key-revoked"),
+        "uat",
+        true,
+    );
+    assert!(line.contains("waits idle"), "{line}");
+    assert!(line.contains("zz runners init --env uat"), "{line}");
+    assert!(!line.contains("exit 3"), "{line}");
+}
+
+#[tokio::test]
+async fn on_refused_wait_stays_up_after_a_config_error_until_stopped() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_config(&dir, "{ not json");
+    let env = std::collections::HashMap::from([
+        ("ZRIZ_RUNNER_CONFIG", path.display().to_string()),
+        ("ZRIZ_RUNNER_ON_REFUSED", "wait".to_string()),
+    ]);
+    let cancel = CancellationToken::new();
+    let c2 = cancel.clone();
+    let mut err = Vec::new();
+    let task = tokio::spawn(async move { run(c2, lookup_map(env), &mut err).await });
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert!(!task.is_finished(), "the runner must wait, not exit");
+    cancel.cancel();
+    let code = tokio::time::timeout(std::time::Duration::from_secs(5), task)
+        .await
+        .expect("stops on cancel")
+        .expect("join");
+    assert_eq!(code, 0);
 }

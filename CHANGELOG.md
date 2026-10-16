@@ -1,5 +1,9 @@
 # Changelog
 
+## nearhand review fixes (unreleased)
+- H2: `ZRIZ_RUNNER_ON_REFUSED=wait` (new setting; set in `ops/docker-compose.yml` and the README `docker run`). On a refused key or a config error the runner writes ONE line (cause and fix, no key value), then waits idle with no request to the cloud, until it is stopped. Without it (systemd) the exit codes stay: 3 refused, 2 config, with `RestartPreventExitStatus=2 3`. Docker compose is `restart: unless-stopped` again (survives reboots).
+- L8: one refused frame (4xx other than 401/429, like 400 or 413) no longer starts an outage: no `poll failed` WARN, no `reconnected` line. Only transport failures and other non-refusal statuses (5xx) do.
+
 ## nearhand contract sync (unreleased)
 - `contract/` synced from the contract repo (`make sync-contract`); the `runner.exchange reconnected` log list entry now comes from the contract, no hand edit left.
 

@@ -344,7 +344,11 @@ impl Inner {
                 } else {
                     self.push_front(sent);
                 }
-                self.poll_failed(Some(status), "bad-status", t0);
+                // One refused frame (400, 413) is not an outage: no WARN cycle, no
+                // `reconnected` line. Only 5xx and other non-refusal statuses count.
+                if !is_refusal(status) {
+                    self.poll_failed(Some(status), "bad-status", t0);
+                }
                 Err(StepError::Failed)
             }
         }
