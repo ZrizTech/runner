@@ -149,12 +149,12 @@ impl Inner {
     }
 
     /// The snapshot for a request: takes the counts (they start over at 0).
-    fn snapshot(&self) -> Snapshot {
+    pub(super) fn snapshot(&self) -> Snapshot {
         self.snapshot_with(|c| c.swap(0, Ordering::SeqCst))
     }
 
     /// The same, with the counts left in place.
-    fn peek_snapshot(&self) -> Snapshot {
+    pub(super) fn peek_snapshot(&self) -> Snapshot {
         self.snapshot_with(|c| c.load(Ordering::SeqCst))
     }
 
@@ -168,7 +168,7 @@ impl Inner {
         }
     }
 
-    fn build_request(
+    pub(super) fn build_request(
         &self,
         frames: Vec<contract::Frame>,
         snap: &Snapshot,
@@ -197,8 +197,18 @@ impl Inner {
         self.errors.fetch_add(snap.errors, Ordering::SeqCst);
     }
 
+    /// Counts the reply frame that is queued to leave (an error frame only).
+    pub(super) fn count_sent(&self, frame: &contract::Frame) {
+        if frame.t != "error" {
+            return;
+        }
+        if let Ok(e) = serde_json::from_value::<contract::Error>(frame.d.clone()) {
+            self.count_reply(Some(&e));
+        }
+    }
+
     /// Counts the end of one op for the health of the next request.
-    pub(super) fn count_reply(&self, err: Option<&contract::Error>) {
+    fn count_reply(&self, err: Option<&contract::Error>) {
         let Some(e) = err else { return };
         let place = e.details.get("where").and_then(|v| v.as_str());
         if e.reason == "runner-at-capacity" {

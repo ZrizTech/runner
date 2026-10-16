@@ -10,7 +10,7 @@ pub(super) const MAX_REFUSALS: u32 = 3;
 /// The request body limit of the cloud: 2 MiB (2,097,152 bytes). The cloud
 /// states it in its input module; its proxy allows the same size on the
 /// exchange route only. A request over it gets 413.
-const CLOUD_BODY_LIMIT: usize = 2 * 1024 * 1024;
+pub(super) const CLOUD_BODY_LIMIT: usize = 2 * 1024 * 1024;
 
 /// The most encoded bytes of frames in one request: 480 KiB. It is under
 /// 512 KiB, so the cloud's buffer for the body stays a small object for its
@@ -20,6 +20,8 @@ pub(super) const BATCH_CAP: usize = 480 * 1024;
 /// The most encoded bytes of one frame. A frame goes alone; the request
 /// around it (runner data, health) needs 64 KiB, so the body stays under
 /// `CLOUD_BODY_LIMIT`. A reply over this size is sent as an error frame.
+/// Measured (test in `batch_tests.rs`): 50 resources of 128 chars, 50 browser
+/// health items, 6 op kinds need about 15 KB, so 64 KiB is enough.
 pub(super) const FRAME_MAX: usize = CLOUD_BODY_LIMIT - 64 * 1024;
 
 /// How many of the first frames go into the next request. A refused (`lone`)

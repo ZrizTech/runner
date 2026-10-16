@@ -236,3 +236,123 @@ async fn a_changed_health_sends_one_request_and_an_unchanged_one_none() {
     tokio::time::sleep(Duration::from_millis(150)).await;
     assert!(rx.try_recv().is_err(), "one request, not two");
 }
+
+/// A handler with a large but realistic announcement and a full health.
+struct BigEnvelope;
+
+impl Handler for BigEnvelope {
+    fn handle(
+        &self,
+        op: contract::Op,
+    ) -> futures::future::BoxFuture<'_, (Option<contract::Result>, Option<contract::Error>)> {
+        Box::pin(async move {
+            let mut payload = std::collections::BTreeMap::new();
+            payload.insert(
+                "pad".to_string(),
+                serde_json::json!("x".repeat(batch::FRAME_MAX)),
+            );
+            let r = contract::Result {
+                op_id: op.op_id,
+                status: "pass".into(),
+                payload,
+                scrubbed: 0,
+                timing: contract::Timing {
+                    exec_ms: 1,
+                    target_ms: None,
+                },
+            };
+            (Some(r), None)
+        })
+    }
+
+    fn max_inflight(&self) -> i64 {
+        64
+    }
+
+    fn op_kinds(&self) -> Vec<String> {
+        [
+            "http.request",
+            "sql.query",
+            "evidence.fetch",
+            "browser.page",
+            "browser.click",
+            "cli.run",
+        ]
+        .map(String::from)
+        .to_vec()
+    }
+
+    fn worker_health(&self) -> health::WorkerHealth {
+        health::WorkerHealth {
+            needed: true,
+            up: true,
+            browser: (0..50)
+                .map(|i| contract::BrowserLoad {
+                    resource: format!("browser-{i:0>120}"),
+                    busy: 1,
+                    limit: 4,
+                })
+                .collect(),
+            cli: Some(contract::CliLoad { busy: 1, limit: 8 }),
+        }
+    }
+}
+
+fn big_envelope_inner() -> Arc<Inner> {
+    let h: Arc<dyn Handler> = Arc::new(BigEnvelope);
+    let mut cfg = Config::new("http://127.0.0.1:1", TEST_KEY, "runner-1", h);
+    cfg.resources = (0..50).map(|i| format!("{i:0>128}")).collect();
+    Arc::new(Inner::new(cfg, CancellationToken::new()))
+}
+
+#[test]
+fn a_frame_max_frame_in_a_big_request_fits_the_cloud_limit() {
+    let i = big_envelope_inner();
+    let big = frame("big", batch::FRAME_MAX - 200);
+    let size = serde_json::to_vec(&big).unwrap().len();
+    assert!(size <= batch::FRAME_MAX, "frame {size}");
+    let snap = i.snapshot();
+    let req = i.build_request(vec![big], &snap);
+    let body = serde_json::to_vec(&req).unwrap();
+    let envelope = body.len() - size;
+    eprintln!(
+        "measured: frame {size} B, envelope {envelope} B, body {} B",
+        body.len()
+    );
+    assert!(
+        body.len() <= batch::CLOUD_BODY_LIMIT,
+        "body {} over the limit {} (envelope {envelope})",
+        body.len(),
+        batch::CLOUD_BODY_LIMIT
+    );
+}
+
+fn op_of(op_id: &str) -> contract::Op {
+    serde_json::from_value(build_op_frame("f1", op_id).d).unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_oversize_result_counts_as_a_runner_error_for_health() {
+    let cloud = ImmediateCloud::new(|_, _| (204, None)).await;
+    let mut rx = cloud.take_receiver();
+    let h: Arc<dyn Handler> = Arc::new(BigEnvelope);
+    let cfg = Config::new(&cloud.base_url, TEST_KEY, "runner-1", h);
+    let i = Arc::new(Inner::new(cfg, CancellationToken::new()));
+    let permit = i.semaphore.clone().acquire_owned().await.unwrap();
+    i.clone().run_op("f1".into(), op_of("o1"), permit).await;
+    // The sender takes the reply and the error count into one request.
+    let req = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let a = rx.recv().await.expect("request");
+            if !a.req.frames.is_empty() {
+                return a.req;
+            }
+        }
+    })
+    .await
+    .expect("request with the reply");
+    assert_eq!(req.frames.len(), 1);
+    assert_eq!(req.frames[0].t, "error");
+    assert_eq!(req.frames[0].d["details"]["where"], "response-encoding");
+    assert_eq!(req.health.state, "degraded");
+}

@@ -18,10 +18,13 @@ impl Inner {
             "runner-at-capacity",
             json!({"limit-name": "max-inflight", "limit": busy, "busy": busy, "waited-ms": 0}),
         );
-        self.count_reply(Some(&frame));
         tracing::error!(target: "runner.ops", run_id = %op.run_id, step = op.step_index, op_id = %op_id, kind = %op.kind, resource = %op.resource, status = "error", reason = "runner-at-capacity", busy = busy, cap = busy, trace_id = op.valid_trace_id().unwrap_or("-"), "op failed");
         match error_frame(frame_id, frame) {
-            Ok(frame) => self.push_back(super::reply::fit_frame(frame, frame_id, op_id)),
+            Ok(frame) => {
+                let frame = super::reply::fit_frame(frame, frame_id, op_id);
+                self.count_sent(&frame);
+                self.push_back(frame);
+            }
             Err(e) => {
                 tracing::error!(target: "runner.exchange", frame = "capacity", error = %e, "frame failed")
             }
@@ -68,9 +71,14 @@ impl Inner {
                     )),
                 ),
             };
-        self.count_reply(err.as_ref());
         match reply_frame(&frame_id, result, err) {
-            Ok(frame) => self.push_back(super::reply::fit_frame(frame, &frame_id, &op_id)),
+            Ok(frame) => {
+                // Count the frame that leaves, not the one the handler made:
+                // `fit_frame` can turn a result into a `response-encoding` error.
+                let frame = super::reply::fit_frame(frame, &frame_id, &op_id);
+                self.count_sent(&frame);
+                self.push_back(frame);
+            }
             Err(e) => {
                 tracing::error!(target: "runner.exchange", frame = "reply", error = %e, "frame failed")
             }

@@ -1,5 +1,10 @@
 # Changelog
 
+## review fixes: reply size (unreleased)
+- A reply turned into a `response-encoding` error frame (too big for the cloud) now counts in the health error count, so the runner can show `degraded`. The runner counts the frame that is sent, after the size check (also for `runner-at-capacity`).
+- Test: a `FRAME_MAX` frame inside a large request (50 resources of 128 chars, 50 browser health items, 6 op kinds) fits `CLOUD_BODY_LIMIT`. Measured envelope: about 15 KB; the 64 KiB headroom stays.
+- Doc comment of `ReplyError` fixed (a too-big reply is sent as an error frame).
+
 ## nearhand review fixes (unreleased)
 - H2: `ZRIZ_RUNNER_ON_REFUSED=wait` (new setting; set in `ops/docker-compose.yml` and the README `docker run`). On a refused key or a config error the runner writes ONE line (cause and fix, no key value), then waits idle with no request to the cloud, until it is stopped. Without it (systemd) the exit codes stay: 3 refused, 2 config, with `RestartPreventExitStatus=2 3`. Docker compose is `restart: unless-stopped` again (survives reboots).
 - L8: one refused frame (4xx other than 401/429, like 400 or 413) no longer starts an outage: no `poll failed` WARN, no `reconnected` line. Only transport failures and other non-refusal statuses (5xx) do.

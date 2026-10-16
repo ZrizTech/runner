@@ -6,8 +6,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Errors building a reply frame: either the handler broke its contract
 /// (returned neither a result nor an error), or the reply body failed to
-/// encode. Either way the op's reply is dropped and only logged, never sent
-/// as a synthesized frame.
+/// encode. Either way the op's reply is dropped and only logged. (A reply
+/// that is too big is not an error here: `fit_frame` sends a small
+/// `runner-error` frame for it.)
 #[derive(Debug, thiserror::Error)]
 pub(super) enum ReplyError {
     #[error("exchange: handler returned neither result nor error")]
