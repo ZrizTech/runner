@@ -1,25 +1,28 @@
 # Changelog
 
-## review fixes: reply size (unreleased)
+## 0.5.0 (2026-10-16): refused key, key-env only, reply size
+- Breaking: the config reads `key-env` only (`token-env` is gone).
+
+### review fixes: reply size
 - A reply turned into a `response-encoding` error frame (too big for the cloud) now counts in the health error count, so the runner can show `degraded`. The runner counts the frame that is sent, after the size check (also for `runner-at-capacity`).
 - Test: a `FRAME_MAX` frame inside a large request (50 resources of 128 chars, 50 browser health items, 6 op kinds) fits `CLOUD_BODY_LIMIT`. Measured envelope: about 15 KB; the 64 KiB headroom stays.
 - Doc comment of `ReplyError` fixed (a too-big reply is sent as an error frame).
 
-## nearhand review fixes (unreleased)
+### nearhand review fixes
 - H2: `ZRIZ_RUNNER_ON_REFUSED=wait` (new setting; set in `ops/docker-compose.yml` and the README `docker run`). On a refused key or a config error the runner writes ONE line (cause and fix, no key value), then waits idle with no request to the cloud, until it is stopped. Without it (systemd) the exit codes stay: 3 refused, 2 config, with `RestartPreventExitStatus=2 3`. Docker compose is `restart: unless-stopped` again (survives reboots).
 - L8: one refused frame (4xx other than 401/429, like 400 or 413) no longer starts an outage: no `poll failed` WARN, no `reconnected` line. Only transport failures and other non-refusal statuses (5xx) do.
 
-## nearhand contract sync (unreleased)
+### nearhand contract sync
 - `contract/` synced from the contract repo (`make sync-contract`); the `runner.exchange reconnected` log list entry now comes from the contract, no hand edit left.
 
-## nearhand R1 (unreleased): refused key, config error, cloud down
+### nearhand R1: refused key, config error, cloud down
 - `key-env` only (no `token-env` left in code, examples or ops files). Images: `ops/docker-compose.yml` runner is `restart: on-failure:3`; the unit has `RestartPreventExitStatus=2 3`. Rebuild no image: the compose and unit files are copied to the server; the binary changed, so a new runner release is needed for the exit code 3.
 - Refused key (401/403): the runner reads `code` of the API error body (`key-revoked`, `key-unknown`, `key-expired`, `key-missing`, `no-right`), writes ONE `refused` line with cause and fix (`zz runners init --env <env>`, restart command), and exits 3. It no longer waits idle (that looked healthy to systemd and Docker). Docker's `on-failure` restarts on any non-zero code, so we chose `on-failure:3` (documented in the compose file and README).
 - Config error: exit 2 (as before); the line names the file or the field and the fix (`config error in <path>: ...`, `ZRIZ_RUNNER_KEY ... is not set; put it in runner.env`). No `stopped` line after it.
 - Cloud down: the first failed poll logs one WARN `poll failed`; later ones at most one a minute; the first good poll after logs one INFO `reconnected` with `elapsed_ms` of the outage.
 - `api-error` schema registered; `contract/log/lists.json` synced (`key_id`), plus a local entry `reconnected` (runner.exchange, INFO, keys runner, elapsed_ms) that the contract repo must carry.
 
-## Unreleased: body limits
+### body limits
 - exchange: `BATCH_CAP` is 480 KiB (was 1.5 MiB; under 512 KiB for the cloud buffer). A reply frame over 2 MiB minus 64 KiB is sent as a small `runner-error` frame (`where`: `response-encoding`), never dropped. The cloud limit is 2 MiB (`CLOUD_BODY_LIMIT` in `src/exchange/batch.rs`).
 
 ## 0.4.0 (2026-10-16): group-commit sender
