@@ -1,5 +1,8 @@
 # Changelog
 
+## nearhand contract sync (unreleased)
+- `contract/` synced from the contract repo (`make sync-contract`); the `runner.exchange reconnected` log list entry now comes from the contract, no hand edit left.
+
 ## nearhand R1 (unreleased): refused key, config error, cloud down
 - `key-env` only (no `token-env` left in code, examples or ops files). Images: `ops/docker-compose.yml` runner is `restart: on-failure:3`; the unit has `RestartPreventExitStatus=2 3`. Rebuild no image: the compose and unit files are copied to the server; the binary changed, so a new runner release is needed for the exit code 3.
 - Refused key (401/403): the runner reads `code` of the API error body (`key-revoked`, `key-unknown`, `key-expired`, `key-missing`, `no-right`), writes ONE `refused` line with cause and fix (`zz runners init --env <env>`, restart command), and exits 3. It no longer waits idle (that looked healthy to systemd and Docker). Docker's `on-failure` restarts on any non-zero code, so we chose `on-failure:3` (documented in the compose file and README).
