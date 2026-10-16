@@ -1,9 +1,11 @@
 name: zriz-runner
 
-# restart: unless-stopped. A runner whose key is refused (401 or 403) makes no more
-# requests and waits until it is stopped, so Docker does not loop. To fix it, revoke
-# the key, make a new one, then make the container again:
-# `docker compose up -d --force-recreate runner`. `docker restart` keeps the old key.
+# restart: on-failure:3 (runner). The runner exits with code 2 (config error) or 3 (the cloud refused
+# the key: 401 or 403). Docker's `on-failure` restarts on ANY non-zero code and cannot exclude one,
+# so we cap it at 3 tries: then the container stays stopped (`docker compose ps` shows Exited) and
+# the log holds one line with the cause and the fix. To fix a refused key: `zz runners init --env <env>`,
+# then `docker compose up -d --force-recreate runner`. `docker restart` keeps the old key.
+# The worker sidecar keeps `unless-stopped`: it holds no key and has no exit code to loop on.
 services:
   runner:
     image: ${ZRIZ_RUNNER_IMAGE:?}
@@ -28,7 +30,7 @@ services:
     init: true
     mem_limit: 256m
     pids_limit: 128
-    restart: unless-stopped
+    restart: on-failure:3
     logging:
       driver: json-file
       options:

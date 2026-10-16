@@ -1,5 +1,12 @@
 # Changelog
 
+## nearhand R1 (unreleased): refused key, config error, cloud down
+- `key-env` only (no `token-env` left in code, examples or ops files). Images: `ops/docker-compose.yml` runner is `restart: on-failure:3`; the unit has `RestartPreventExitStatus=2 3`. Rebuild no image: the compose and unit files are copied to the server; the binary changed, so a new runner release is needed for the exit code 3.
+- Refused key (401/403): the runner reads `code` of the API error body (`key-revoked`, `key-unknown`, `key-expired`, `key-missing`, `no-right`), writes ONE `refused` line with cause and fix (`zz runners init --env <env>`, restart command), and exits 3. It no longer waits idle (that looked healthy to systemd and Docker). Docker's `on-failure` restarts on any non-zero code, so we chose `on-failure:3` (documented in the compose file and README).
+- Config error: exit 2 (as before); the line names the file or the field and the fix (`config error in <path>: ...`, `ZRIZ_RUNNER_KEY ... is not set; put it in runner.env`). No `stopped` line after it.
+- Cloud down: the first failed poll logs one WARN `poll failed`; later ones at most one a minute; the first good poll after logs one INFO `reconnected` with `elapsed_ms` of the outage.
+- `api-error` schema registered; `contract/log/lists.json` synced (`key_id`), plus a local entry `reconnected` (runner.exchange, INFO, keys runner, elapsed_ms) that the contract repo must carry.
+
 ## 0.4.0 (2026-10-16): group-commit sender
 - exchange: one result request in flight at a time; results that finish meanwhile go together in the next one (no wire change). Idle: a result goes at once.
 - exchange: the sender frees its gate under the queue lock (a result queued as the loop ends is no longer left); the main poll never carries results (`reject` starts the sender); the gate is freed if the sender task panics; `contract/log/lists.json` synced (levels, `write skipped`).

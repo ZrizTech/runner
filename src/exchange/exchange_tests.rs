@@ -228,7 +228,7 @@ async fn unauthorized_fails_closed_with_no_key_source() {
     cfg.cloud_url = cloud.base_url.clone();
 
     let done = run(cfg, CancellationToken::new()).await;
-    assert_eq!(done, Err(ExchangeError::Unauthorized));
+    assert_eq!(done, Err(ExchangeError::Unauthorized("")));
     assert_eq!(cloud.request_count(), 1);
 }
 
@@ -564,7 +564,7 @@ async fn unauthorized_twice_fails_closed() {
     }));
 
     let done = run(cfg, CancellationToken::new()).await;
-    assert_eq!(done, Err(ExchangeError::Unauthorized));
+    assert_eq!(done, Err(ExchangeError::Unauthorized("")));
 
     let first = recv_timeout(&mut auth_rx).await;
     let second = recv_timeout(&mut auth_rx).await;
@@ -596,7 +596,7 @@ async fn unauthorized_key_source_error_fails_closed_at_once() {
     cfg.key_source = Some(Arc::new(|| Err("token source: boom".to_string())));
 
     let done = run(cfg, CancellationToken::new()).await;
-    assert_eq!(done, Err(ExchangeError::Unauthorized));
+    assert_eq!(done, Err(ExchangeError::Unauthorized("")));
 
     let first = recv_timeout(&mut auth_rx).await;
     assert_eq!(first, "Bearer old-token");
@@ -621,4 +621,30 @@ async fn unauthorized_retry_cancelled_during_backoff_shuts_down_clean() {
 
     let done = run(cfg, CancellationToken::new()).await;
     assert_eq!(done, Ok(()));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_refusal_code_of_the_error_body_is_read() {
+    for (status, code, want) in [
+        (
+            401u16,
+            "key-revoked",
+            ExchangeError::Unauthorized("key-revoked"),
+        ),
+        (
+            401,
+            "key-unknown",
+            ExchangeError::Unauthorized("key-unknown"),
+        ),
+        (401, "made-up", ExchangeError::Unauthorized("")),
+        (403, "no-right", ExchangeError::Forbidden("no-right")),
+    ] {
+        let body = format!(r#"{{"code":"{code}","message":"m","next":{{"doc":"d"}}}}"#);
+        let cloud = RawAuthCloud::new(move |_| (status, Some(body.clone().into_bytes()))).await;
+        let handler: Arc<dyn Handler> = Arc::new(FakeHandler::new(1));
+        let mut cfg = Config::new(cloud.base_url.clone(), "k", "runner-1", handler);
+        cfg.backoff = Duration::from_millis(5);
+        let done = run(cfg, CancellationToken::new()).await;
+        assert_eq!(done, Err(want), "{status} {code}");
+    }
 }

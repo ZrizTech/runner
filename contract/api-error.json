@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/api-error.json",
+  "description": "The body of every error reply of the cloud API. code is one word of the closed list (one code per cause, hyphens only). next is the one thing to do: a command or a url, and a doc line.",
+  "type": "object",
+  "properties": {
+    "code": {
+      "enum": [
+        "key-missing",
+        "key-unknown",
+        "key-revoked",
+        "key-expired",
+        "no-right",
+        "limit-free-day",
+        "email-unverified",
+        "invalid-request",
+        "resource-key-not-allowed",
+        "org-mismatch",
+        "not-found",
+        "already-member",
+        "last-admin",
+        "too-many-posts",
+        "too-many-requests",
+        "too-many-runs",
+        "too-many-streams",
+        "shutting-down",
+        "busy",
+        "timeout",
+        "internal-error"
+      ]
+    },
+    "message": {"type": "string", "minLength": 1},
+    "next": {
+      "type": "object",
+      "properties": {
+        "command": {"type": "string", "minLength": 1},
+        "url": {"type": "string", "pattern": "^(https://|/)"},
+        "doc": {"type": "string", "minLength": 1}
+      },
+      "required": ["doc"],
+      "additionalProperties": false
+    },
+    "org-id": {"type": "string", "minLength": 1},
+    "permission": {"type": "string", "minLength": 1},
+    "scope": {"type": "string"},
+    "retry-after-ms": {"type": "integer", "minimum": 0}
+  },
+  "required": ["code", "message"],
+  "additionalProperties": false
+}

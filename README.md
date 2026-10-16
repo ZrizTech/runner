@@ -106,7 +106,7 @@ One static Linux binary. No Docker. It opens no port. Put `config.json` (no secr
 
 To upgrade, run `sudo sh install.sh` again, then `sudo systemctl restart zriz-runner`. The runner never changes by itself.
 
-The unit (`ops/zriz-runner.service`) uses `DynamicUser=yes`, reads `/etc/zriz-runner/runner.env` and `/etc/zriz-runner/config.json`, and has `ProtectSystem=strict` and `NoNewPrivileges=yes`. It does not restart after exit code 2 (bad config at start): fix the config, then `systemctl restart zriz-runner`. If the cloud refuses the key (401 or 403), the runner waits; fix the key in `runner.env`, then `systemctl restart zriz-runner` (a restart reads `runner.env` again). A stop then exits 0. The release gives `x86_64` and `aarch64` binaries, `zriz-runner-<version>-<arch>-linux`, and a `SHA256SUMS` file.
+The unit (`ops/zriz-runner.service`) uses `DynamicUser=yes`, reads `/etc/zriz-runner/runner.env` and `/etc/zriz-runner/config.json`, and has `ProtectSystem=strict` and `NoNewPrivileges=yes`. It does not restart after exit code 2 (bad config) or 3 (the cloud refused the key, 401 or 403): the journal holds one line with the cause and the fix. Fix the config, or make a new key (`zz runners init --env <env>`) and put it in `runner.env`, then `systemctl restart zriz-runner`. The release gives `x86_64` and `aarch64` binaries, `zriz-runner-<version>-<arch>-linux`, and a `SHA256SUMS` file.
 
 ### Docker (resources `browser` and `cli`)
 
@@ -131,13 +131,13 @@ Write the runner key and the passwords in a file named `runner.env`, with an edi
 Then:
 
     chmod 600 runner.env
-    docker run -d --restart unless-stopped --name zriz-runner \
+    docker run -d --restart on-failure:3 --name zriz-runner \
       --env-file runner.env \
       -e ZRIZ_RUNNER_CONFIG=/config/config.json \
       -v "$PWD/config.json:/config/config.json:ro" \
       ghcr.io/zriztech/runner:<version>
 
-If the cloud refuses the key (401) or the key has no right (403), the runner stops its requests and waits. It does not loop. Revoke the key, make a new one, then make the container again: `docker rm -f zriz-runner`, then the same `docker run` again (with Compose: `docker compose up -d --force-recreate runner`). `docker restart` keeps the old key. While it waits, Docker still shows the container Up; the runners page of the cloud (`/app/runners`) shows it not connected, and the log has one `refused` line.
+The runner exits with code 2 (bad config) or 3 (the cloud refused the key, 401 or 403). Docker's `on-failure` restarts on any non-zero code and cannot skip one, so `on-failure:3` stops after 3 tries and the container stays Exited; the log has one line with the cause and the fix. Make a new key (`zz runners init --env <env>`), then make the container again: `docker rm -f zriz-runner`, then the same `docker run` again (with Compose: `docker compose up -d --force-recreate runner`). `docker restart` keeps the old key. The runners page of the cloud (`/app/runners`) shows it not connected, and the log has one `refused` line.
 
 Do not write `-e ZRIZ_RUNNER_KEY=value` on the command line. The shell keeps it in its history.
 

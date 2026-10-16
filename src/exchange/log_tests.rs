@@ -111,3 +111,33 @@ async fn a_failed_poll_is_a_warn_line() {
     assert!(!out.contains("runner connected"), "{out}");
     assert_eq!(logging.dropped(), 0, "{out}");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_outage_logs_one_warn_then_one_reconnected() {
+    let _pin = tracing::Dispatch::new(tracing_subscriber::registry());
+    let buf = Buf::default();
+    let (sub, logging) = crate::logfmt::subscriber_with_writer("info", buf.clone());
+    let _guard = tracing::subscriber::set_default(sub);
+    let cloud = ImmediateCloud::new(|n, _req| if n < 6 { (502, None) } else { (204, None) }).await;
+    let mut rx = cloud.take_receiver();
+    let handler: Arc<dyn Handler> = Arc::new(FakeHandler::new(3));
+    let mut cfg = Config::new(cloud.base_url.clone(), TEST_KEY, "runner-1", handler);
+    cfg.backoff = Duration::from_millis(2);
+    cfg.max_backoff = Duration::from_millis(5);
+    let cancel = CancellationToken::new();
+    let cancel2 = cancel.clone();
+    let done = tokio::spawn(async move { run(cfg, cancel2).await });
+    wait_for(&mut rx, |a| a.n >= 7).await;
+    cancel.cancel();
+    done.await.unwrap().unwrap();
+    let out = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
+    let count = |needle: &str| out.lines().filter(|l| l.contains(needle)).count();
+    assert_eq!(count("poll failed"), 1, "{out}");
+    assert_eq!(
+        count("runner.exchange reconnected runner=runner-1 elapsed_ms="),
+        1,
+        "{out}"
+    );
+    assert_eq!(count("runner connected"), 1, "{out}");
+    assert_eq!(logging.dropped(), 0, "{out}");
+}

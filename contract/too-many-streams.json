@@ -3,10 +3,12 @@
   "$id": "https://zriz.io/contract/too-many-streams.json",
   "type": "object",
   "properties": {
-    "error": {"const": "too-many-streams"},
+    "code": {"const": "too-many-streams"},
+    "message": {"type": "string", "minLength": 1},
+    "next": {"$ref": "https://zriz.io/contract/api-error.json#/properties/next"},
     "scope": {"type": "string"},
     "retry-after-ms": {"type": "integer", "minimum": 0}
   },
-  "required": ["error", "scope", "retry-after-ms"],
+  "required": ["code", "message", "scope", "retry-after-ms"],
   "additionalProperties": false
 }

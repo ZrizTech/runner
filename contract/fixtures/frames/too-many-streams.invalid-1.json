@@ -1,4 +1,1 @@
-{
-  "error": "too-many-streams",
-  "scope": "org-1"
-}
+{"code":"too-many-streams","message":"x","scope":"org-1"}

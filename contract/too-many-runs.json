@@ -1,12 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://zriz.io/contract/too-many-runs.json",
+  "description": "The 429 body for runs. used, limit and resets-at are present together when the free-day limit is the cause.",
   "type": "object",
   "properties": {
-    "error": {"const": "too-many-runs"},
+    "code": {"const": "too-many-runs"},
+    "message": {"type": "string", "minLength": 1},
+    "next": {"$ref": "https://zriz.io/contract/api-error.json#/properties/next"},
     "scope": {"type": "string"},
-    "retry-after-ms": {"type": "integer", "minimum": 0}
+    "retry-after-ms": {"type": "integer", "minimum": 0},
+    "used": {"type": "integer", "minimum": 0},
+    "limit": {"type": "integer", "minimum": 0},
+    "resets-at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"}
   },
-  "required": ["error", "scope", "retry-after-ms"],
+  "required": ["code", "message", "scope", "retry-after-ms"],
+  "dependentRequired": {
+    "used": ["limit", "resets-at"],
+    "limit": ["used", "resets-at"],
+    "resets-at": ["used", "limit"]
+  },
   "additionalProperties": false
 }

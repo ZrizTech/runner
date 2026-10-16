@@ -1,0 +1,1 @@
+{"code":"key-revoked","message":"The key was revoked.","next":{"command":"zz ci github","doc":"Make a new key for CI"}}

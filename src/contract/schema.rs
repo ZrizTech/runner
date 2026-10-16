@@ -16,6 +16,7 @@ pub const SCHEMAS: &[(&str, &str)] = &[
         "environment",
         include_str!("../../contract/environment.json"),
     ),
+    ("api-error", include_str!("../../contract/api-error.json")),
     ("cause", include_str!("../../contract/cause.json")),
     ("error", include_str!("../../contract/error.json")),
     (

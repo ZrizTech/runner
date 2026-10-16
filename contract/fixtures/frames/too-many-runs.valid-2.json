@@ -1,5 +1,1 @@
-{
-  "error": "too-many-runs",
-  "scope": "runner:local/dev-1",
-  "retry-after-ms": 0
-}
+{"code":"too-many-runs","message":"Too many runs at once for this runner.","scope":"runner:local/dev-1","retry-after-ms":0}

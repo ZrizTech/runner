@@ -38,6 +38,7 @@
    "step",
    "op_id",
    "pipeline_id",
+   "key_id",
    "token_id",
    "runner",
    "listener",
@@ -110,6 +111,7 @@
    "step",
    "op_id",
    "pipeline_id",
+   "key_id",
    "token_id",
    "runner"
   ],
@@ -989,6 +991,7 @@
     "keys": [
      "org_id",
      "run_id",
+     "key_id",
      "pipeline_id",
      "env"
     ]
@@ -1000,6 +1003,8 @@
     "keys": [
      "org_id",
      "run_id",
+     "pipeline_id",
+     "key_id",
      "step",
      "step_type",
      "kind",
@@ -1013,6 +1018,8 @@
     "keys": [
      "org_id",
      "run_id",
+     "pipeline_id",
+     "key_id",
      "step",
      "step_type",
      "kind",
@@ -1049,6 +1056,7 @@
      "no-handle",
      "runner-unavailable",
      "runner-down",
+     "runner-revoked",
      "resource-unavailable",
      "unknown-resource",
      "secret-not-listed",
@@ -1086,6 +1094,8 @@
     "keys": [
      "org_id",
      "run_id",
+     "pipeline_id",
+     "key_id",
      "step",
      "status",
      "reason",
@@ -1123,6 +1133,7 @@
      "no-handle",
      "runner-unavailable",
      "runner-down",
+     "runner-revoked",
      "resource-unavailable",
      "unknown-resource",
      "secret-not-listed",
@@ -1172,6 +1183,8 @@
     "keys": [
      "org_id",
      "run_id",
+     "pipeline_id",
+     "key_id",
      "reason"
     ],
     "reasons": [
@@ -1556,6 +1569,15 @@
      "runner",
      "env",
      "cloud"
+    ]
+   },
+   "reconnected": {
+    "levels": [
+     "INFO"
+    ],
+    "keys": [
+     "runner",
+     "elapsed_ms"
     ]
    },
    "poll done": {

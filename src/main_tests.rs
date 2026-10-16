@@ -25,8 +25,14 @@ fn config_body(cloud_url: &str) -> String {
 
 #[tokio::test]
 async fn run_config_env_unset() {
-    let code = run(CancellationToken::new(), |_: &str| None, &mut Vec::new()).await;
+    let mut err = Vec::new();
+    let code = run(CancellationToken::new(), |_: &str| None, &mut err).await;
     assert_eq!(code, 2);
+    let text = String::from_utf8(err).unwrap();
+    assert!(
+        text.contains("ZRIZ_RUNNER_CONFIG is not set") && text.contains("set it to the path"),
+        "{text}"
+    );
 }
 
 #[tokio::test]
@@ -36,8 +42,14 @@ async fn run_config_file_fails_to_load() {
     let missing = dir.path().join("missing.json");
     env.insert("ZRIZ_RUNNER_CONFIG", missing.to_string_lossy().to_string());
 
-    let code = run(CancellationToken::new(), lookup_map(env), &mut Vec::new()).await;
+    let mut err = Vec::new();
+    let code = run(CancellationToken::new(), lookup_map(env), &mut err).await;
     assert_eq!(code, 2);
+    let text = String::from_utf8(err).unwrap();
+    assert!(
+        text.contains("missing.json") && text.contains("fix this field"),
+        "{text}"
+    );
 }
 
 #[tokio::test]
@@ -49,12 +61,21 @@ async fn run_key_env_unset() {
     env.insert("ZRIZ_RUNNER_CONFIG", path_str);
     // ZRIZ_KEY, named by the config's key-env, is deliberately absent.
 
-    let code = run(CancellationToken::new(), lookup_map(env), &mut Vec::new()).await;
+    let mut err = Vec::new();
+    let code = run(CancellationToken::new(), lookup_map(env), &mut err).await;
     assert_eq!(code, 2);
+    let text = String::from_utf8(err).unwrap();
+    assert!(
+        text.contains("ZRIZ_KEY")
+            && text.contains("runner.env")
+            && text.contains("zz runners init"),
+        "{text}"
+    );
+    assert_eq!(text.lines().count(), 1, "one line");
 }
 
 #[tokio::test]
-async fn run_unauthorized_waits_idle_until_cancelled() {
+async fn run_unauthorized_exits_with_the_refused_code() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .respond_with(ResponseTemplate::new(401))
@@ -82,17 +103,12 @@ async fn run_unauthorized_waits_idle_until_cancelled() {
         server.received_requests().await.map_or(0, |r| r.len()),
         seen
     );
-    assert!(
-        tokio::time::timeout(pause, &mut done).await.is_err(),
-        "the runner must wait, not exit"
-    );
-
-    cancel.cancel();
-    let code = tokio::time::timeout(std::time::Duration::from_secs(2), done)
+    let code = tokio::time::timeout(std::time::Duration::from_secs(2), &mut done)
         .await
-        .expect("run did not return in time")
+        .expect("a refused key must end the runner")
         .expect("join");
-    assert_eq!(code, 0, "a stop after a refusal is a normal stop");
+    assert_eq!(code, EXIT_REFUSED, "a refused key exits 3, not restarted");
+    drop(cancel);
 }
 
 /// A `lookup` backed by a map a test can mutate while `run` is executing,
@@ -225,4 +241,25 @@ async fn run_clean_shutdown_exits_zero() {
         .expect("run did not return in time")
         .expect("join");
     assert_eq!(code, 0);
+}
+
+#[test]
+fn the_refused_line_names_cause_and_fix_and_never_a_key() {
+    use exchange::ExchangeError::{Forbidden, Unauthorized};
+    for (e, cause) in [
+        (Unauthorized("key-revoked"), "the key was revoked"),
+        (Unauthorized("key-unknown"), "does not know the key"),
+        (Unauthorized("key-expired"), "expired"),
+        (Unauthorized(""), "wrong or was revoked"),
+        (Forbidden("no-right"), "no right"),
+        (Forbidden(""), "no right"),
+    ] {
+        let line = refused_line(&e, "uat");
+        assert!(line.contains(cause), "{line}");
+        assert!(line.contains("zz runners init --env uat"), "{line}");
+        assert!(line.contains("systemctl restart zriz-runner"), "{line}");
+        assert!(line.contains("exit 3"), "{line}");
+        assert!(!line.contains('\n'), "{line}");
+    }
+    assert!(refused_line(&Unauthorized(""), "").contains("--env <env>"));
 }

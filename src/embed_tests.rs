@@ -68,7 +68,7 @@ async fn a_refused_key_ends_the_task_and_stop_reports_it() {
     })
     .await
     .expect("task ends");
-    assert_eq!(stopped, Err(exchange::ExchangeError::Unauthorized));
+    assert_eq!(stopped, Err(exchange::ExchangeError::Unauthorized("")));
 }
 
 #[tokio::test]
@@ -90,7 +90,7 @@ async fn a_403_ends_the_task_with_forbidden() {
     })
     .await
     .expect("task ends");
-    assert_eq!(stopped, Err(exchange::ExchangeError::Forbidden));
+    assert_eq!(stopped, Err(exchange::ExchangeError::Forbidden("")));
 }
 
 #[tokio::test]

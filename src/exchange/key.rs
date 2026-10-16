@@ -38,9 +38,10 @@ impl Inner {
     /// going, same as any other exchange outcome.
     pub(super) async fn retry_unauthorized(
         self: &Arc<Self>,
+        code: &'static str,
     ) -> Option<std::result::Result<(), StepError>> {
         if !self.refresh_key() {
-            return Some(Err(StepError::Unauthorized));
+            return Some(Err(StepError::Unauthorized(code)));
         }
         if !self.apply_backoff(true).await {
             return None;

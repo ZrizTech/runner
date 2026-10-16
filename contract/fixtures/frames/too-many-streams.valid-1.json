@@ -1,5 +1,1 @@
-{
-  "error": "too-many-streams",
-  "scope": "org-1",
-  "retry-after-ms": 5000
-}
+{"code":"too-many-streams","message":"Too many open streams for org org-1.","scope":"org-1","retry-after-ms":5000}

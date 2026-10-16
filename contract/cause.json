@@ -45,10 +45,15 @@
   },
   "required": [
     "reason",
-    "side",
     "retry",
     "message",
     "details"
   ],
+  "if": {
+    "properties": {"reason": {"not": {"const": "canceled"}}}
+  },
+  "then": {
+    "required": ["side"]
+  },
   "additionalProperties": false
 }

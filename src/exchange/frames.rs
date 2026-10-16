@@ -10,10 +10,25 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
-/// One WARN `poll failed`; `error` is a short fixed word, never library text.
-fn poll_failed(status: Option<u16>, error: &str, t0: Instant) {
-    let us = crate::logfmt::micros(t0.elapsed());
-    tracing::warn!(target: "runner.exchange", http_status = status, error = error, elapsed_ms = us, "poll failed");
+/// The least time between two `poll failed` lines during one outage.
+const FAIL_LOG_EVERY: Duration = Duration::from_secs(60);
+
+/// The error `code` of a refused key (the cloud's `{code, message, next}` body),
+/// as a fixed word. An unknown code or a body that does not parse gives "".
+fn refusal_code(body: &[u8]) -> &'static str {
+    let code = serde_json::from_slice::<serde_json::Value>(body)
+        .ok()
+        .and_then(|v| v.get("code").and_then(|c| c.as_str().map(str::to_owned)));
+    [
+        "key-missing",
+        "key-unknown",
+        "key-revoked",
+        "key-expired",
+        "no-right",
+    ]
+    .into_iter()
+    .find(|k| Some(*k) == code.as_deref())
+    .unwrap_or("")
 }
 
 /// A poll that took this long or longer is worth an INFO line.
@@ -37,6 +52,40 @@ fn is_refusal(status: u16) -> bool {
 }
 
 impl Inner {
+    /// One WARN `poll failed`; `error` is a short fixed word, never library
+    /// text. The first failure of an outage logs at once; the next ones log at
+    /// most once a minute, so a long outage is not a wall of lines.
+    fn poll_failed(&self, status: Option<u16>, error: &str, t0: Instant) {
+        let now = Instant::now();
+        {
+            let mut o = self.outage.lock().unwrap_or_else(|e| e.into_inner());
+            if o.since.is_none() {
+                o.since = Some(now);
+            } else if o
+                .last_log
+                .is_some_and(|l| now.duration_since(l) < FAIL_LOG_EVERY)
+            {
+                return;
+            }
+            o.last_log = Some(now);
+        }
+        let us = crate::logfmt::micros(t0.elapsed());
+        tracing::warn!(target: "runner.exchange", http_status = status, error = error, elapsed_ms = us, "poll failed");
+    }
+
+    /// The cloud answered: when an outage was on, one INFO line says it is over.
+    fn poll_ok(&self) {
+        let since = {
+            let mut o = self.outage.lock().unwrap_or_else(|e| e.into_inner());
+            o.last_log = None;
+            o.since.take()
+        };
+        if let Some(t) = since {
+            let us = crate::logfmt::micros(t.elapsed());
+            tracing::info!(target: "runner.exchange", runner = %self.cfg.runner_id, elapsed_ms = us, "reconnected");
+        }
+    }
+
     /// Takes the frames of the next request from the queue (see
     /// `batch::first_batch`); the rest stays queued.
     fn drain_queue(&self) -> Vec<contract::Frame> {
@@ -232,7 +281,7 @@ impl Inner {
                 } else {
                     "request"
                 };
-                poll_failed(None, why, t0);
+                self.poll_failed(None, why, t0);
                 return Err(StepError::Failed);
             }
         };
@@ -261,22 +310,25 @@ impl Inner {
             reqwest::StatusCode::NO_CONTENT => {
                 self.forget_refusals(&sent);
                 poll_done(Some(204), sent.len(), 0, t0);
+                self.poll_ok();
                 self.connected();
                 Ok(())
             }
             reqwest::StatusCode::UNAUTHORIZED => {
+                let code = refusal_code(&resp.bytes().await.unwrap_or_default());
                 let n = sent.len();
                 self.push_front(sent);
                 poll_done(Some(401), n, 0, t0);
                 tracing::error!(target: "runner.exchange", http_status = 401u16, "poll refused");
-                Err(StepError::Unauthorized)
+                Err(StepError::Unauthorized(code))
             }
             reqwest::StatusCode::FORBIDDEN => {
+                let code = refusal_code(&resp.bytes().await.unwrap_or_default());
                 let n = sent.len();
                 self.push_front(sent);
                 poll_done(Some(403), n, 0, t0);
                 tracing::error!(target: "runner.exchange", http_status = 403u16, "poll refused");
-                Err(StepError::Forbidden)
+                Err(StepError::Forbidden(code))
             }
             other => {
                 let status = other.as_u16();
@@ -292,7 +344,7 @@ impl Inner {
                 } else {
                     self.push_front(sent);
                 }
-                poll_failed(Some(status), "bad-status", t0);
+                self.poll_failed(Some(status), "bad-status", t0);
                 Err(StepError::Failed)
             }
         }
@@ -335,12 +387,13 @@ impl Inner {
             Ok(b) => b,
             Err(_) => {
                 self.push_front(sent);
-                poll_failed(Some(200), "bad-body", t0);
+                self.poll_failed(Some(200), "bad-body", t0);
                 return Err(StepError::Failed);
             }
         };
         self.forget_refusals(&sent);
         poll_done(Some(200), sent.len(), body.frames.len(), t0);
+        self.poll_ok();
         self.connected();
         for run in body.ended_runs {
             self.run_ended(run);

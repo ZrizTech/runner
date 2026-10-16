@@ -19,9 +19,10 @@ Environment=ZRIZ_RUNNER_CONFIG=/etc/zriz-runner/config.json
 ExecStart=/usr/local/bin/zriz-runner
 Restart=on-failure
 RestartSec=10
-# Exit 2 at start = the config is bad. A restart would repeat it for ever.
-# A refused key (401) or no right (403): the runner waits and makes no requests; a stop then exits 0 (not failed).
-RestartPreventExitStatus=2
+# Exit 2 = the config is bad. Exit 3 = the cloud refused the key (401 or 403).
+# A restart would repeat both for ever, so systemd does not restart on 2 or 3.
+# The journal then holds one line with the cause and the fix (a new key: zz runners init --env <env>).
+RestartPreventExitStatus=2 3
 
 NoNewPrivileges=yes
 ProtectSystem=strict

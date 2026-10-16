@@ -1,5 +1,1 @@
-{
-  "error": "too-many-runs",
-  "scope": "org-1",
-  "retry-after-ms": 2000
-}
+{"code":"too-many-runs","message":"Too many runs at once for org org-1. Retry in 2 s.","scope":"org-1","retry-after-ms":2000}

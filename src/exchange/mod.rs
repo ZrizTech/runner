@@ -185,11 +185,11 @@ impl Config {
 #[derive(Debug, thiserror::Error, PartialEq, Eq, Clone, Copy)]
 pub enum ExchangeError {
     #[error("exchange: unauthorized")]
-    Unauthorized,
+    Unauthorized(&'static str),
     /// The cloud answered 403 (a key without the right, for example a viewer
     /// key). The runner fails closed and does not retry.
     #[error("exchange: forbidden")]
-    Forbidden,
+    Forbidden(&'static str),
     /// The exchange task panicked (only seen by an embedded runner).
     #[error("exchange: internal error")]
     Panicked,
@@ -199,10 +199,10 @@ pub enum ExchangeError {
 /// exposed: [`run`] turns it into backoff behavior or an [`ExchangeError`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum StepError {
-    /// The cloud answered 401.
-    Unauthorized,
-    /// The cloud answered 403.
-    Forbidden,
+    /// The cloud answered 401. Holds the `code` of its error body ("" if none).
+    Unauthorized(&'static str),
+    /// The cloud answered 403, with the `code` of its error body ("" if none).
+    Forbidden(&'static str),
     /// A transport error, a non-2xx/401/204 status, or an undecodable body.
     Failed,
     /// `cancel` fired while the request was in flight.
@@ -277,6 +277,15 @@ struct Inner {
     last_sent: Mutex<Option<contract::Health>>,
     /// When the last "health changed" request was started.
     health_trigger: Mutex<Option<std::time::Instant>>,
+    /// The outage in progress (failed polls since the last answer).
+    outage: Mutex<Outage>,
+}
+
+/// When the failed polls began and when the last one was logged.
+#[derive(Default)]
+struct Outage {
+    since: Option<std::time::Instant>,
+    last_log: Option<std::time::Instant>,
 }
 
 impl Inner {
@@ -304,6 +313,7 @@ impl Inner {
             refusals: Mutex::new(batch::Refusals::default()),
             last_sent: Mutex::new(None),
             health_trigger: Mutex::new(None),
+            outage: Mutex::new(Outage::default()),
             cfg,
             cancel,
         }
@@ -370,8 +380,7 @@ fn next_backoff(current: Duration, limit: Duration) -> Duration {
 /// A 401 gets one retry: `run` tries `cfg.key_source` and, if that yields
 /// a fresh key, waits out one backoff interval and retries with it. A
 /// second consecutive 401 — or no `key_source` to retry with — fails
-/// closed with [`ExchangeError::Unauthorized`]. The bin then waits until it is
-/// stopped, and exits 0.
+/// closed with [`ExchangeError::Unauthorized`]. The bin then logs one line and exits 3.
 pub async fn run(
     mut cfg: Config,
     cancel: CancellationToken,
@@ -386,15 +395,15 @@ pub async fn run(
         }
 
         let mut result = inner.exchange().await;
-        if result == Err(StepError::Forbidden) {
-            return Err(ExchangeError::Forbidden);
+        if let Err(StepError::Forbidden(code)) = result {
+            return Err(ExchangeError::Forbidden(code));
         }
-        if result == Err(StepError::Unauthorized) {
-            match inner.retry_unauthorized().await {
+        if let Err(StepError::Unauthorized(first)) = result {
+            match inner.retry_unauthorized(first).await {
                 None => return Ok(()),
                 Some(retry_result) => {
-                    if retry_result == Err(StepError::Unauthorized) {
-                        return Err(ExchangeError::Unauthorized);
+                    if let Err(StepError::Unauthorized(code)) = retry_result {
+                        return Err(ExchangeError::Unauthorized(code));
                     }
                     result = retry_result;
                 }
