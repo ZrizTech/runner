@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased: body limits
+- exchange: `BATCH_CAP` is 480 KiB (was 1.5 MiB; under 512 KiB for the cloud buffer). A reply frame over 2 MiB minus 64 KiB is sent as a small `runner-error` frame (`where`: `response-encoding`), never dropped. The cloud limit is 2 MiB (`CLOUD_BODY_LIMIT` in `src/exchange/batch.rs`).
+
 ## 0.4.0 (2026-10-16): group-commit sender
 - exchange: one result request in flight at a time; results that finish meanwhile go together in the next one (no wire change). Idle: a result goes at once.
 - exchange: the sender frees its gate under the queue lock (a result queued as the loop ends is no longer left); the main poll never carries results (`reject` starts the sender); the gate is freed if the sender task panics; `contract/log/lists.json` synced (levels, `write skipped`).

@@ -113,7 +113,7 @@ async fn immediate_triggers_do_not_burn_the_three_tries() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn two_one_mib_frames_go_in_two_requests() {
+async fn two_one_mib_frames_go_alone() {
     let cloud = ImmediateCloud::new(|_, _| (204, None)).await;
     let mut rx = cloud.take_receiver();
     let i = inner(&cloud.base_url, Duration::from_millis(1));
@@ -139,9 +139,10 @@ async fn two_one_mib_frames_go_in_two_requests() {
             );
         }
     }
-    // Two requests; the two can reach the cloud in either order.
+    // Each 1 MiB frame is over the 480 KiB cap, so it goes alone, and a small
+    // frame cannot join it. Three requests, in any order.
     sizes.sort();
-    assert_eq!(sizes, ["big1", "big2,small"], "{sizes:?}");
+    assert_eq!(sizes, ["big1", "big2", "small"], "{sizes:?}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
