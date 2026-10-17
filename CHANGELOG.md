@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.2 (2026-10-17): a result never waits behind a health request
+- A changed health with no result queued sent one request with no frame through the sender gate. The cloud holds such a request like the main poll (up to 30 s), and every result that finished meanwhile waited for it: browser steps hit the 20 s op deadline on ymy. Now that request goes outside the gate; with results queued, the sender carries the health. Test `a_result_does_not_wait_behind_a_held_health_request`.
+
 ## 0.5.1 (2026-10-16): refused key, key-env only, reply size
 - 0.5.0 was tagged but not released (CI red: a test race in `sender_tests` and the worker key order without `key_id`). Both fixed.
 - Breaking: the config reads `key-env` only (`token-env` is gone).

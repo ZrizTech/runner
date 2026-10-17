@@ -418,9 +418,9 @@ impl Inner {
 
     /// Starts one exchange when the health now differs from the health of the
     /// request sent last, and none was started for it less than `health_every`
-    /// ago. The extra request runs next to the parked poll of the loop, as the
-    /// one an op completion sends: the cloud answers it at once, and takes the
-    /// health from it.
+    /// ago. With results queued, the sender carries the health. Else one plain
+    /// request goes next to the parked poll, outside the sender gate: the cloud
+    /// may hold it, and results must not wait behind it.
     pub(super) fn check_health(self: &Arc<Self>, now: Instant) {
         let current = health::health(&self.boot_id, &self.peek_snapshot());
         let changed = {
@@ -440,7 +440,18 @@ impl Inner {
             }
             *t = Some(now);
         }
-        self.trigger_exchange();
+        if self.queue_pending() {
+            // Results wait: the sender carries the new health with them.
+            self.trigger_exchange();
+            return;
+        }
+        // No result waits: one request outside the sender gate. It carries no
+        // frame, so the cloud may hold it like the main poll (up to 30 s); a
+        // result that finishes meanwhile must not wait behind it.
+        let inner = Arc::clone(self);
+        tokio::spawn(async move {
+            let _ = inner.exchange_with(false).await;
+        });
     }
 
     /// Looks for a changed health every `health_every` until cancelled; the

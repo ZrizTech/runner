@@ -187,3 +187,51 @@ async fn a_panic_in_the_sender_frees_the_gate() {
         tokio::time::sleep(Duration::from_millis(5)).await;
     }
 }
+
+/// A health request carries no result, so the cloud holds it like the main
+/// poll (up to 30 s). A result that finishes meanwhile must not wait for it.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_result_does_not_wait_behind_a_held_health_request() {
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    let handler = Arc::new(
+        move |_n: usize, _h: HashMap<String, String>, body: Vec<u8>| {
+            let tx = tx.clone();
+            Box::pin(async move {
+                let req: contract::ExchangeRequest = serde_json::from_slice(&body).unwrap();
+                if req.frames.is_empty() {
+                    let _ = tx.send("empty".into());
+                    tokio::time::sleep(Duration::from_secs(3)).await;
+                } else {
+                    for f in &req.frames {
+                        let _ = tx.send(f.id.clone());
+                    }
+                }
+                RawResponse {
+                    status: 204,
+                    body: None,
+                }
+            }) as futures::future::BoxFuture<'static, RawResponse>
+        },
+    );
+    let base_url = start_raw_server(handler).await;
+    let i = sender_inner(&base_url);
+    // The health sent last differs from now: one health request goes out.
+    let mut last = health::health(&i.boot_id, &i.peek_snapshot());
+    last.state = "busy".into();
+    *i.last_sent.lock().unwrap() = Some(last);
+    i.check_health(std::time::Instant::now());
+    let first = tokio::time::timeout(Duration::from_secs(1), rx.recv()).await;
+    assert_eq!(
+        first.ok().flatten().as_deref(),
+        Some("empty"),
+        "no health request"
+    );
+    i.push_back(result_frame("r-1"));
+    i.trigger_exchange();
+    let got = tokio::time::timeout(Duration::from_secs(1), rx.recv()).await;
+    assert_eq!(
+        got.ok().flatten().as_deref(),
+        Some("r-1"),
+        "the result waited"
+    );
+}
