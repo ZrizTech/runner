@@ -1,0 +1,11 @@
+{
+  "description": "inline poll object",
+  "steps": [
+    {
+      "poll": {"resource": "target", "method": "GET", "path": "/jobs/${ctx.id}"},
+      "until": ["status", "==", 200],
+      "interval-ms": 100,
+      "max-attempts": 5
+    }
+  ]
+}
