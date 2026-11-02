@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Contract copy: `pipeline.json` lets `poll` take an inline call. No runner code change.
+
 ## 0.5.2 (2026-10-17): a result never waits behind a health request
 - A changed health with no result queued sent one request with no frame through the sender gate. The cloud holds such a request like the main poll (up to 30 s), and every result that finished meanwhile waited for it: browser steps hit the 20 s op deadline on ymy. Now that request goes outside the gate; with results queued, the sender carries the health. Test `a_result_does_not_wait_behind_a_held_health_request`.
 
