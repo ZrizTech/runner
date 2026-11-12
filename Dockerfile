@@ -2,7 +2,7 @@
 # zriz cloud sends, holds every secret. Never imports from the cloud.
 # Base images are pinned by digest (multi-arch index). Update them with a new patch release.
 # The build stage runs on the build host and cross-compiles: no QEMU, no slow arm64 compile.
-FROM --platform=$BUILDPLATFORM rust:1-bookworm@sha256:114c7a4425406451c2866b6aafe69fe29b1b298832db1277d411ac73c82d04d6 AS build
+FROM --platform=$BUILDPLATFORM rust:1-bookworm@sha256:e6f2cff35d0f309acf8433b4f05878ed77092602c5065cc81801177da0bb3a9c AS build
 # cargo-auditable puts the crate list into the binary, so the SBOM of the final image lists the crates.
 # (BUILDKIT_SBOM_SCAN_STAGE did not list them: the scanner skips Cargo.lock.)
 RUN cargo install cargo-auditable --version 0.7.4 --locked
