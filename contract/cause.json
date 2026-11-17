@@ -33,9 +33,7 @@
       "minimum": 0
     },
     "step-name": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 80
+      "$ref": "https://zriz.io/contract/pipeline.json#/$defs/step-name"
     },
     "action": {
       "type": "string"

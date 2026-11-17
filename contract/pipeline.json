@@ -581,8 +581,8 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 80,
-      "pattern": "^[^\\r\\n]*$",
-      "description": "A short label of the step for people. Display only; not an id, not unique."
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\u2028\\u2029]*[^ \\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u3000\\u0000-\\u001f\\u007f-\\u009f\\u2028\\u2029][^\\u0000-\\u001f\\u007f-\\u009f\\u2028\\u2029]*$",
+      "description": "A short label of the step for people. Display only; not an id, not unique. One line: no control character (U+0000-U+001F, so no tab, no line feed, no carriage return; U+007F-U+009F; U+2028; U+2029), and at least one character that is not a space (space, U+00A0, U+1680, U+2000-U+200A, U+202F, U+205F, U+3000)."
     }
   },
   "type": "object",
