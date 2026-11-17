@@ -146,8 +146,7 @@
       }
     },
     "pipeline-id": {
-      "type": "string",
-      "pattern": "^[A-Za-z0-9_-]+$"
+      "$ref": "https://zriz.io/contract/pipeline-id.json"
     },
     "pipeline": {
       "$ref": "pipeline.json"

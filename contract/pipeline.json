@@ -105,6 +105,9 @@
         },
         "description": {
           "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/step-name"
         }
       },
       "required": [
@@ -173,6 +176,9 @@
         },
         "description": {
           "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/step-name"
         },
         "capture": {
           "$ref": "#/$defs/capture"
@@ -261,6 +267,9 @@
         "description": {
           "type": "string"
         },
+        "name": {
+          "$ref": "#/$defs/step-name"
+        },
         "capture": {
           "$ref": "#/$defs/capture"
         },
@@ -305,6 +314,9 @@
         },
         "description": {
           "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/step-name"
         }
       },
       "required": [
@@ -322,6 +334,9 @@
         },
         "description": {
           "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/step-name"
         }
       },
       "required": [
@@ -337,6 +352,9 @@
         },
         "description": {
           "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/step-name"
         }
       },
       "required": [
@@ -356,6 +374,9 @@
         },
         "description": {
           "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/step-name"
         }
       },
       "required": [
@@ -371,6 +392,9 @@
         },
         "description": {
           "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/step-name"
         }
       },
       "required": [
@@ -386,6 +410,9 @@
         },
         "description": {
           "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/step-name"
         }
       },
       "required": [
@@ -549,6 +576,13 @@
         }
       ],
       "additionalProperties": false
+    },
+    "step-name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[^\\r\\n]*$",
+      "description": "A short label of the step for people. Display only; not an id, not unique."
     }
   },
   "type": "object",

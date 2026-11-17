@@ -1,7 +1,7 @@
 {
   "env": "local",
   "org": "my-org_1",
-  "pipeline-id": "02-auth-flow",
+  "pipeline-id": "260922-1046-auth-flow",
   "pipeline": {
     "steps": [
       {

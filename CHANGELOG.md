@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Contract copy: step-name, path pipeline id (`pipeline-id.json` registered in `src/contract/schema.rs`). No runner code change.
 - Contract copy: `pipeline.json` lets `poll` take an inline call. No runner code change.
 
 ## 0.5.2 (2026-10-17): a result never waits behind a health request

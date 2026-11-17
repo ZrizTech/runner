@@ -1,0 +1,11 @@
+{
+  "status": "fail",
+  "step-results": [
+    {"step-type": "call", "status": "fail", "step-index": 0, "name": "Read the profile"},
+    {"step-type": "log", "status": "pass", "step-index": 1}
+  ],
+  "errors": [
+    {"step-type": "call", "status": "fail", "step-index": 0, "name": "Read the profile"}
+  ],
+  "final-context": {}
+}

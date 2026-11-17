@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zriz.io/contract/run-start-response.json",
+  "description": "The reply of POST /api/runs: 200 when the Engine accepted the run in time, 202 when the wait ended first. Both have this body. The run id is made before the Engine gets the start. With a 202 the run may start later, or the Engine may refuse it (for example over the run cap) and then the run never exists. GET /api/runs/{id} answers 404 until the run exists. Do not send the start again on a 202.",
+  "type": "object",
+  "properties": {
+    "run-id": {"type": "string", "minLength": 1}
+  },
+  "required": ["run-id"],
+  "additionalProperties": false
+}

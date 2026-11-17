@@ -79,6 +79,9 @@
             ]
           },
           "additionalProperties": false
+        },
+        "name": {
+          "$ref": "https://zriz.io/contract/pipeline.json#/$defs/step-name"
         }
       },
       "required": [

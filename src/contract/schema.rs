@@ -46,6 +46,10 @@ pub const SCHEMAS: &[(&str, &str)] = &[
     ),
     ("op", include_str!("../../contract/op.json")),
     ("pipeline", include_str!("../../contract/pipeline.json")),
+    (
+        "pipeline-id",
+        include_str!("../../contract/pipeline-id.json"),
+    ),
     ("project", include_str!("../../contract/project.json")),
     ("redact", include_str!("../../contract/redact.json")),
     ("resource", include_str!("../../contract/resource.json")),

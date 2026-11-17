@@ -1,0 +1,15 @@
+{
+  "description": "step names",
+  "steps": [
+    {"name": "Make the user", "call": "api/create-user"},
+    {"name": "Read the profile", "poll": "api/get-profile", "until": ["status", "==", 200], "interval-ms": 100, "max-attempts": 3},
+    {"name": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "set": {"n": 1}},
+    {"name": "Pause", "sleep": 10},
+    {"name": "Each user", "for": {"each": "u", "in": "${ctx.users}"}, "steps": [{"name": "Inner", "call": "api/get-profile"}]},
+    {"name": "Say it", "log": "hello"},
+    {"name": "Check it", "assert": [["ctx.n", "==", 1]]},
+    {"name": "Not now", "skip": "later"},
+    {"name": "Stop", "fail": "stop"},
+    {"call": "api/create-user"}
+  ]
+}

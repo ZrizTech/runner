@@ -32,6 +32,11 @@
       "type": "integer",
       "minimum": 0
     },
+    "step-name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
     "action": {
       "type": "string"
     },

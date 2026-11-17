@@ -1,0 +1,5 @@
+{
+  "steps": [
+    {"name": 42, "call": "api/create-user"}
+  ]
+}
