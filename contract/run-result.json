@@ -87,11 +87,26 @@
           "type": "integer",
           "minimum": 1
         },
-        "step-index": false
+        "step-index": false,
+        "iterations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "step-results": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/step-result"
+                }
+              }
+            }
+          }
+        }
       },
       "required": [
         "step-type",
-        "status"
+        "status",
+        "step"
       ],
       "additionalProperties": true
     }

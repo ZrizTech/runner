@@ -1,0 +1,21 @@
+{
+  "status": "fail",
+  "step-results": [
+    {
+      "step-type": "for",
+      "status": "fail",
+      "step": 1,
+      "iterations": [
+        {
+          "item": "A-1",
+          "status": "fail",
+          "step-results": [
+            {"step-type": "call", "status": "fail"}
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "final-context": {}
+}

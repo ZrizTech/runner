@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Contract copy 547dadf: every step message is `{where}: <what>`; `for-not-list` detail `in-kind`; `until` as data; slot `{check}`; `step` required in nested `iterations[].step-results`. No runner code change.
 - Tests: the error frame test says `stage` where it said `where word` (review).
 - Contract copy: `step` from 1 in step results, `errors[]` and `expected-from` of a run result; `step-index` is refused there. The op and op frames are unchanged. No runner code change.
 - Failure where: contract copy (cause `where` list, step from 1). The detail `where` of `runner-error` is now `stage` (contract rename). The op wire is unchanged.
