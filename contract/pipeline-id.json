@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://zriz.io/contract/pipeline-id.json",
-  "description": "The pipeline id: the path of the pipeline file under .zriz/pipelines, without .json. Folders are aims.",
+  "description": "The pipeline id: the path of the pipeline file under .zriz/pipelines, without .json. Folders are collections.",
   "type": "string",
   "maxLength": 255,
   "pattern": "^[A-Za-z0-9_][A-Za-z0-9_-]{0,63}(/[A-Za-z0-9_][A-Za-z0-9_-]{0,63})*$"
