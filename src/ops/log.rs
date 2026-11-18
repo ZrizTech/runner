@@ -107,7 +107,11 @@ mod tests {
                 now,
                 now,
                 &None,
-                &Some(ErrorFrame::new("o1", "arg-not-allowed", serde_json::json!({}))),
+                &Some(ErrorFrame::new(
+                    "o1",
+                    "arg-not-allowed",
+                    serde_json::json!({}),
+                )),
             )
         });
         let logs = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
