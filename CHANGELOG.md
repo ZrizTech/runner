@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Contract copy: cause reason `for-not-list` says `"in" must be a list` and has the detail `kind`. No runner code change.
 - Contract copy: folders are collections (was "aims"); cause reason `for-not-collection` is now `for-not-list`. No runner code change.
 - Contract copy: step-name, path pipeline id (`pipeline-id.json` registered in `src/contract/schema.rs`). No runner code change.
 - Contract copy: `pipeline.json` lets `poll` take an inline call. No runner code change.
