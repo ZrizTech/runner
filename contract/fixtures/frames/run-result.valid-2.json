@@ -4,14 +4,14 @@
     {
       "step-type": "call",
       "status": "fail",
-      "step-index": 0
+      "step": 1
     }
   ],
   "errors": [
     {
       "step-type": "call",
       "status": "fail",
-      "step-index": 0
+      "step": 1
     }
   ],
   "final-context": {},

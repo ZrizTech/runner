@@ -4,7 +4,7 @@
     {
       "step-type": "call",
       "status": "pass",
-      "step-index": 10,
+      "step": 11,
       "action": "shop-web/signup-post",
       "timing": {
         "started-at": "2026-10-09T10:15:02.120Z",

@@ -82,7 +82,12 @@
         },
         "name": {
           "$ref": "https://zriz.io/contract/pipeline.json#/$defs/step-name"
-        }
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "step-index": false
       },
       "required": [
         "step-type",

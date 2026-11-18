@@ -4,12 +4,12 @@
     {
       "step-type": "set",
       "status": "pass",
-      "step-index": 0
+      "step": 1
     },
     {
       "step-type": "call",
       "status": "pass",
-      "step-index": 1
+      "step": 2
     }
   ],
   "errors": [],

@@ -1,0 +1,8 @@
+{
+  "status": "fail",
+  "step-results": [
+    {"step-type": "call", "status": "fail", "step": 0}
+  ],
+  "errors": [],
+  "final-context": {}
+}
