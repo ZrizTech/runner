@@ -1,6 +1,7 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 (2026-11-18)
+Needs the cloud of the same release: the error frame detail `stage` (was `where`), cause `where` list, steps from 1.
 - Contract copy 3264365: plain wording of the patterns, rule `no-levels`, `step` optional in `errors[]`, shared fixtures (copy only).
 - Logs count steps from 1 (`step`), as the cloud logs do. The wire `step-index` is unchanged.
 - Contract copy 547dadf: every step message is `{where}: <what>`; `for-not-list` detail `in-kind`; `until` as data; slot `{check}`; `step` required in nested `iterations[].step-results`. No runner code change.
