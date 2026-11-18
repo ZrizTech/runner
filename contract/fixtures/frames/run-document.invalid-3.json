@@ -12,7 +12,7 @@
     "cloud-ms": 620,
     "long-waits": 1,
     "longest-wait": {
-      "step-index": 10,
+      "step": 11,
       "wait-ms": 25300,
       "wait-reason": "service-stall"
     }
@@ -26,9 +26,13 @@
     "reason": "service-stall",
     "side": "service",
     "retry": "later",
-    "message": "step 10 (shop-web/signup-post) waited 25300 ms for the runner shop-uat: the runner was connected and not busy, and the zriz service did not send the op, until the pipeline limit of 30000 ms ended",
-    "step-index": 10,
-    "action": "shop-web/signup-post",
+    "message": "step 11 (shop-web/signup-post) waited 25300 ms for the runner shop-uat: the runner was connected and not busy, and the zriz service did not send the op, until the pipeline limit of 30000 ms ended",
+    "where": [
+      {
+        "step": 11,
+        "action": "shop-web/signup-post"
+      }
+    ],
     "details": {
       "wait-ms": 25300,
       "timeout-ms": 30000,

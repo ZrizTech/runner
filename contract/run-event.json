@@ -8,7 +8,7 @@
     "run-id": {"type": "string"},
     "trace-id": {"type": "string"},
     "at": {"type": "integer"},
-    "step-index": {"type": "integer", "minimum": 0},
+    "step": {"type": "integer", "minimum": 1},
     "step-type": {
       "enum": ["set", "call", "poll", "for", "sleep", "log", "assert", "skip", "fail"]
     },
@@ -23,7 +23,7 @@
       "then": {
         "not": {
           "anyOf": [
-            {"required": ["step-index"]},
+            {"required": ["step"]},
             {"required": ["step-type"]},
             {"required": ["status"]},
             {"required": ["cause"]}
@@ -34,7 +34,7 @@
     {
       "if": {"properties": {"kind": {"const": "step-done"}}, "required": ["kind"]},
       "then": {
-        "required": ["step-index", "step-type", "status"],
+        "required": ["step", "step-type", "status"],
         "not": {"required": ["cause"]}
       }
     },
@@ -44,7 +44,7 @@
         "required": ["status"],
         "not": {
           "anyOf": [
-            {"required": ["step-index"]},
+            {"required": ["step"]},
             {"required": ["step-type"]}
           ]
         },
@@ -58,7 +58,7 @@
       "then": {
         "not": {
           "anyOf": [
-            {"required": ["step-index"]},
+            {"required": ["step"]},
             {"required": ["step-type"]},
             {"required": ["status"]},
             {"required": ["cause"]}

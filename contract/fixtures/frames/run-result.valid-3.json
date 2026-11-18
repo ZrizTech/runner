@@ -24,8 +24,12 @@
     "reason": "explicit-fail",
     "side": "target",
     "retry": "no",
-    "message": "step 3 is a fail step of the pipeline",
-    "step-index": 3,
+    "message": "step 4 is a fail step of the pipeline",
+    "where": [
+      {
+        "step": 4
+      }
+    ],
     "details": {}
   }
 }

@@ -348,7 +348,7 @@ async fn worker_reasons_are_mapped() {
             "worker-mismatch",
             json!({"worker-reason": "bad-request"}),
         ),
-        ("brand-new", "runner-error", json!({"where": "worker-word"})),
+        ("brand-new", "runner-error", json!({"stage": "worker-word"})),
     ];
     for (worker_reason, want, details) in table {
         *reply.lock().expect("lock") = json!({"ok": false, "reason": worker_reason,

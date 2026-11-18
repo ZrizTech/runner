@@ -35,7 +35,7 @@ pub(super) fn handled(
     let (busy, cap) = (num("busy"), num("limit"));
     let place = err
         .as_ref()
-        .and_then(|e| e.details.get("where")?.as_str().map(str::to_string));
+        .and_then(|e| e.details.get("stage")?.as_str().map(str::to_string));
     match (result, err) {
         (Some(r), _) => tracing::info!(
             target: "runner.ops", run_id = %op.run_id, step = step, op_id = %op.op_id,

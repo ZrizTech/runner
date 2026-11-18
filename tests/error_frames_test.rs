@@ -87,9 +87,9 @@ fn every_error_frame_in_src_has_a_true_reason_and_its_keys() {
             )
         })
         .collect();
-    let wheres: Vec<String> = reasons["rules"]["where"]
+    let wheres: Vec<String> = reasons["rules"]["stage"]
         .as_array()
-        .expect("where")
+        .expect("stage")
         .iter()
         .map(|v| v.as_str().unwrap().to_string())
         .collect();
@@ -120,7 +120,7 @@ fn every_error_frame_in_src_has_a_true_reason_and_its_keys() {
                 let w = lits.first().expect("a where word");
                 assert!(
                     wheres.contains(w),
-                    "where word {w} is not in rules.where: {here}"
+                    "where word {w} is not in rules.stage: {here}"
                 );
                 continue;
             }
@@ -135,7 +135,7 @@ fn every_error_frame_in_src_has_a_true_reason_and_its_keys() {
                         assert!(row.contains(k), "key {k} is not in the row of {r}: {here}");
                     }
                     if r == "runner-error" {
-                        let w = lits.iter().skip_while(|l| *l != "where").nth(1);
+                        let w = lits.iter().skip_while(|l| *l != "stage").nth(1);
                         assert!(w.is_none_or(|w| wheres.contains(w)), "{here}");
                     }
                 }

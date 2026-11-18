@@ -1,0 +1,28 @@
+{
+  "reason": "assertion",
+  "side": "target",
+  "retry": "no",
+  "message": "step 3 \"Check each SKU\", item 2 of 5, step 1 \"Get stock\" (api/get-stock): body.count == 3 failed: body.count is 2",
+  "where": [
+    {
+      "step": 3,
+      "name": "Check each SKU",
+      "item": 2,
+      "of": 5
+    },
+    {
+      "step": 1,
+      "name": "Get stock",
+      "action": "api/get-stock"
+    }
+  ],
+  "details": {
+    "expression": [
+      "body.count",
+      "==",
+      3
+    ],
+    "actual": 2,
+    "expected": 3
+  }
+}

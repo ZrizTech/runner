@@ -213,7 +213,7 @@ async fn panicking_handler_replies_runner_error() {
     let op_err: contract::Error = serde_json::from_value(f.d).expect("decode error");
     assert_eq!(op_err.op_id, "op-1");
     assert_eq!(op_err.reason, "runner-error");
-    assert_eq!(op_err.details["where"], "op-handler");
+    assert_eq!(op_err.details["stage"], "op-handler");
 
     cancel.cancel();
     assert_eq!(done.await.expect("join"), Ok(()));

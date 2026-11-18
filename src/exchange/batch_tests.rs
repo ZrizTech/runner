@@ -353,6 +353,6 @@ async fn an_oversize_result_counts_as_a_runner_error_for_health() {
     .expect("request with the reply");
     assert_eq!(req.frames.len(), 1);
     assert_eq!(req.frames[0].t, "error");
-    assert_eq!(req.frames[0].d["details"]["where"], "response-encoding");
+    assert_eq!(req.frames[0].d["details"]["stage"], "response-encoding");
     assert_eq!(req.health.state, "degraded");
 }

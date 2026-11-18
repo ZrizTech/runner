@@ -156,9 +156,9 @@
         "longest-wait": {
           "type": "object",
           "properties": {
-            "step-index": {
+            "step": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 1
             },
             "wait-ms": {
               "type": "integer",
@@ -173,7 +173,7 @@
             }
           },
           "required": [
-            "step-index",
+            "step",
             "wait-ms",
             "wait-reason"
           ],

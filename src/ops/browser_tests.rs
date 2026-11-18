@@ -437,7 +437,7 @@ async fn no_worker_answer_by_the_deadline_is_worker_deadline_not_timeout() {
     assert!(r.is_none());
     let e = e.expect("error");
     assert_eq!(e.reason, "runner-error");
-    assert_eq!(e.details["where"], "worker-deadline");
+    assert_eq!(e.details["stage"], "worker-deadline");
 }
 
 #[test]

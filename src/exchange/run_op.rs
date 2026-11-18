@@ -67,7 +67,7 @@ impl Inner {
                     Some(ErrorFrame::new(
                         &op_id,
                         "runner-error",
-                        json!({"where": "op-handler"}),
+                        json!({"stage": "op-handler"}),
                     )),
                 ),
             };

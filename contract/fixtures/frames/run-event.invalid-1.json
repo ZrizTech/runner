@@ -4,6 +4,6 @@
   "run-id": "run-1",
   "trace-id": "trace-1",
   "at": 1730000002000,
-  "step-index": 0,
+  "step": 1,
   "step-type": "call"
 }

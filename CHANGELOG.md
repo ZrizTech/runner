@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Failure where: contract copy (cause `where` list, step from 1). The detail `where` of `runner-error` is now `stage` (contract rename). The op wire is unchanged.
 - Contract copy: cause reason `for-not-list` says `"in" must be a list` and has the detail `kind`. No runner code change.
 - Contract copy: folders are collections (was "aims"); cause reason `for-not-collection` is now `for-not-list`. No runner code change.
 - Contract copy: step-name, path pipeline id (`pipeline-id.json` registered in `src/contract/schema.rs`). No runner code change.

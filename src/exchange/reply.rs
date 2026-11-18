@@ -44,7 +44,7 @@ pub(super) fn fit_frame(frame: contract::Frame, frame_id: &str, op_id: &str) -> 
     let e = ErrorFrame::new(
         op_id,
         "runner-error",
-        serde_json::json!({"where": "response-encoding"}),
+        serde_json::json!({"stage": "response-encoding"}),
     );
     // A small frame always encodes.
     error_frame(frame_id, e).unwrap_or(frame)
@@ -105,7 +105,7 @@ mod tests {
         assert_eq!(f.re.as_deref(), Some("f1"));
         assert_eq!(f.d["op-id"], "o1");
         assert_eq!(f.d["reason"], "runner-error");
-        assert_eq!(f.d["details"]["where"], "response-encoding");
+        assert_eq!(f.d["details"]["stage"], "response-encoding");
         assert!(serde_json::to_vec(&f).unwrap().len() < 1024);
     }
 

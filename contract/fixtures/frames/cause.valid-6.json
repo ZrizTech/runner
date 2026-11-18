@@ -1,0 +1,12 @@
+{
+  "reason": "explicit-fail",
+  "side": "target",
+  "retry": "no",
+  "message": "step 1 is a fail step of the pipeline",
+  "where": [
+    {
+      "step": 1
+    }
+  ],
+  "details": {}
+}

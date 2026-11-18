@@ -2,9 +2,21 @@
   "reason": "assertion",
   "side": "target",
   "retry": "no",
-  "message": "check 0 of step 1 \"Read the profile\" (api/get-profile) failed: reads.n1 is 0, and it must be 1",
-  "step-index": 1,
-  "step-name": "Read the profile",
-  "action": "api/get-profile",
-  "details": {"check": 0, "expression": ["reads.n1", "==", 1], "actual": 0, "expected": 1}
+  "message": "step 2 \"Read the profile\" (api/get-profile): reads.n1 == 1 failed: reads.n1 is 0",
+  "where": [
+    {
+      "step": 2,
+      "name": "Read the profile",
+      "action": "api/get-profile"
+    }
+  ],
+  "details": {
+    "expression": [
+      "reads.n1",
+      "==",
+      1
+    ],
+    "actual": 0,
+    "expected": 1
+  }
 }

@@ -31,9 +31,9 @@ fn assert_valid(e: &ErrorFrame) {
     assert!(v.validate("error", &doc).is_ok(), "invalid frame: {doc}");
 }
 
-/// The "not known" frame: `runner-error` with one fixed `where` word.
+/// The "not known" frame: `runner-error` with one fixed `stage` word.
 pub(super) fn runner_error(op_id: &str, place: &str) -> ErrorFrame {
-    new_error(op_id, "runner-error", json!({"where": place}))
+    new_error(op_id, "runner-error", json!({"stage": place}))
 }
 
 /// Maps an error from [`placeholder::substitute`] to the contract error an

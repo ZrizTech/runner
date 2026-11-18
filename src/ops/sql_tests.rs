@@ -443,7 +443,7 @@ async fn driver_error_hides_query_text() {
     assert!(result.is_none());
     let err = err.expect("error");
     assert_eq!(err.reason, "runner-error");
-    assert_eq!(err.details["where"], "sql-driver");
+    assert_eq!(err.details["stage"], "sql-driver");
     assert!(!serde_json::to_string(&err).expect("json").contains(query));
 }
 
@@ -491,7 +491,7 @@ async fn a_failed_connect_is_connection_error_and_other_faults_stay_driver() {
         ("connection-error", 0)
     );
     let (_, err) = run_with_fault(SqlOpError::Other).await;
-    assert_eq!(err.expect("error").details["where"], "sql-driver");
+    assert_eq!(err.expect("error").details["stage"], "sql-driver");
 }
 
 // --- pure unit tests: DSN parsing and value conversion ---

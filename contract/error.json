@@ -87,7 +87,7 @@
             "not-implemented"
           ]
         },
-        "where": {
+        "stage": {
           "enum": [
             "unknown-type",
             "cloud-restart",

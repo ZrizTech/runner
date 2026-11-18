@@ -29,7 +29,7 @@
     "cloud-ms": 620,
     "long-waits": 1,
     "longest-wait": {
-      "step-index": 10,
+      "step": 11,
       "wait-ms": 25300,
       "wait-reason": "service-stall"
     }
@@ -39,11 +39,14 @@
     "reason": "assertion",
     "side": "target",
     "retry": "no",
-    "message": "check 0 of step 6 (shop-web/docs-page) failed: reads.h1 is \"Is zriz safe? ...\", and it must be \"zriz security\"",
-    "step-index": 6,
-    "action": "shop-web/docs-page",
+    "message": "step 7 (shop-web/docs-page): reads.h1 == \"zriz security\" failed: reads.h1 is \"Is zriz safe? ...\"",
+    "where": [
+      {
+        "step": 7,
+        "action": "shop-web/docs-page"
+      }
+    ],
     "details": {
-      "check": 0,
       "expression": [
         "reads.h1",
         "==",

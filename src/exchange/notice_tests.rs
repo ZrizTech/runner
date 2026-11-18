@@ -29,7 +29,7 @@ impl Handler for NoticeHandler {
                     Some(ErrorFrame::new(
                         &op.op_id,
                         r,
-                        serde_json::json!({"where": "op-handler"}),
+                        serde_json::json!({"stage": "op-handler"}),
                     )),
                 ),
                 None => (

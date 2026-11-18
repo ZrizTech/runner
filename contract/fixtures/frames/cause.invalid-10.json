@@ -1,0 +1,8 @@
+{
+  "reason": "explicit-fail",
+  "side": "target",
+  "retry": "no",
+  "message": "x",
+  "details": {},
+  "step-index": 0
+}

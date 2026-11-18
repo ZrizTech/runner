@@ -210,7 +210,7 @@ impl Inner {
     /// Counts the end of one op for the health of the next request.
     fn count_reply(&self, err: Option<&contract::Error>) {
         let Some(e) = err else { return };
-        let place = e.details.get("where").and_then(|v| v.as_str());
+        let place = e.details.get("stage").and_then(|v| v.as_str());
         if e.reason == "runner-at-capacity" {
             self.refused.fetch_add(1, Ordering::SeqCst);
         } else if health::is_runner_fault(&e.reason, place) {

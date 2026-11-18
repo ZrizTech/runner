@@ -12,7 +12,7 @@
     "cloud-ms": 620,
     "long-waits": 1,
     "longest-wait": {
-      "step-index": 10,
+      "step": 11,
       "wait-ms": 25300,
       "wait-reason": "service-stall"
     }

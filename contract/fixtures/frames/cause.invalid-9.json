@@ -1,0 +1,12 @@
+{
+  "reason": "explicit-fail",
+  "side": "target",
+  "retry": "no",
+  "message": "x",
+  "details": {},
+  "where": [
+    {
+      "step": 0
+    }
+  ]
+}
