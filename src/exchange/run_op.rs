@@ -18,7 +18,7 @@ impl Inner {
             "runner-at-capacity",
             json!({"limit-name": "max-inflight", "limit": busy, "busy": busy, "waited-ms": 0}),
         );
-        tracing::error!(target: "runner.ops", run_id = %op.run_id, step = op.step_index, op_id = %op_id, kind = %op.kind, resource = %op.resource, status = "error", reason = "runner-at-capacity", busy = busy, cap = busy, trace_id = op.valid_trace_id().unwrap_or("-"), "op failed");
+        tracing::error!(target: "runner.ops", run_id = %op.run_id, step = crate::ops::log::step_no(op), op_id = %op_id, kind = %op.kind, resource = %op.resource, status = "error", reason = "runner-at-capacity", busy = busy, cap = busy, trace_id = op.valid_trace_id().unwrap_or("-"), "op failed");
         match error_frame(frame_id, frame) {
             Ok(frame) => {
                 let frame = super::reply::fit_frame(frame, frame_id, op_id);

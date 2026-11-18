@@ -56,7 +56,7 @@ APIs stable.
 `print_stdout`/`print_stderr` all `"deny"` outside tests (`clippy.toml`:
 `allow-{unwrap,expect,panic,dbg,print}-in-tests = true`). `thiserror` errors in the library,
 `anyhow` never needed here since `main` owns its own exit-code plumbing. `tracing` only: op-id,
-run-id, step-index, kind, resource, reason, timing, status code — never args, bodies, rows,
+run-id, step (from 1), kind, resource, reason, timing, status code — never args, bodies, rows,
 tokens, URLs with creds. No global mutable state, no package-level init. File <= 400 lines, fn
 <= 60 as a guide. Table-driven tests. Allowed crates: tokio, serde, serde_json, thiserror, url,
 base64, jsonschema, reqwest (rustls, no default features), mysql_async (rustls), tokio-postgres +

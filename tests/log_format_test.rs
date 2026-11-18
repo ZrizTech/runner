@@ -110,10 +110,10 @@ async fn real_events_through_the_real_subscriber() {
     println!("{out}");
     assert_eq!(lines.len(), 5, "{out}");
     let re = format!(
-        " WARN  trace_id={TID} runner.ops      op refused run_id=r1 step=3 op_id=o1 kind=http.request resource=nope status=error reason=unknown-resource elapsed_ms="
+        " WARN  trace_id={TID} runner.ops      op refused run_id=r1 step=4 op_id=o1 kind=http.request resource=nope status=error reason=unknown-resource elapsed_ms="
     );
     assert!(lines[0].contains(&re), "{}", lines[0]);
-    assert!(lines[1].contains(" WARN  trace_id=-                                    runner.ops      op refused run_id=r1 step=3 op_id=o1 kind=teleport resource=nope status=error reason=unknown-kind elapsed_ms="), "{}", lines[1]);
+    assert!(lines[1].contains(" WARN  trace_id=-                                    runner.ops      op refused run_id=r1 step=4 op_id=o1 kind=teleport resource=nope status=error reason=unknown-kind elapsed_ms="), "{}", lines[1]);
     assert!(
         lines[2].ends_with(
             " runner.lib      lib event location=hyper error=\"dns error for [url] failed\""

@@ -14,7 +14,7 @@ mod handles;
 mod http;
 mod http_client;
 mod jar;
-mod log;
+pub(crate) mod log;
 mod sql;
 mod sql_pg;
 mod subst;
