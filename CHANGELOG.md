@@ -1,6 +1,7 @@
 # Changelog
 
-## 0.6.0 (2026-11-18)
+## 0.6.1 (2026-11-18)
+The first release of this work. Tag v0.6.0 was never released (its commit failed `cargo fmt --check`).
 Needs the cloud of the same release: the error frame detail `stage` (was `where`), cause `where` list, steps from 1.
 - Contract copy 3264365: plain wording of the patterns, rule `no-levels`, `step` optional in `errors[]`, shared fixtures (copy only).
 - Logs count steps from 1 (`step`), as the cloud logs do. The wire `step-index` is unchanged.
