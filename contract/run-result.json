@@ -96,7 +96,16 @@
               "step-results": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/$defs/step-result"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/step-result"
+                    },
+                    {
+                      "required": [
+                        "step"
+                      ]
+                    }
+                  ]
                 }
               }
             }
@@ -105,8 +114,7 @@
       },
       "required": [
         "step-type",
-        "status",
-        "step"
+        "status"
       ],
       "additionalProperties": true
     }
@@ -124,7 +132,16 @@
     "step-results": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/step-result"
+        "allOf": [
+          {
+            "$ref": "#/$defs/step-result"
+          },
+          {
+            "required": [
+              "step"
+            ]
+          }
+        ]
       }
     },
     "errors": {
