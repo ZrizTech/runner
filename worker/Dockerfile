@@ -2,7 +2,7 @@
 # Build context is the repo root (the worker reads ../worker-contract/ at start):
 #   docker buildx build -f worker/Dockerfile .
 # Base: node:22-bookworm-slim pinned by digest (multi-arch index). Chromium only, via the pinned Playwright.
-FROM node:22-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
 
 ENV NODE_ENV=production \
     PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright \
